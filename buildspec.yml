@@ -1,0 +1,11 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      golang: 1.13
+    commands:
+      - go get github.com/magefile/mage golang.org/x/lint/golint golang.org/x/tools/cmd/goimports ./...
+  build:
+    commands:
+      - mage -v test:ci
