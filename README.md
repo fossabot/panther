@@ -21,10 +21,11 @@ Panther provides two main features: [cloud security](https://runpanther.io/compl
 
 ## Setup
 
-First, install Go1.13+, Node, and Python3 for your environment. For MacOS,
+First, install Go1.13+, Node, Python3 and Swagger for your environment. For MacOS,
 
 ```
-brew install go node python3
+brew tap go-swagger/go-swagger
+brew install go go-swagger node python3
 ```
 
 Then, install some libraries and tools:
@@ -33,16 +34,27 @@ go get -u github.com/magefile/mage golang.org/x/lint/golint golang.org/x/tools/c
 pip3 install --upgrade awscli cfn-lint
 ```
 
-Now you can run `mage` to see the list of available commands.
-For example, to run all required checks: `mage test:ci` (`-v` for verbose mode).
+## Development
+Run `mage` to see the list of available commands (`-v` for verbose mode).
+Steps in a typical developer workflow might be:
+
+```bash
+mage build:api  # generate Go SDKs for Panther APIs
+mage fmt        # format all code
+mage test:ci    # run all required checks
+
+# Deploy a stack in your development environment and run integration tests for it
+BUCKET=your-bucket AWS_REGION=us-west-2 TEMPLATE=deployments/compliance/compliance-api.yml PARAMS="Debug=True" mage deploy
+PKG=./internal/compliance/compliance-api/main mage test:integration
+```
 
 ## Repo Structure
 Since the majority of Panther is written in Go, we follow the [standard Go project layout](https://github.com/golang-standards/project-layout):
 
+* [`api/`](api) - Go models and Swagger specs for communicating with Panther APIs
+* [`deployments/`](deployments) - CloudFormation templates for all of Panther's infrastructure
 * [`docs/`](docs) - code owners, contributing guidelines, etc
 * [`internal/`](internal) - backend components
-    * [`compliance/`](internal/compliance) - infrastructure scanning and compliance evaluation
-    * [`logproc/`](internal/logproc) - security log processing and analysis
-    * [`shared/`](internal/shared) - backend components applicable to both products
 * [`pkg/`](pkg) - shared standalone packages that could also be imported by other projects
+* [`tools/`](tools) - source code for mage targets
 * [`web/`](web) - web application source

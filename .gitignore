@@ -1,1 +1,4 @@
-.coverage
+api/*/client/
+api/*/models/
+out/
+.idea/
