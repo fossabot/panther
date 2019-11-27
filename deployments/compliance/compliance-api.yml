@@ -34,22 +34,10 @@ Parameters:
     Type: CommaDelimitedList
     Description: List of LayerVersion ARNs to attach to this function
     Default: ''
-  # API DNS Settings
-  CustomApiFqdn:
-    Type: String
-    Description: >
-      The Fully Qualified Domain Name to the custom API mapping, such as 'api.runpanther.io'.
-      Leave blank for local development (no custom domain name mapping will be created).
-    Default: ''
-  CustomDomainPath:
-    Type: String
-    Description: If using a custom api domain, this is the base path for this specific API.
-    Default: compliance
 
 Conditions:
   AttachLayers: !Not [!Equals [!Join ['', !Ref LayerVersionArns], '']]
   CreateExecutionRole: !Equals [!Ref ExecutionRoleArn, '']
-  CreateCustomMapping: !Not [!Equals [!Ref CustomApiFqdn, '']]
 
 Resources:
   ExecutionRole:
@@ -117,16 +105,6 @@ Resources:
       TracingEnabled: true
       AccessLogSetting:
         DestinationArn: !GetAtt GatewayApiLogGroup.Arn
-
-  CustomDomainMapping:
-    Type: AWS::ApiGateway::BasePathMapping
-    Condition: CreateCustomMapping
-    DependsOn: GatewayApiv1Stage
-    Properties:
-      BasePath: !Ref CustomDomainPath
-      DomainName: !Ref CustomApiFqdn
-      RestApiId: !Ref GatewayApi
-      Stage: v1
 
   Function:
     Type: AWS::Serverless::Function
@@ -202,22 +180,12 @@ Resources:
         Enabled: True
 
 Outputs:
-  GatewayId:
-    Description: API Gateway ID
-    Value: !Ref GatewayApi
-    Export:
-      Name: Panther-ComplianceApi-GatewayID
-  Endpoint:
-    Description: HTTPS endpoint for invoking the API
-    Value: !Sub '${GatewayApi}.execute-api.${AWS::Region}.amazonaws.com'
-    Export:
-      Name: Panther-ComplianceApi-Endpoint
-  LambdaFunctionName:
-    Description: The name of the Lambda function
-    Value: !Ref Function
-  TableName:
-    Description: The name of the compliance Dynamo table
-    Value: !Ref ComplianceTable
   ExecutionRoleArn:
     Description: The IAM Execution Role of the Serverless Application
     Value: !If [CreateExecutionRole, !GetAtt ExecutionRole.Arn, !Ref ExecutionRoleArn]
+  GatewayId:
+    Description: API Gateway ID
+    Value: !Ref GatewayApi
+  GatewayEndpoint:
+    Description: HTTPS endpoint for invoking the API
+    Value: !Sub '${GatewayApi}.execute-api.${AWS::Region}.amazonaws.com'

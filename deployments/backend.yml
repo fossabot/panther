@@ -1,0 +1,59 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Master Panther backend template
+
+Resources:
+  GatewayLoggingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: API Gateway uses this role to publish logs to CloudWatch
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: apigateway.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs
+      Tags:
+        - Key: Application
+          Value: Panther
+
+  GatewayAccount:
+    Type: AWS::ApiGateway::Account
+    Properties:
+      CloudWatchRoleArn: !GetAtt GatewayLoggingRole.Arn
+
+  QueueEncryptionKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: Encryption key for all panther SQS queues
+      EnableKeyRotation: true
+      KeyPolicy:
+        # Allow account root user to administer key (required)
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:root
+            Action: kms:*
+            Resource: '*'
+      Tags:
+        - Key: Application
+          Value: Panther
+
+  QueueEncryptionKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: alias/panther-sqs
+      TargetKeyId: !Ref QueueEncryptionKey
+
+  ##### Nested Stacks #####
+  ComplianceAPI:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        Debug: 'True'
+      Tags:
+        - Key: Application
+          Value: Panther
+      TemplateURL: ../out/deployments/compliance/swagger.compliance-api.yml

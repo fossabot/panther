@@ -19,5 +19,5 @@ func Fmt() error {
 		return err
 	}
 
-	return sh.Run("gofmt", append([]string{"-l", "-s", "-w"}, fmtTargets...)...)
+	return sh.RunV("gofmt", append([]string{"-l", "-s", "-w"}, fmtTargets...)...)
 }

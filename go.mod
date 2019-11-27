@@ -12,6 +12,7 @@ require (
 	github.com/go-openapi/swag v0.19.5
 	github.com/go-openapi/validate v0.19.5
 	github.com/go-playground/universal-translator v0.17.0 // indirect
+	github.com/go-yaml/yaml v2.1.0+incompatible
 	github.com/json-iterator/go v1.1.8
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/leodido/go-urn v1.2.0 // indirect
