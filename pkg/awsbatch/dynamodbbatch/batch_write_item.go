@@ -77,6 +77,7 @@ func BatchWriteItem(
 	maxElapsedTime time.Duration,
 	input *dynamodb.BatchWriteItemInput,
 ) error {
+
 	totalItems := writeItemCount(input.RequestItems)
 	zap.L().Info("starting dynamodbbatch.BatchWriteItem", zap.Int("totalItems", totalItems))
 	start := time.Now()
@@ -113,6 +114,6 @@ func BatchWriteItem(
 		}
 	}
 
-	zap.L().Info("BatchWriteItem successful", zap.Duration("duration", time.Now().Sub(start)))
+	zap.L().Info("BatchWriteItem successful", zap.Duration("duration", time.Since(start)))
 	return nil
 }

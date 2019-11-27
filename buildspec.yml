@@ -5,15 +5,9 @@ phases:
     runtime-versions:
       golang: 1.13
     commands:
-      - go get github.com/magefile/mage golang.org/x/lint/golint golang.org/x/tools/cmd/goimports
-      - pip3 install --user cfn-lint
+      - go get github.com/magefile/mage
+      - mage -v setup
       - export PATH=/root/.local/bin:$PATH
-      - curl -L -o /usr/local/bin/swagger https://github.com/go-swagger/go-swagger/releases/latest/download/swagger_linux_amd64
-      - chmod +x /usr/local/bin/swagger
-      # Show versions and ensure tools installed correctly
-      - cfn-lint --version
-      - mage -version
-      - swagger version
   build:
     commands:
       - mage -v test:ci

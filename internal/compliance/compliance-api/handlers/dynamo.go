@@ -27,35 +27,20 @@ func tableKey(resourceID models.ResourceID, policyID models.PolicyID) map[string
 	}
 }
 
-// Wrapper around dynamoClient.ScanPages that accepts a handler function to process each item.
+// Wrapper around dynamoClient.QueryPages that accepts a handler function to process each item.
 func queryPages(input *dynamodb.QueryInput, handler func(*models.ComplianceStatus) error) error {
-	var handlerErr, unmarshalErr error
-
+	var innerErr error
 	err := dynamoClient.QueryPages(input, func(page *dynamodb.QueryOutput, lastPage bool) bool {
-		var statusPage []*models.ComplianceStatus
-		if unmarshalErr = dynamodbattribute.UnmarshalListOfMaps(page.Items, &statusPage); unmarshalErr != nil {
-			return false // stop paginating
+		if innerErr = handleItems(page.Items, handler); innerErr != nil {
+			zap.L().Error("query handler failed", zap.Error(innerErr))
+			return false // stop paging
 		}
-
-		for _, entry := range statusPage {
-			if handlerErr = handler(entry); handlerErr != nil {
-				return false // stop paginating
-			}
-		}
-
-		return true // keep paging
+		return true
 	})
 
-	if handlerErr != nil {
-		zap.L().Error("query item handler failed", zap.Error(handlerErr))
-		return handlerErr
+	if innerErr != nil {
+		return innerErr
 	}
-
-	if unmarshalErr != nil {
-		zap.L().Error("dynamodbattribute.UnmarshalListOfMaps failed", zap.Error(unmarshalErr))
-		return unmarshalErr
-	}
-
 	if err != nil {
 		zap.L().Error("dynamoClient.QueryPages failed", zap.Error(err))
 		return err
@@ -66,45 +51,51 @@ func queryPages(input *dynamodb.QueryInput, handler func(*models.ComplianceStatu
 
 // Wrapper around dynamoClient.ScanPages that accepts a handler function to process each item.
 func scanPages(input *dynamodb.ScanInput, handler func(*models.ComplianceStatus) error) error {
-	var handlerErr, unmarshalErr error
-
+	var innerErr error
 	err := dynamoClient.ScanPages(input, func(page *dynamodb.ScanOutput, lastPage bool) bool {
-		var statusPage []*models.ComplianceStatus
-		if unmarshalErr = dynamodbattribute.UnmarshalListOfMaps(page.Items, &statusPage); unmarshalErr != nil {
-			return false // stop paginating
+		if innerErr = handleItems(page.Items, handler); innerErr != nil {
+			zap.L().Error("scan handler failed", zap.Error(innerErr))
+			return false // stop paging
 		}
-
-		for _, entry := range statusPage {
-			if handlerErr = handler(entry); handlerErr != nil {
-				return false // stop paginating
-			}
-		}
-
-		return true // keep paging
+		return true
 	})
 
-	if handlerErr != nil {
-		zap.L().Error("query item handler failed", zap.Error(handlerErr))
-		return handlerErr
+	if innerErr != nil {
+		return innerErr
 	}
-
-	if unmarshalErr != nil {
-		zap.L().Error("dynamodbattribute.UnmarshalListOfMaps failed", zap.Error(unmarshalErr))
-		return unmarshalErr
-	}
-
 	if err != nil {
-		zap.L().Error("dynamoClient.QueryPages failed", zap.Error(err))
+		zap.L().Error("dynamoClient.ScanPages failed", zap.Error(err))
 		return err
 	}
 
 	return nil
 }
 
-// Scan Dynamo table to group everything by policyID and/or resourceID
-func scanGroupByID(input *dynamodb.ScanInput, includePolicies bool, includeResources bool) (
-	policies policyMap, resources resourceMap, err error) {
+// Page handler shared by queryPages and ScanPages
+func handleItems(items []map[string]*dynamodb.AttributeValue, handler func(*models.ComplianceStatus) error) error {
+	var statusPage []*models.ComplianceStatus
+	if err := dynamodbattribute.UnmarshalListOfMaps(items, &statusPage); err != nil {
+		return err
+	}
 
+	for _, entry := range statusPage {
+		if err := handler(entry); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Scan Dynamo table to group everything by policyID and/or resourceID
+func scanGroupByID(
+	input *dynamodb.ScanInput,
+	includePolicies bool,
+	includeResources bool,
+) (policyMap, resourceMap, error) {
+
+	var policies policyMap
+	var resources resourceMap
 	if includePolicies {
 		policies = make(policyMap, 200)
 	}
@@ -113,7 +104,7 @@ func scanGroupByID(input *dynamodb.ScanInput, includePolicies bool, includeResou
 	}
 
 	// Summarize every policy and resource in the organization.
-	err = scanPages(input, func(item *models.ComplianceStatus) error {
+	err := scanPages(input, func(item *models.ComplianceStatus) error {
 		// Update policies
 		if includePolicies {
 			policy, ok := policies[item.PolicyID]
@@ -145,5 +136,5 @@ func scanGroupByID(input *dynamodb.ScanInput, includePolicies bool, includeResou
 		return nil
 	})
 
-	return
+	return policies, resources, err
 }

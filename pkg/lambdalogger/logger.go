@@ -29,7 +29,11 @@ func init() {
 // To add fields to every log message, include them in initialFields (the requestID is added for you).
 //
 // Returns parsed Lambda context, global zap logger.
-func ConfigureGlobal(ctx context.Context, initialFields map[string]interface{}) (*lambdacontext.LambdaContext, *zap.Logger) {
+func ConfigureGlobal(
+	ctx context.Context,
+	initialFields map[string]interface{},
+) (*lambdacontext.LambdaContext, *zap.Logger) {
+
 	lc, ok := lambdacontext.FromContext(ctx)
 	if !ok {
 		log.Panicf("failed to load Lambda context %+v", ctx)

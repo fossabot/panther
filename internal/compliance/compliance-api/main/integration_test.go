@@ -417,11 +417,12 @@ func describePolicyPageAndFilter(t *testing.T) {
 
 	for i := 0; i < len(entries); i++ {
 		var status models.Status
-		if i < 6 {
+		switch {
+		case i < 6:
 			status = models.StatusERROR
-		} else if i < 12 {
+		case i < 12:
 			status = models.StatusFAIL
-		} else {
+		default:
 			status = models.StatusPASS
 		}
 

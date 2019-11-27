@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
@@ -12,59 +13,6 @@ import (
 
 // Test contains targets for testing code syntax, style, and correctness.
 type Test mg.Namespace
-
-// LintErrors runs all lint checks and returns a combined list of errors.
-func (t Test) LintErrors() []error {
-	var errList []error
-
-	if !mg.Verbose() {
-		fmt.Println("test:lint: go vet")
-	}
-	if err := sh.RunV("go", "vet", "./..."); err != nil {
-		errList = append(errList, fmt.Errorf("go vet failed: %s", err))
-	}
-
-	if !mg.Verbose() {
-		fmt.Println("test:lint: golint")
-	}
-	if err := sh.RunV("golint", "-set_exit_status=1", "./..."); err != nil {
-		errList = append(errList, fmt.Errorf("golint failed: %s", err))
-	}
-
-	// Validate Go formatting
-	if !mg.Verbose() {
-		fmt.Println("test:lint: formatting")
-	}
-	importArgs := append([]string{"-d", "-local=github.com/panther-labs/panther"}, fmtTargets...)
-	output, err := sh.Output("goimports", importArgs...)
-	if err != nil {
-		errList = append(errList, fmt.Errorf("goimports failed: %s", err))
-	} else if len(output) > 0 {
-		errList = append(errList, fmt.Errorf("goimports diff: %d bytes", len(output)))
-	}
-
-	importArgs = append([]string{"-d", "-s"}, fmtTargets...)
-	output, err = sh.Output("gofmt", importArgs...)
-	if err != nil {
-		errList = append(errList, fmt.Errorf("gofmt failed: %s", err))
-	} else if len(output) > 0 {
-		errList = append(errList, fmt.Errorf("gofmt diff: %d bytes", len(output)))
-	}
-
-	// Lint CloudFormation
-	if !mg.Verbose() {
-		fmt.Println("test:lint: cfn-lint deployments/")
-	}
-	templates, err := filepath.Glob("deployments/*/*.yml")
-	if err != nil {
-		errList = append(errList, fmt.Errorf("cfn-lint failed: glob: %s", err))
-	}
-	if err := sh.RunV("cfn-lint", templates...); err != nil {
-		errList = append(errList, fmt.Errorf("cfn-lint failed: %s", err))
-	}
-
-	return errList
-}
 
 // JoinErrors formats multiple errors into a single error.
 func JoinErrors(command string, errList []error) error {
@@ -81,7 +29,42 @@ func JoinErrors(command string, errList []error) error {
 
 // Lint Check code style
 func (t Test) Lint() error {
-	return JoinErrors("lint", t.LintErrors())
+	// go metalinting
+	args := []string{"run"}
+	if mg.Verbose() {
+		args = append(args, "-v")
+	} else {
+		fmt.Println("test:lint: golangci-lint run")
+	}
+
+	if err := sh.RunV("golangci-lint", args...); err != nil {
+		return err
+	}
+
+	// Lint CloudFormation
+	if !mg.Verbose() {
+		fmt.Println("test:lint: cfn-lint deployments/")
+	}
+	var templates []string
+	err := filepath.Walk("deployments", func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if strings.HasSuffix(path, ".yml") {
+			templates = append(templates, path)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+	if err := sh.RunV("cfn-lint", templates...); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Unit Run unit tests

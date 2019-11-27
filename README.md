@@ -20,21 +20,20 @@ Panther provides two main features: [cloud security](https://runpanther.io/compl
 [threat detection](https://runpanther.io/log-analysis), and provides flexibility to select only the features you need.
 
 ## Setup
-
-First, install Go1.13+, Node, Python3 and Swagger for your environment. For MacOS,
+Install Go1.13+, [Mage](https://magefile.org/#installation), Node, and Python3:
 
 ```
-brew tap go-swagger/go-swagger
-brew install go go-swagger node python3
+brew install go node python3  # MacOS
+
+go get -u -d github.com/magefile/mage
+cd $GOPATH/src/github.com/magefile/mage
+go run bootstrap.go
 ```
 
-Then, install some libraries and tools:
-```
-go get -u github.com/magefile/mage golang.org/x/lint/golint golang.org/x/tools/cmd/goimports
-pip3 install --upgrade awscli cfn-lint
-```
+Then run `mage setup` to install the prerequisite development libraries.
+(`mage build` and `mage test` will automatically install Go packages as they are needed.)
 
-## Development
+## Development and Deployment
 Run `mage` to see the list of available commands (`-v` for verbose mode).
 Steps in a typical developer workflow might be:
 
@@ -43,8 +42,9 @@ mage build:api  # generate Go SDKs for Panther APIs
 mage fmt        # format all code
 mage test:ci    # run all required checks
 
-# Deploy a stack in your development environment and run integration tests for it
-BUCKET=your-bucket AWS_REGION=us-west-2 TEMPLATE=deployments/compliance/compliance-api.yml PARAMS="Debug=True" mage deploy
+# Deploy and run integration tests
+mage deploy:pre  # deploy prerequisite S3 buckets
+AWS_REGION=us-west-2 PARAMS="Debug=True" mage deploy:backend
 PKG=./internal/compliance/compliance-api/main mage test:integration
 ```
 

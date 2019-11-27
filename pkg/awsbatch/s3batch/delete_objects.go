@@ -56,6 +56,7 @@ func DeleteObjects(
 	maxElapsedTime time.Duration,
 	input *s3.DeleteObjectsInput,
 ) error {
+
 	zap.L().Info(
 		"starting s3batch.DeleteObjects", zap.Int("totalObjects", len(input.Delete.Objects)))
 	start := time.Now()
@@ -84,6 +85,6 @@ func DeleteObjects(
 		}
 	}
 
-	zap.L().Info("DeleteObjects successful", zap.Duration("duration", time.Now().Sub(start)))
+	zap.L().Info("DeleteObjects successful", zap.Duration("duration", time.Since(start)))
 	return nil
 }

@@ -22,7 +22,10 @@ type RequestHandler = func(*events.APIGatewayProxyRequest) *events.APIGatewayPro
 func LambdaProxy(methodHandlers map[string]RequestHandler) func(
 	context.Context, *events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
 
-	return func(ctx context.Context, input *events.APIGatewayProxyRequest) (result *events.APIGatewayProxyResponse, unusedErr error) {
+	return func(
+		ctx context.Context,
+		input *events.APIGatewayProxyRequest,
+	) (result *events.APIGatewayProxyResponse, unusedErr error) {
 		defer func() {
 			// If there is a panic, log it and return gracefully (InternalServerError)
 			// NOTE: the zap logger may not exist yet (the logger creation can panic)

@@ -19,6 +19,7 @@ require (
 	github.com/magefile/mage v1.9.0
 	github.com/stretchr/testify v1.4.0
 	go.uber.org/zap v1.13.0
+	golang.org/x/tools v0.0.0-20191127201027-ecd32218bd7f // indirect
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 	gopkg.in/go-playground/validator.v9 v9.30.2
 	gopkg.in/yaml.v2 v2.2.7

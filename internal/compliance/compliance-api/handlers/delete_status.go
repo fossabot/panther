@@ -62,8 +62,7 @@ func parseDeleteStatus(request *events.APIGatewayProxyRequest) (*models.DeleteSt
 	}
 
 	for i, entry := range result.Entries {
-		if (entry.Resource == nil && entry.Policy == nil) ||
-			(entry.Resource != nil && entry.Policy != nil) {
+		if (entry.Resource == nil && entry.Policy == nil) || (entry.Resource != nil && entry.Policy != nil) {
 			return nil, fmt.Errorf("entries[%d] invalid: exactly one of resource or policy is required", i)
 		}
 	}

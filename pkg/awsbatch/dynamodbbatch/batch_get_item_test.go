@@ -14,8 +14,8 @@ func (m *mockDynamo) BatchGetItemPages(
 	input *dynamodb.BatchGetItemInput,
 	pageFunc func(*dynamodb.BatchGetItemOutput, bool) bool,
 ) error {
-	m.callCount++
 
+	m.callCount++
 	if m.err != nil {
 		return m.err
 	}

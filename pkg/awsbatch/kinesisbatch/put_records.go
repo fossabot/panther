@@ -28,8 +28,7 @@ func (r *putRecordsRequest) send() error {
 	if err != nil {
 		// This was a service error - it can sometimes be retried
 		if awsErr, ok := err.(awserr.Error); ok {
-			switch awsErr.Code() {
-			case kinesis.ErrCodeProvisionedThroughputExceededException:
+			if awsErr.Code() == kinesis.ErrCodeProvisionedThroughputExceededException {
 				zap.L().Warn("backoff: stream throughput exceeded", zap.Error(awsErr))
 				return awsErr
 			}
@@ -61,10 +60,8 @@ func (r *putRecordsRequest) send() error {
 
 // PutRecords puts records to Kinesis with paging, backoff, and auto-retry for failed items.
 func PutRecords(
-	client kinesisiface.KinesisAPI,
-	maxElapsedTime time.Duration,
-	input *kinesis.PutRecordsInput,
-) error {
+	client kinesisiface.KinesisAPI, maxElapsedTime time.Duration, input *kinesis.PutRecordsInput) error {
+
 	zap.L().Info("starting kinesisbatch.PutRecords", zap.Int("totalRecords", len(input.Records)))
 	start := time.Now()
 
@@ -92,6 +89,6 @@ func PutRecords(
 		}
 	}
 
-	zap.L().Info("PutRecords successful", zap.Duration("duration", time.Now().Sub(start)))
+	zap.L().Info("PutRecords successful", zap.Duration("duration", time.Since(start)))
 	return nil
 }

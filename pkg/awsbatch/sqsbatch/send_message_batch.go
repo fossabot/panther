@@ -68,6 +68,7 @@ func SendMessageBatch(
 	maxElapsedTime time.Duration,
 	input *sqs.SendMessageBatchInput,
 ) error {
+
 	zap.L().Info("starting sqsbatch.SendMessageBatch", zap.Int("totalEntries", len(input.Entries)))
 	start := time.Now()
 
@@ -112,6 +113,6 @@ func SendMessageBatch(
 		}
 	}
 
-	zap.L().Info("SendMessageBatch successful", zap.Duration("duration", time.Now().Sub(start)))
+	zap.L().Info("SendMessageBatch successful", zap.Duration("duration", time.Since(start)))
 	return nil
 }

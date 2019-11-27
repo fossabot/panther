@@ -90,12 +90,18 @@ func updateStatusCountBySeverity(
 
 // Convert pass/fail counts by severity to a compliance status string
 func countBySeverityToStatus(count *models.StatusCountBySeverity) models.Status {
-	if *count.Low.Error > 0 || *count.Info.Error > 0 || *count.Medium.Error > 0 || *count.High.Error > 0 || *count.Critical.Error > 0 {
+	if *count.Low.Error > 0 || *count.Info.Error > 0 || *count.Medium.Error > 0 ||
+		*count.High.Error > 0 || *count.Critical.Error > 0 {
+
 		return models.StatusERROR
 	}
-	if *count.Low.Fail > 0 || *count.Info.Fail > 0 || *count.Medium.Fail > 0 || *count.High.Fail > 0 || *count.Critical.Fail > 0 {
+
+	if *count.Low.Fail > 0 || *count.Info.Fail > 0 || *count.Medium.Fail > 0 ||
+		*count.High.Fail > 0 || *count.Critical.Fail > 0 {
+
 		return models.StatusFAIL
 	}
+
 	return models.StatusPASS
 }
 

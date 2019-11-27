@@ -25,10 +25,9 @@ const (
 // Deploy defines mage targets for deploying Panther infrastructure.
 type Deploy mg.Namespace
 
-// Pre Deploy prerequisite S3 buckets
+// Pre Deploy prerequisite S3 buckets with optional PARAMS
 func (Deploy) Pre() error {
-	return sh.RunV("aws", "cloudformation", "deploy",
-		"--stack-name", bucketStack, "--template-file", bucketTemplate)
+	return cfnDeploy(bucketTemplate, "", bucketStack)
 }
 
 // Backend Deploy backend infrastructure with optional PARAMS
@@ -100,22 +99,23 @@ func cfnPackage(templateFile, bucket, stack string) (string, error) {
 
 // Deploy the final CloudFormation template to a dev account.
 func cfnDeploy(templateFile, bucket, stack string) error {
-	if !mg.Verbose() {
-		// Give some indication of progress for long-running commands if not in verbose mode
-		fmt.Printf("deploy: cloudformation deploy %s => %s\n", templateFile, stack)
-	}
 	args := []string{
 		"cloudformation", "deploy",
 		"--capabilities", "CAPABILITY_AUTO_EXPAND", "CAPABILITY_IAM", "CAPABILITY_NAMED_IAM",
-		"--s3-bucket", bucket,
-		"--s3-prefix", stack,
 		"--stack-name", stack,
 		"--template-file", templateFile,
+	}
+	if bucket != "" {
+		args = append(args, "--s3-bucket", bucket, "--s3-prefix", stack)
 	}
 	if params := os.Getenv("PARAMS"); params != "" {
 		args = append(args, "--parameter-overrides")
 		args = append(args, strings.Split(params, " ")...)
 	}
 
+	if !mg.Verbose() {
+		// Give some indication of progress for long-running commands if not in verbose mode
+		fmt.Printf("deploy: cloudformation deploy %s => %s\n", templateFile, stack)
+	}
 	return sh.Run("aws", args...)
 }

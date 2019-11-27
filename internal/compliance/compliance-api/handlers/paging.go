@@ -78,53 +78,10 @@ func policyResourceDetail(
 		},
 	}
 
-	firstItem := int64((params.Page-1)*params.PageSize) + 1 // first matching item # in the requested page
 	err := queryPages(input, func(item *models.ComplianceStatus) error {
-		// Update overall status and global totals (pre-filter)
-		// ERROR trumps FAIL trumps PASS
-		switch item.Status {
-		case models.StatusERROR:
-			if item.Suppressed {
-				*result.Totals.Suppressed.Error++
-			} else {
-				result.Status = models.StatusERROR
-				*result.Totals.Active.Error++
-			}
-
-		case models.StatusFAIL:
-			if item.Suppressed {
-				*result.Totals.Suppressed.Fail++
-			} else {
-				if result.Status != models.StatusERROR {
-					result.Status = models.StatusFAIL
-				}
-				*result.Totals.Active.Fail++
-			}
-
-		default:
-			if item.Suppressed {
-				*result.Totals.Suppressed.Pass++
-			} else {
-				*result.Totals.Active.Pass++
-			}
-		}
-
-		// Drop this table entry if it doesn't match the filters
-		if (params.Suppressed != nil && *params.Suppressed != bool(item.Suppressed)) ||
-			(params.Status != "" && params.Status != item.Status) ||
-			(severity != "" && severity != item.PolicySeverity) {
-			return nil
-		}
-
-		*result.Paging.TotalItems++
-		if *result.Paging.TotalItems >= firstItem && len(result.Items) < params.PageSize {
-			// This matching item is in the requested page number
-			result.Items = append(result.Items, item)
-		}
-
+		addItemToResult(item, &result, params, severity)
 		return nil
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -143,4 +100,68 @@ func policyResourceDetail(
 	}
 
 	return &result, nil
+}
+
+// Update the paging result with a single compliance status entry.
+func addItemToResult(
+	item *models.ComplianceStatus,
+	result *models.PolicyResourceDetail,
+	params *pageParams,
+	severity models.PolicySeverity,
+) {
+
+	// Update overall status and global totals (pre-filter)
+	// ERROR trumps FAIL trumps PASS
+	switch item.Status {
+	case models.StatusERROR:
+		if item.Suppressed {
+			*result.Totals.Suppressed.Error++
+		} else {
+			result.Status = models.StatusERROR
+			*result.Totals.Active.Error++
+		}
+
+	case models.StatusFAIL:
+		if item.Suppressed {
+			*result.Totals.Suppressed.Fail++
+		} else {
+			if result.Status != models.StatusERROR {
+				result.Status = models.StatusFAIL
+			}
+			*result.Totals.Active.Fail++
+		}
+
+	default:
+		if item.Suppressed {
+			*result.Totals.Suppressed.Pass++
+		} else {
+			*result.Totals.Active.Pass++
+		}
+	}
+
+	// Drop this table entry if it doesn't match the filters
+	if !itemMatchesFilter(item, params, severity) {
+		return
+	}
+
+	*result.Paging.TotalItems++
+	firstItem := int64((params.Page-1)*params.PageSize) + 1 // first matching item # in the requested page
+	if *result.Paging.TotalItems >= firstItem && len(result.Items) < params.PageSize {
+		// This matching item is in the requested page number
+		result.Items = append(result.Items, item)
+	}
+}
+
+func itemMatchesFilter(item *models.ComplianceStatus, params *pageParams, severity models.PolicySeverity) bool {
+	if params.Suppressed != nil && *params.Suppressed != bool(item.Suppressed) {
+		return false
+	}
+	if params.Status != "" && params.Status != item.Status {
+		return false
+	}
+	if severity != "" && severity != item.PolicySeverity {
+		return false
+	}
+
+	return true
 }

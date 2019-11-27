@@ -97,8 +97,9 @@ func TestReplaceMapSliceNilsNested(t *testing.T) {
 		},
 		Inner: nil, // nil struct ptr was not replaced
 		InnerDirect: testInner{
-			BoolSlice: []*bool{},
-			IntMap:    map[int]*int{},
+			BoolSlice:  []*bool{},
+			IntMap:     map[int]*int{},
+			privateMap: nil,
 		},
 	}
 	assert.Equal(t, expected, resource)

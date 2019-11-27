@@ -25,6 +25,7 @@ func BatchGetItem(
 	client dynamodbiface.DynamoDBAPI,
 	input *dynamodb.BatchGetItemInput,
 ) (*dynamodb.BatchGetItemOutput, error) {
+
 	zap.L().Info("starting dynamodbbatch.BatchGetItem",
 		zap.Int("totalItems", getItemCount(input.RequestItems)))
 	start := time.Now()
@@ -72,6 +73,6 @@ func BatchGetItem(
 		}
 	}
 
-	zap.L().Info("BatchGetItem successful", zap.Duration("duration", time.Now().Sub(start)))
+	zap.L().Info("BatchGetItem successful", zap.Duration("duration", time.Since(start)))
 	return result, nil
 }
