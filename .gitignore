@@ -2,3 +2,4 @@ api/*/client/
 api/*/models/
 out/
 .idea/
+*.zip

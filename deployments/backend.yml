@@ -1,6 +1,27 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: Master Panther backend template
 
+Parameters:
+  CloudWatchLogRetentionDays:
+    Type: Number
+    Description: CloudWatch log retention period
+    Default: 365
+  Debug:
+    Type: String
+    Description: Toggle debug logging
+    Default: false
+    AllowedValues:
+      - true
+      - false
+  ExecutionRoleArn:
+    Type: String
+    Description: Use a single existing execution role for all Lambda functions
+    Default: ''
+  LayerVersionArns:
+    Type: CommaDelimitedList
+    Description: List of LayerVersion ARNs to attach to every function
+    Default: ''
+
 Resources:
   GatewayLoggingRole:
     Type: AWS::IAM::Role
@@ -52,8 +73,39 @@ Resources:
     Type: AWS::CloudFormation::Stack
     Properties:
       Parameters:
-        Debug: 'True'
+        CloudWatchLogRetentionDays: !Ref CloudWatchLogRetentionDays
+        Debug: !Ref Debug
+        ExecutionRoleArn: !Ref ExecutionRoleArn
+        LayerVersionArns: !Join [ ",", !Ref LayerVersionArns ]
       Tags:
         - Key: Application
           Value: Panther
+        - Key: Component
+          Value: AnalysisAPI
       TemplateURL: ../out/deployments/compliance/swagger.compliance-api.yml
+
+  AnalysisAPI:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        CloudWatchLogRetentionDays: !Ref CloudWatchLogRetentionDays
+        Debug: !Ref Debug
+        ExecutionRoleArn: !Ref ExecutionRoleArn
+        LayerVersionArns: !Join [ ",", !Ref LayerVersionArns ]
+        ComplianceApiId: !GetAtt ComplianceAPI.Outputs.GatewayId
+        S3BucketAccessLogs: !ImportValue Panther-LogBucket
+        SQSKeyId: !Ref QueueEncryptionKey
+      Tags:
+        - Key: Application
+          Value: Panther
+        - Key: Component
+          Value: AnalysisAPI
+      TemplateURL: ../out/deployments/shared/swagger.analysis-api.yml
+
+Outputs:
+  AnalysisApiEndpoint:
+    Description: panther-analysis-api Gateway HTTPS endpoint
+    Value: !Sub '${AnalysisAPI.Outputs.GatewayId}.execute-api.${AWS::Region}.amazonaws.com'
+  ComplianceApiEndpoint:
+    Description: panther-compliance-api Gateway HTTPS endpoint
+    Value: !Sub '${ComplianceAPI.Outputs.GatewayId}.execute-api.${AWS::Region}.amazonaws.com'

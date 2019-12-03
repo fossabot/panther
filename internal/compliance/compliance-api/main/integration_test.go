@@ -21,8 +21,6 @@ import (
 	"github.com/panther-labs/panther/pkg/testutils"
 )
 
-const stackName = "panther-compliance-api"
-
 var (
 	integrationTest bool
 	awsSession      = session.Must(session.NewSession())
@@ -95,21 +93,19 @@ func TestIntegrationAPI(t *testing.T) {
 
 	// Lookup CloudFormation outputs
 	cfnClient := cloudformation.New(awsSession)
-	response, err := cfnClient.DescribeStacks(&cloudformation.DescribeStacksInput{StackName: aws.String(stackName)})
+	response, err := cfnClient.DescribeStacks(
+		&cloudformation.DescribeStacksInput{StackName: aws.String("panther-backend")})
 	require.NoError(t, err)
-	var endpoint, tableName string
+	var endpoint string
 	for _, output := range response.Stacks[0].Outputs {
-		switch aws.StringValue(output.OutputKey) {
-		case "Endpoint":
+		if aws.StringValue(output.OutputKey) == "ComplianceApiEndpoint" {
 			endpoint = *output.OutputValue
-		case "TableName":
-			tableName = *output.OutputValue
+			break
 		}
 	}
 
 	// Reset Dynamo table and build API client
-	require.NotEmpty(t, tableName)
-	require.NoError(t, testutils.ClearDynamoTable(awsSession, tableName))
+	require.NoError(t, testutils.ClearDynamoTable(awsSession, "panther-analysis"))
 	require.NotEmpty(t, endpoint)
 	apiClient = client.NewHTTPClientWithConfig(nil, client.DefaultTransportConfig().
 		WithBasePath("/v1").WithHost(endpoint))

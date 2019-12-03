@@ -9,11 +9,11 @@ Parameters:
     Default: 365
   Debug:
     Type: String
-    Default: 'False'
+    Default: false
     Description: Toggle debug logging
     AllowedValues:
-      - 'True'
-      - 'False'
+      - true
+      - false
   MemorySizeMB:
     Type: Number
     Description: Memory (MB) available for the Lambda function
@@ -161,7 +161,6 @@ Resources:
           Projection:
             ProjectionType: ALL
       KeySchema:
-        # Table is keyed by (resourceId, policyId), since resourceIds are globally unique
         - AttributeName: resourceId
           KeyType: HASH
         - AttributeName: policyId
@@ -180,12 +179,6 @@ Resources:
         Enabled: True
 
 Outputs:
-  ExecutionRoleArn:
-    Description: The IAM Execution Role of the Serverless Application
-    Value: !If [CreateExecutionRole, !GetAtt ExecutionRole.Arn, !Ref ExecutionRoleArn]
   GatewayId:
     Description: API Gateway ID
     Value: !Ref GatewayApi
-  GatewayEndpoint:
-    Description: HTTPS endpoint for invoking the API
-    Value: !Sub '${GatewayApi}.execute-api.${AWS::Region}.amazonaws.com'

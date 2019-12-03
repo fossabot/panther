@@ -1,0 +1,24 @@
+AnalysisType: policy
+ActionDelaySeconds: 10
+AutoRemediationID: fix-it
+AutoRemediationParameters:
+  hello: goodbye
+DisplayName: AlwaysTrue
+Filename: always_true.py
+PolicyID: Test:Policy
+Enabled: true
+Tags: []
+Tests:
+  -
+    Name: This will be True
+    ResourceType: AWS.S3.Bucket
+    ExpectedResult: true
+    Resource:
+      {
+        "Bucket": "empty"
+      }
+ResourceTypes:
+  - AWS.S3.Bucket
+Severity: Medium
+Description: >
+  Matches every resource

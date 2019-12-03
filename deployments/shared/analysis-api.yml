@@ -1,0 +1,251 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+Description: Analysis datastore and API - stores Python bodies
+
+Parameters:
+  CloudWatchLogRetentionDays:
+    Type: Number
+    Description: CloudWatch log retention period
+    Default: 365
+  Debug:
+    Type: String
+    Description: Toggle debug logging
+    Default: false
+    AllowedValues:
+      - true
+      - false
+  ExecutionRoleArn:
+    Type: String
+    Description: Use an existing Lambda execution role instead of creating a new one
+    Default: ''
+  LayerVersionArns:
+    Type: CommaDelimitedList
+    Description: List of LayerVersion ARNs to attach to this function
+    Default: ''
+  MemorySizeMB:
+    Type: Number
+    Description: Memory (MB) available for the Lambda function
+    Default: 512
+    MinValue: 128
+    MaxValue: 3008
+  TimeoutSec:
+    Type: Number
+    Description: Timeout (seconds) for the Lambda function
+    Default: 120
+    MinValue: 5
+    MaxValue: 900
+
+  ComplianceApiId:
+    Type: String
+    Description: API Gateway for compliance-api
+  S3BucketAccessLogs:
+    Type: String
+    Description: S3 bucket for storing S3 access logs
+  SQSKeyId:
+    Type: String
+    Description: KMS key ID for SQS encryption
+
+Conditions:
+  AttachLayers: !Not [!Equals [!Join ['', !Ref LayerVersionArns], '']]
+  CreateExecutionRole: !Equals [!Ref ExecutionRoleArn, '']
+
+Resources:
+  ##### API Gateway #####
+  GatewayApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      AccessLogSetting:
+        DestinationArn: !GetAtt GatewayApiLogGroup.Arn
+      DefinitionBody: api/analysis/api.yml
+      EndpointConfiguration: REGIONAL
+      Name: panther-analysis-api
+      StageName: v1
+      TracingEnabled: true
+
+  GatewayApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/apigateway/panther-analysis-api
+      RetentionInDays: !Ref CloudWatchLogRetentionDays
+
+  GatewayInvocationPermission:  # allow API gateway to invoke the Lambda function
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref HandlerFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${GatewayApi}/*
+
+  ##### Lambda Execution Role #####
+  ExecutionRole:
+    Condition: CreateExecutionRole
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        -
+          PolicyName: WriteLogs
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !GetAtt LogGroup.Arn
+        -
+          PolicyName: InvokeApis
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              -
+                Effect: Allow
+                Action: execute-api:Invoke
+                Resource:
+                  - !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${ComplianceApiId}/v1/GET/describe-org
+                  - !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${ComplianceApiId}/v1/POST/delete
+                  - !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${ComplianceApiId}/v1/POST/update
+              -
+                Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:panther-analysis-engine
+        -
+          PolicyName: ManageDataStores
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - dynamodb:*Item
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                Resource: !GetAtt Table.Arn
+              -
+                Effect: Allow
+                Action:
+                  - s3:DeleteObject  # Does NOT grant permission to permanently delete versions
+                  - s3:GetObject*
+                  - s3:PutObject
+                Resource: !Sub arn:${AWS::Partition}:s3:::${Bucket}/*
+              -
+                Effect: Allow
+                Action:
+                  - s3:ListBucket
+                  - s3:ListBucketVersions
+                Resource: !GetAtt Bucket.Arn
+        -
+          PolicyName: PublishToResourceQueue
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                  - sqs:SendMessageBatch
+                Resource: !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:panther-resources
+              -
+                Effect: Allow
+                Action:
+                  - kms:Decrypt
+                  - kms:GenerateDataKey
+                Resource: !Sub arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/${SQSKeyId}
+
+  ##### Lambda Handler #####
+  HandlerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../../bin/internal/shared/analysis-api/main
+      Description: Analysis API
+      Environment:
+        Variables:
+          BUCKET: !Ref Bucket
+          COMPLIANCE_API_HOST: !Sub '${ComplianceApiId}.execute-api.${AWS::Region}.amazonaws.com'
+          COMPLIANCE_API_PATH: v1
+          DEBUG: !Ref Debug
+          ENGINE: panther-analysis-engine
+          RESOURCE_QUEUE_URL: !Sub https://sqs.${AWS::Region}.amazonaws.com/${AWS::AccountId}/panther-resources
+          TABLE: !Ref Table
+      FunctionName: panther-analysis-api
+      Handler: main
+      MemorySize: !Ref MemorySizeMB
+      Layers: !If [AttachLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
+      Role: !If [CreateExecutionRole, !GetAtt ExecutionRole.Arn, !Ref ExecutionRoleArn]
+      Runtime: go1.x
+      Tags:
+        Application: Panther
+        Component: AnalysisAPI
+      Timeout: !Ref TimeoutSec
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/panther-analysis-api
+      RetentionInDays: !Ref CloudWatchLogRetentionDays
+
+  ##### Data Stores #####
+  Table:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: True
+      SSESpecification:
+        SSEEnabled: True
+      TableName: panther-analysis
+      Tags:
+        - Key: Application
+          Value: Panther
+        - Key: Component
+          Value: AnalysisAPI
+
+  Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      BucketName: !Sub panther-analysis-versions-${AWS::AccountId}-${AWS::Region}
+      LifecycleConfiguration:
+        Rules:
+          - NoncurrentVersionExpirationInDays: 365
+            Status: Enabled
+      LoggingConfiguration:
+        DestinationBucketName: !Ref S3BucketAccessLogs
+        LogFilePrefix: !Sub panther-analysis-versions-${AWS::AccountId}-${AWS::Region}/
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Application
+          Value: Panther
+        - Key: Component
+          Value: AnalysisAPI
+      VersioningConfiguration:
+        Status: Enabled
+
+Outputs:
+  BucketName:
+    Description: The name of the S3 analysis bucket
+    Value: !Ref Bucket
+  GatewayId:
+    Description: API Gateway ID
+    Value: !Ref GatewayApi

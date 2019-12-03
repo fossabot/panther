@@ -44,7 +44,7 @@ mage test:ci    # run all required checks
 
 # Deploy and run integration tests
 mage deploy:pre  # deploy prerequisite S3 buckets
-AWS_REGION=us-west-2 PARAMS="Debug=True" mage deploy:backend
+AWS_REGION=us-west-2 PARAMS="Debug=true" mage deploy:backend
 PKG=./internal/compliance/compliance-api/main mage test:integration
 ```
 
