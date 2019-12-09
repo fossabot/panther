@@ -20,17 +20,30 @@ Parameters:
     Default: ''
   LayerVersionArns:
     Type: CommaDelimitedList
-    Description: List of LayerVersion ARNs to attach to this function
+    Description: List of base LayerVersion ARNs to attach to every Lambda function
     Default: ''
-  MemorySizeMB:
+
+  HandlerMemorySizeMB:
     Type: Number
-    Description: Memory (MB) available for the Lambda function
+    Description: Memory (MB) available for the API Lambda handler
     Default: 512
     MinValue: 128
     MaxValue: 3008
-  TimeoutSec:
+  HandlerTimeoutSec:
     Type: Number
-    Description: Timeout (seconds) for the Lambda function
+    Description: Timeout (seconds) for the API Lambda handler
+    Default: 120
+    MinValue: 5
+    MaxValue: 900
+  EngineMemorySizeMB:
+    Type: Number
+    Description: Memory (MB) available for the Python analysis engine
+    Default: 512
+    MinValue: 128
+    MaxValue: 3008
+  EngineTimeoutSec:
+    Type: Number
+    Description: Timeout (seconds) for the Python analysis engine
     Default: 120
     MinValue: 5
     MaxValue: 900
@@ -38,6 +51,14 @@ Parameters:
   ComplianceApiId:
     Type: String
     Description: API Gateway for compliance-api
+  LayerKey:
+    Type: String
+    Description: S3 key for the Python analysis layer
+    Default: layers/python-analysis.zip
+  LayerObjectVersion:
+    Type: String
+    Description: S3 object version for the layer zipfile
+    Default: ''
   S3BucketAccessLogs:
     Type: String
     Description: S3 bucket for storing S3 access logs
@@ -46,7 +67,7 @@ Parameters:
     Description: KMS key ID for SQS encryption
 
 Conditions:
-  AttachLayers: !Not [!Equals [!Join ['', !Ref LayerVersionArns], '']]
+  AttachBaseLayers: !Not [!Equals [!Join ['', !Ref LayerVersionArns], '']]
   CreateExecutionRole: !Equals [!Ref ExecutionRoleArn, '']
 
 Resources:
@@ -76,8 +97,8 @@ Resources:
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${GatewayApi}/*
 
-  ##### Lambda Execution Role #####
-  ExecutionRole:
+  ##### API Lambda Handler #####
+  HandlerExecutionRole:
     Condition: CreateExecutionRole
     Type: AWS::IAM::Role
     Properties:
@@ -88,6 +109,8 @@ Resources:
             Principal:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
       Policies:
         -
           PolicyName: WriteLogs
@@ -100,7 +123,7 @@ Resources:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                 Resource:
-                  - !GetAtt LogGroup.Arn
+                  - !GetAtt HandlerLogGroup.Arn
         -
           PolicyName: InvokeApis
           PolicyDocument:
@@ -159,12 +182,14 @@ Resources:
                   - kms:Decrypt
                   - kms:GenerateDataKey
                 Resource: !Sub arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/${SQSKeyId}
+      Tags:
+        - Key: Application
+          Value: Panther
 
-  ##### Lambda Handler #####
   HandlerFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ../../bin/internal/shared/analysis-api/main
+      CodeUri: ../../bin/internal/shared/analysis_api/main
       Description: Analysis API
       Environment:
         Variables:
@@ -177,19 +202,93 @@ Resources:
           TABLE: !Ref Table
       FunctionName: panther-analysis-api
       Handler: main
-      MemorySize: !Ref MemorySizeMB
-      Layers: !If [AttachLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
-      Role: !If [CreateExecutionRole, !GetAtt ExecutionRole.Arn, !Ref ExecutionRoleArn]
+      MemorySize: !Ref HandlerMemorySizeMB
+      Layers: !If [AttachBaseLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
+      Role: !If [CreateExecutionRole, !GetAtt HandlerExecutionRole.Arn, !Ref ExecutionRoleArn]
       Runtime: go1.x
       Tags:
         Application: Panther
         Component: AnalysisAPI
-      Timeout: !Ref TimeoutSec
+      Timeout: !Ref HandlerTimeoutSec
 
-  LogGroup:
+  HandlerLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: /aws/lambda/panther-analysis-api
+      RetentionInDays: !Ref CloudWatchLogRetentionDays
+
+  ##### Python Engine #####
+  EngineExecutionRole:
+    Condition: CreateExecutionRole
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
+      Policies:
+        -
+          PolicyName: WriteLogs
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !GetAtt EngineLogGroup.Arn
+      Tags:
+        - Key: Application
+          Value: Panther
+
+  PythonLayer:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      CompatibleRuntimes:
+        - python3.6
+        - python3.7
+      Content:
+        S3Bucket: !Sub panther-source-${AWS::AccountId}-${AWS::Region}
+        S3Key: !Ref LayerKey
+        S3ObjectVersion: !Ref LayerObjectVersion
+      Description: Pip libraries available to the Python analysis function
+      LayerName: panther-analysis
+
+  EngineFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../../../internal/shared/analysis_engine
+      Description: Python Analysis Engine
+      FunctionName: panther-analysis-engine
+      Handler: src.main.lambda_handler
+      MemorySize: !Ref EngineMemorySizeMB
+      Layers: !If
+        - AttachBaseLayers
+        - !Split
+          # CFN doesn't have list append, so convert to/from CSV string to prepend base layers
+          - ","
+          - !Sub
+            - "${base},${pip}"
+            - {base: !Join [",", !Ref LayerVersionArns], pip: !Ref PythonLayer}
+        - [!Ref PythonLayer]
+      Role: !If [CreateExecutionRole, !GetAtt EngineExecutionRole.Arn, !Ref ExecutionRoleArn]
+      Runtime: python3.7
+      Tags:
+        Application: Panther
+        Component: AnalysisAPI
+      Timeout: !Ref EngineTimeoutSec
+
+  EngineLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/panther-analysis-engine
       RetentionInDays: !Ref CloudWatchLogRetentionDays
 
   ##### Data Stores #####

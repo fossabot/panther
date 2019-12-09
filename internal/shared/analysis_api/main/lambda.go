@@ -3,7 +3,7 @@ package main
 import (
 	"github.com/aws/aws-lambda-go/lambda"
 
-	"github.com/panther-labs/panther/internal/shared/analysis-api/handlers"
+	"github.com/panther-labs/panther/internal/shared/analysis_api/handlers"
 	"github.com/panther-labs/panther/pkg/gatewayapi"
 )
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // Clean Remove auto-generated build artifacts
@@ -22,6 +23,19 @@ func Clean() error {
 		return err
 	}
 	dirs = append(dirs, pkgs...)
+
+	// Remove __pycache__ folderrs
+	for _, target := range pyTargets {
+		err = filepath.Walk(target, func(path string, info os.FileInfo, err error) error {
+			if strings.HasSuffix(path, "__pycache__") {
+				dirs = append(dirs, path)
+			}
+			return err
+		})
+		if err != nil {
+			return err
+		}
+	}
 
 	for _, pkg := range dirs {
 		fmt.Println("clean: rm -r " + pkg)

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
@@ -39,7 +40,13 @@ func (b Build) API() error {
 func (b Build) Lambda() error {
 	mg.Deps(b.API)
 
-	packages, err := filepath.Glob("internal/*/*/main")
+	var packages []string
+	err := filepath.Walk("internal", func(path string, info os.FileInfo, err error) error {
+		if info.IsDir() && strings.HasSuffix(path, "main") {
+			packages = append(packages, path)
+		}
+		return err
+	})
 	if err != nil {
 		return err
 	}

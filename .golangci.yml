@@ -19,7 +19,6 @@ linters:
     - dogsled
     - dupl
     - funlen
-    - gocognit
     - gocritic
     - gocyclo
     - gofmt
@@ -39,6 +38,7 @@ linters:
   # don't enable:
   # - gochecknoinits
   # - gochecknoglobals
+  # - gocognit
   # - godox
   # - interfacer
   # - prealloc

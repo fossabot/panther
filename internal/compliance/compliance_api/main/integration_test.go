@@ -16,7 +16,7 @@ import (
 	"github.com/panther-labs/panther/api/compliance/client"
 	"github.com/panther-labs/panther/api/compliance/client/operations"
 	"github.com/panther-labs/panther/api/compliance/models"
-	"github.com/panther-labs/panther/internal/compliance/compliance-api/handlers"
+	"github.com/panther-labs/panther/internal/compliance/compliance_api/handlers"
 	"github.com/panther-labs/panther/pkg/gatewayapi"
 	"github.com/panther-labs/panther/pkg/testutils"
 )
@@ -105,7 +105,7 @@ func TestIntegrationAPI(t *testing.T) {
 	}
 
 	// Reset Dynamo table and build API client
-	require.NoError(t, testutils.ClearDynamoTable(awsSession, "panther-analysis"))
+	require.NoError(t, testutils.ClearDynamoTable(awsSession, "panther-compliance"))
 	require.NotEmpty(t, endpoint)
 	apiClient = client.NewHTTPClientWithConfig(nil, client.DefaultTransportConfig().
 		WithBasePath("/v1").WithHost(endpoint))

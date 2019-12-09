@@ -4,7 +4,7 @@ go 1.13
 
 require (
 	github.com/aws/aws-lambda-go v1.13.3
-	github.com/aws/aws-sdk-go v1.25.46
+	github.com/aws/aws-sdk-go v1.25.48
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/go-openapi/analysis v0.19.6 // indirect
 	github.com/go-openapi/errors v0.19.2
@@ -27,8 +27,8 @@ require (
 	go.uber.org/multierr v1.4.0 // indirect
 	go.uber.org/zap v1.13.0
 	golang.org/x/lint v0.0.0-20191125180803-fdd1cda4f05f // indirect
-	golang.org/x/net v0.0.0-20191126235420-ef20fe5d7933 // indirect
-	golang.org/x/tools v0.0.0-20191203134012-c197fd4bf371 // indirect
+	golang.org/x/net v0.0.0-20191204025024-5ee1b9f4859a // indirect
+	golang.org/x/tools v0.0.0-20191205205310-69111344d4a5 // indirect
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 	gopkg.in/go-playground/validator.v9 v9.30.2
 	gopkg.in/yaml.v2 v2.2.7

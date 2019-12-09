@@ -22,6 +22,11 @@ Parameters:
     Description: List of LayerVersion ARNs to attach to every function
     Default: ''
 
+  PythonLayerObjectVersion:
+    Type: String
+    Description: S3 object version for the python layer zipfile
+    Default: ''
+
 Resources:
   GatewayLoggingRole:
     Type: AWS::IAM::Role
@@ -82,17 +87,20 @@ Resources:
           Value: Panther
         - Key: Component
           Value: AnalysisAPI
-      TemplateURL: ../out/deployments/compliance/swagger.compliance-api.yml
+      TemplateURL: ../out/deployments/compliance/swagger.compliance_api.yml
 
   AnalysisAPI:
     Type: AWS::CloudFormation::Stack
     Properties:
       Parameters:
+        # Common settings
         CloudWatchLogRetentionDays: !Ref CloudWatchLogRetentionDays
         Debug: !Ref Debug
         ExecutionRoleArn: !Ref ExecutionRoleArn
         LayerVersionArns: !Join [ ",", !Ref LayerVersionArns ]
+        # Custom to this stack
         ComplianceApiId: !GetAtt ComplianceAPI.Outputs.GatewayId
+        LayerObjectVersion: !Ref PythonLayerObjectVersion
         S3BucketAccessLogs: !ImportValue Panther-LogBucket
         SQSKeyId: !Ref QueueEncryptionKey
       Tags:
@@ -100,7 +108,25 @@ Resources:
           Value: Panther
         - Key: Component
           Value: AnalysisAPI
-      TemplateURL: ../out/deployments/shared/swagger.analysis-api.yml
+      TemplateURL: ../out/deployments/shared/swagger.analysis_api.yml
+
+  ResourcesAPI:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        CloudWatchLogRetentionDays: !Ref CloudWatchLogRetentionDays
+        Debug: !Ref Debug
+        ExecutionRoleArn: !Ref ExecutionRoleArn
+        LayerVersionArns: !Join [ ",", !Ref LayerVersionArns ]
+        AnalysisApiId: !GetAtt AnalysisAPI.Outputs.GatewayId
+        ComplianceApiId: !GetAtt ComplianceAPI.Outputs.GatewayId
+        SQSKeyId: !Ref QueueEncryptionKey
+      Tags:
+        - Key: Application
+          Value: Panther
+        - Key: Component
+          Value: ResourcesAPI
+      TemplateURL: ../out/deployments/compliance/swagger.resources_api.yml
 
 Outputs:
   AnalysisApiEndpoint:
@@ -109,3 +135,6 @@ Outputs:
   ComplianceApiEndpoint:
     Description: panther-compliance-api Gateway HTTPS endpoint
     Value: !Sub '${ComplianceAPI.Outputs.GatewayId}.execute-api.${AWS::Region}.amazonaws.com'
+  ResourcesApiEndpoint:
+    Description: panther-resources-api Gateway HTTPS endpoint
+    Value: !Sub '${ResourcesAPI.Outputs.GatewayId}.execute-api.${AWS::Region}.amazonaws.com'

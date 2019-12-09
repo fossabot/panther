@@ -1,5 +1,7 @@
 api/*/client/
 api/*/models/
 out/
+venv/
 .idea/
+__pycache__/
 *.zip

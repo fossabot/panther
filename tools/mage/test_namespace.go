@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -29,42 +30,74 @@ func JoinErrors(command string, errList []error) error {
 
 // Lint Check code style
 func (t Test) Lint() error {
+	var errs []error
+
 	// go metalinting
+	fmt.Println("test:lint: golang")
 	args := []string{"run"}
 	if mg.Verbose() {
 		args = append(args, "-v")
-	} else {
-		fmt.Println("test:lint: golangci-lint run")
+	}
+	if err := sh.RunV("golangci-lint", args...); err != nil {
+		errs = append(errs, err)
 	}
 
-	if err := sh.RunV("golangci-lint", args...); err != nil {
-		return err
+	// python yapf
+	fmt.Println("test:lint: python")
+	args = []string{"--diff", "--parallel", "--recursive"}
+	if mg.Verbose() {
+		args = append(args, "--verbose")
+	}
+	if output, err := sh.Output("venv/bin/yapf", append(args, pyTargets...)...); err != nil {
+		errs = append(errs, fmt.Errorf("yapf diff: %d bytes (err: %v)", len(output), err))
+	}
+
+	// python bandit (security linting)
+	args = []string{"--recursive"}
+	if mg.Verbose() {
+		args = append(args, "--verbose")
+	} else {
+		args = append(args, "--quiet")
+	}
+	if err := sh.RunV("venv/bin/bandit", append(args, pyTargets...)...); err != nil {
+		errs = append(errs, err)
+	}
+
+	// python lint
+	args = []string{"-j", "0", "--disable", "duplicate-code,fixme,too-few-public-methods", "--max-line-length", "140"}
+	if mg.Verbose() {
+		args = append(args, "--verbose")
+	}
+	if err := sh.RunV("venv/bin/pylint", append(args, pyTargets...)...); err != nil {
+		errs = append(errs, err)
+	}
+
+	// python mypy (type check)
+	args = []string{"--cache-dir", "out/.mypy_cache", "--disallow-untyped-defs", "--ignore-missing-imports", "--warn-unused-ignores"}
+	if mg.Verbose() {
+		args = append(args, "--verbose")
+	}
+	if err := sh.RunV("venv/bin/mypy", append(args, pyTargets...)...); err != nil {
+		errs = append(errs, err)
 	}
 
 	// Lint CloudFormation
-	if !mg.Verbose() {
-		fmt.Println("test:lint: cfn-lint deployments/")
-	}
+	fmt.Println("test:lint: CloudFormation")
 	var templates []string
 	err := filepath.Walk("deployments", func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
 		if strings.HasSuffix(path, ".yml") {
 			templates = append(templates, path)
 		}
-		return nil
+		return err
 	})
-
 	if err != nil {
-		return err
+		errs = append(errs, fmt.Errorf("filepath.Walk(deployments) failed: %v", err))
 	}
-	if err := sh.RunV("cfn-lint", templates...); err != nil {
-		return err
+	if err := sh.RunV("venv/bin/cfn-lint", templates...); err != nil {
+		errs = append(errs, err)
 	}
 
-	return nil
+	return JoinErrors("test:lint", errs)
 }
 
 // Unit Run unit tests
@@ -74,10 +107,24 @@ func (Test) Unit() error {
 		args = append(args, "-v")
 	}
 
-	return sh.RunV("go", args...)
+	fmt.Println("test:unit: go test")
+	if err := sh.RunV("go", args...); err != nil {
+		return err
+	}
+
+	args = []string{"-m", "unittest", "discover"}
+	if mg.Verbose() {
+		args = append(args, "--verbose")
+	}
+	for _, target := range pyTargets {
+		args = append(args, path.Dir(target))
+	}
+
+	fmt.Println("test:unit python unittest")
+	return sh.RunV("python3", args...)
 }
 
-// Cover Run unit tests and view test coverage in HTML
+// Cover Run Go unit tests and view test coverage in HTML
 func (t Test) Cover() error {
 	if err := os.MkdirAll("out/", 0755); err != nil {
 		return err
@@ -111,7 +158,8 @@ func (t Test) Integration() error {
 	if pkg == "" {
 		pkg = "./..."
 	}
-	testArgs := []string{"test", pkg, "-run=TestIntegration*"}
+	// Note: We do NOT run integration tests in parallel
+	testArgs := []string{"test", pkg, "-run=TestIntegration*", "-p", "1"}
 	if mg.Verbose() {
 		testArgs = append(testArgs, "-v")
 	} else {
@@ -122,5 +170,14 @@ func (t Test) Integration() error {
 		return err
 	}
 	defer os.Unsetenv("INTEGRATION_TEST")
-	return sh.RunV("go", testArgs...)
+	if err := sh.RunV("go", testArgs...); err != nil {
+		return err
+	}
+
+	// Run Python integration tests unless a Go pkg is specified
+	if os.Getenv("PKG") == "" {
+		fmt.Println("test:integration: python engine")
+		return sh.RunV("python3", "internal/shared/analysis_engine/tests/integration.py")
+	}
+	return nil
 }

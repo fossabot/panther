@@ -6,11 +6,11 @@ import (
 	"os"
 	"path"
 
+	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
 )
 
 const (
-	cfnlintVersion  = "0.25.5"
 	golangciVersion = "1.21.0"
 	swaggerVersion  = "0.21.0"
 )
@@ -27,17 +27,33 @@ var (
 
 // Setup Install development dependencies
 func Setup() error {
-	if err := sh.RunV("pip3", "install", "--user", "cfn-lint=="+cfnlintVersion); err != nil {
+	fmt.Println("setup: installing python3 venv")
+	if err := os.RemoveAll("venv"); err != nil {
+		return err
+	}
+	if err := sh.RunV("python3", "-m", "venv", "venv"); err != nil {
+		return err
+	}
+	args := []string{"install", "-r", "requirements.txt"}
+	if !mg.Verbose() {
+		args = append(args, "--quiet")
+	}
+	if err := sh.RunV("venv/bin/pip3", args...); err != nil {
 		return err
 	}
 
-	// TODO - Update to CircleCI
+	// TODO - This will change when we switch to Circle CI
 	// Some libraries are only needed for development, not for CI
 	if os.Getenv("CODEBUILD_CI") == "" {
-		if err := sh.RunV("go", "get", "-u", "golang.org/x/tools/cmd/goimports"); err != nil {
+		fmt.Println("setup: installing goimports and awscli for local development")
+		if err := sh.RunV("go", "get", "golang.org/x/tools/cmd/goimports"); err != nil {
 			return err
 		}
-		if err := sh.RunV("pip3", "install", "--user", "--upgrade", "awscli"); err != nil {
+		args := []string{"install", "awscli"}
+		if !mg.Verbose() {
+			args = append(args, "--quiet")
+		}
+		if err := sh.RunV("pip3", args...); err != nil {
 			return err
 		}
 	}
@@ -48,12 +64,13 @@ func Setup() error {
 	}
 
 	// Install swagger and golang-ci
+	fmt.Println("setup: installing go-swagger and golangci-lint")
 	switch env {
 	case "Darwin":
 		if err := sh.RunV("brew", "tap", "go-swagger/go-swagger"); err != nil {
 			return err
 		}
-		return sh.RunV("brew", "reinstall", "go-swagger", "golangci-lint")
+		return sh.RunV("brew", "install", "go-swagger", "golangci-lint")
 
 	case "Linux":
 		if err := sh.RunV("curl", "-o", "/usr/local/bin/swagger", "-fL", swaggerLinux); err != nil {

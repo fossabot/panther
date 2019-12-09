@@ -1,14 +1,11 @@
 package main
 
 import (
-	"archive/zip"
 	"bufio"
 	"encoding/base64"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -26,6 +23,7 @@ import (
 	"github.com/panther-labs/panther/api/analysis/client/operations"
 	"github.com/panther-labs/panther/api/analysis/models"
 	"github.com/panther-labs/panther/pkg/gatewayapi"
+	"github.com/panther-labs/panther/pkg/shutil"
 	"github.com/panther-labs/panther/pkg/testutils"
 )
 
@@ -47,7 +45,7 @@ var (
 	policy = &models.Policy{
 		AutoRemediationID:         "fix-it",
 		AutoRemediationParameters: map[string]string{"hello": "world", "emptyParameter": ""},
-		Body:                      "def policy(resource): return True\n",
+		Body:                      "def policy(resource):\n    return True\n",
 		ComplianceStatus:          models.ComplianceStatusPASS,
 		Description:               "Matches every resource",
 		DisplayName:               "AlwaysTrue",
@@ -157,7 +155,7 @@ def policy(resource):
 	policyFromBulkJSON = &models.Policy{
 		AutoRemediationID:         "fix-it",
 		AutoRemediationParameters: map[string]string{"hello": "goodbye"},
-		Body:                      "def policy(resource): return True\n",
+		Body:                      "def policy(resource):\n    return True\n",
 		ComplianceStatus:          models.ComplianceStatusPASS,
 		CreatedBy:                 userID,
 		Description:               "Matches every resource",
@@ -731,44 +729,9 @@ func bulkUploadInvalid(t *testing.T) {
 
 func bulkUploadSuccess(t *testing.T) {
 	t.Parallel()
-	zipFile, err := os.Create("bulk_upload.zip")
-	require.NoError(t, err)
 
-	require.NoError(t, err)
-	defer func() { _ = zipFile.Close() }()
-	zipWriter := zip.NewWriter(zipFile)
-	defer func() { _ = zipWriter.Close() }()
-
-	require.NoError(t, filepath.Walk(policiesRoot, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if path == policiesRoot {
-			return nil
-		}
-
-		file, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-		header, err := zip.FileInfoHeader(info)
-		if err != nil {
-			return err
-		}
-		writer, err := zipWriter.CreateHeader(header)
-		if err != nil {
-			return err
-		}
-		_, err = io.Copy(writer, file)
-		return err
-	}))
-
-	err = zipWriter.Close()
-	require.NoError(t, err)
-	err = zipFile.Close()
-	require.NoError(t, err)
-
-	zipFile, err = os.Open(policiesZipLocation)
+	require.NoError(t, shutil.ZipDirectory(policiesRoot, policiesZipLocation))
+	zipFile, err := os.Open(policiesZipLocation)
 	require.NoError(t, err)
 	content, err := ioutil.ReadAll(bufio.NewReader(zipFile))
 	require.NoError(t, err)

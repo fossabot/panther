@@ -109,7 +109,7 @@ Resources:
   Function:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ../../bin/internal/compliance/compliance-api/main  # Relative to out/deployments/compliance
+      CodeUri: ../../bin/internal/compliance/compliance_api/main  # Relative to out/deployments/compliance
       Description: Compliance API
       Environment:
         Variables:

@@ -1,0 +1,369 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+Description: Resources datastore and API
+
+Parameters:
+  CloudWatchLogRetentionDays:
+    Type: Number
+    Description: CloudWatch log retention period
+    Default: 365
+  Debug:
+    Type: String
+    Description: Toggle debug logging
+    Default: false
+    AllowedValues:
+      - true
+      - false
+  ExecutionRoleArn:
+    Type: String
+    Description: Use an existing Lambda execution role instead of creating a new one
+    Default: ''
+  LayerVersionArns:
+    Type: CommaDelimitedList
+    Description: List of base LayerVersion ARNs to attach to every Lambda function
+    Default: ''
+
+  HandlerMemorySizeMB:
+    Type: Number
+    Description: Memory (MB) available for the API Lambda handler
+    Default: 512
+    MinValue: 128
+    MaxValue: 3008
+  HandlerTimeoutSec:
+    Type: Number
+    Description: Timeout (seconds) for the API Lambda handler
+    Default: 120
+    MinValue: 5
+    MaxValue: 900
+  QueueProcessorMemorySizeMB:
+    Type: Number
+    Description: Memory (MB) available for the resource processor
+    Default: 256
+    MinValue: 128
+    MaxValue: 3008
+  QueueProcessorTimeoutSec:
+    Type: Number
+    Description: Timeout (seconds) for the resource processor
+    Default: 180
+    MinValue: 5
+    MaxValue: 900
+
+  AnalysisApiId:
+    Type: String
+    Description: API Gateway for analysis-api
+  ComplianceApiId:
+    Type: String
+    Description: API Gateway for compliance-api
+  SQSKeyId:
+    Type: String
+    Description: KMS key ID for SQS encryption
+
+Conditions:
+  AttachLayers: !Not [!Equals [!Join ['', !Ref LayerVersionArns], '']]
+  CreateExecutionRole: !Equals [!Ref ExecutionRoleArn, '']
+
+Resources:
+  ##### API Gateway #####
+  GatewayApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      DefinitionBody: api/resources/api.yml
+      EndpointConfiguration: REGIONAL
+      Name: panther-resources-api
+      StageName: v1  # NOTE: sam also builds a stage called "Stage"
+      TracingEnabled: true
+      AccessLogSetting:
+        DestinationArn: !GetAtt GatewayApiLogGroup.Arn
+
+  GatewayApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/apigateway/panther-resources-api
+      RetentionInDays: !Ref CloudWatchLogRetentionDays
+
+  GatewayInvocationPermission:  # allow API gateway to invoke the Lambda function
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref HandlerFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${GatewayApi}/*
+
+  ##### API Lambda Handler #####
+  HandlerExecutionRole:
+    Condition: CreateExecutionRole
+    Type: AWS::IAM::Role
+    Properties:
+      Description: Lambda execution role for panther-resources-api
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
+      Tags:
+        - Key: Application
+          Value: Panther
+      Policies:
+        -
+          PolicyName: WriteLogs
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !GetAtt HandlerLogGroup.Arn
+        -
+          PolicyName: AccessComplianceApi
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              -
+                Effect: Allow
+                Action: execute-api:Invoke
+                Resource:
+                  - !Sub arn:aws:execute-api:*:${AWS::AccountId}:${ComplianceApiId}/v1/GET/describe-org
+                  - !Sub arn:aws:execute-api:*:${AWS::AccountId}:${ComplianceApiId}/v1/POST/delete
+        -
+          PolicyName: DynamoManageItems
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - dynamodb:*Item
+                Resource: !GetAtt ResourcesTable.Arn
+        -
+          PolicyName: PublishToResourceQueue
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                  - sqs:SendMessageBatch
+                Resource: !GetAtt InputQueue.Arn
+              -
+                Effect: Allow
+                Action:
+                  - kms:Decrypt
+                  - kms:GenerateDataKey
+                Resource: !Sub arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/${SQSKeyId}
+
+  HandlerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../../bin/internal/compliance/resources_api/main
+      Description: Resources API
+      Environment:
+        Variables:
+          COMPLIANCE_API_HOST: !Sub '${ComplianceApiId}.execute-api.${AWS::Region}.amazonaws.com'
+          COMPLIANCE_API_PATH: v1
+          DEBUG: !Ref Debug
+          RESOURCES_QUEUE_URL: !Ref InputQueue
+          RESOURCES_TABLE: !Ref ResourcesTable
+      FunctionName: panther-resources-api
+      Handler: main
+      Layers: !If [AttachLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
+      MemorySize: !Ref HandlerMemorySizeMB
+      Role: !If [CreateExecutionRole, !GetAtt HandlerExecutionRole.Arn, !Ref ExecutionRoleArn]
+      Runtime: go1.x
+      Tags:
+        Application: Panther
+        Component: ResourcesAPI
+      Timeout: !Ref HandlerTimeoutSec
+
+  HandlerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/panther-resources-api
+      RetentionInDays: !Ref CloudWatchLogRetentionDays
+
+  ResourcesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: panther-resources
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: True
+      SSESpecification:
+        SSEEnabled: True
+      Tags:
+        - Key: Application
+          Value: Panther
+        - Key: Component
+          Value: ResourcesAPI
+      TimeToLiveSpecification:  # Deleted resources are expired after 30 days
+        AttributeName: expiresAt
+        Enabled: true
+
+  ##### Resource Queue #####
+  InputQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      KmsMasterKeyId: !Ref SQSKeyId
+      MessageRetentionPeriod: 86400 # 24 hours
+      QueueName: panther-resources
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt DeadLetterQueue.Arn
+        maxReceiveCount: 10
+      Tags:
+        - Key: Application
+          Value: Panther
+        - Key: Component
+          Value: ResourceProcessor
+      VisibilityTimeout: !Ref QueueProcessorTimeoutSec
+
+  DeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 1209600 # Max duration - 14 days
+      QueueName: panther-resources-dlq
+      Tags:
+        - Key: Application
+          Value: Panther
+        - Key: Component
+          Value: ResourceProcessor
+      VisibilityTimeout: 60
+
+  ##### Resource Processor #####
+  QueueProcessorExecutionRole:
+    Condition: CreateExecutionRole
+    Type: AWS::IAM::Role
+    Properties:
+      Description: Lambda execution role for panther-resource-processor
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
+      Tags:
+        - Key: Application
+          Value: Panther
+        - Key: Component
+          Value: ResourceProcessor
+      Policies:
+        -
+          PolicyName: WriteLogs
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !GetAtt QueueProcessorLogGroup.Arn
+        -
+          PolicyName: SendAndReceiveSqsMessages
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                  - sqs:ReceiveMessage
+                Resource: !GetAtt InputQueue.Arn
+              -
+                Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                  - sqs:SendMessageBatch
+                Resource: !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:panther-alert-processor-queue
+              -
+                Effect: Allow
+                Action:
+                  - kms:Decrypt
+                  - kms:GenerateDataKey
+                Resource: !Sub arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/${SQSKeyId}
+        -
+          PolicyName: InvokePantherAPIs
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              -
+                Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:panther-analysis-engine
+              -
+                Effect: Allow
+                Action: execute-api:Invoke
+                Resource: !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${GatewayApi}/v1/GET/list
+              -
+                Effect: Allow
+                Action: execute-api:Invoke
+                Resource: !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${AnalysisApiId}/v1/GET/enabled
+              -
+                Effect: Allow
+                Action: execute-api:Invoke
+                Resource:
+                  - !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${ComplianceApiId}/v1/GET/status
+                  - !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${ComplianceApiId}/v1/POST/status
+
+  QueueProcessorLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/panther-resource-processor
+      RetentionInDays: !Ref CloudWatchLogRetentionDays
+
+  QueueProcessorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../../bin/internal/compliance/resource_processor/main
+      Description: Scans recently modified resources
+      Environment:
+        Variables:
+          ALERT_QUEUE_URL: !Sub 'https://sqs.${AWS::Region}.amazonaws.com/${AWS::AccountId}/panther-alert-processor-queue'
+          DEBUG: !Ref Debug
+          ANALYSIS_API_HOST: !Sub '${AnalysisApiId}.execute-api.${AWS::Region}.amazonaws.com'
+          ANALYSIS_API_PATH: v1
+          ANALYSIS_ENGINE: panther-analysis-engine
+          COMPLIANCE_API_HOST: !Sub '${ComplianceApiId}.execute-api.${AWS::Region}.amazonaws.com'
+          COMPLIANCE_API_PATH: v1
+          RESOURCE_API_HOST: !Sub '${GatewayApi}.execute-api.${AWS::Region}.amazonaws.com'
+          RESOURCE_API_PATH: v1
+      Events:
+        Queue:
+          Type: SQS
+          Properties:
+            BatchSize: 10  # Maximum batch size
+            Queue: !GetAtt InputQueue.Arn
+      FunctionName: panther-resource-processor
+      Handler: main
+      Layers: !If [AttachLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
+      MemorySize: !Ref QueueProcessorMemorySizeMB
+      Role: !If [CreateExecutionRole, !GetAtt QueueProcessorExecutionRole.Arn, !Ref ExecutionRoleArn]
+      Runtime: go1.x
+      Tags:
+        Application: Panther
+        Component: ResourceProcessor
+      Timeout: !Ref QueueProcessorTimeoutSec
+
+Outputs:
+  GatewayId:
+    Description: API Gateway ID
+    Value: !Ref GatewayApi
