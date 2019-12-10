@@ -1,10 +1,11 @@
 package mage
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
+	"strings"
 
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
@@ -13,16 +14,8 @@ import (
 const (
 	golangciVersion = "1.21.0"
 	swaggerVersion  = "0.21.0"
-)
 
-var (
-	golangciPkg   = fmt.Sprintf("golangci-lint-%s-linux-amd64", golangciVersion)
-	golangciLinux = fmt.Sprintf(
-		"https://github.com/golangci/golangci-lint/releases/download/v%s/%s.tar.gz",
-		golangciVersion, golangciPkg)
-	swaggerLinux = fmt.Sprintf(
-		"https://github.com/go-swagger/go-swagger/releases/download/v%s/swagger_linux_amd64",
-		swaggerVersion)
+	binDir = "/usr/local/bin"
 )
 
 // Setup Install development dependencies
@@ -63,36 +56,39 @@ func Setup() error {
 		return err
 	}
 
-	// Install swagger and golang-ci
-	fmt.Println("setup: installing go-swagger and golangci-lint")
-	switch env {
-	case "Darwin":
-		if err := sh.RunV("brew", "tap", "go-swagger/go-swagger"); err != nil {
-			return err
-		}
-		return sh.RunV("brew", "install", "go-swagger", "golangci-lint")
-
-	case "Linux":
-		if err := sh.RunV("curl", "-o", "/usr/local/bin/swagger", "-fL", swaggerLinux); err != nil {
-			return err
-		}
-		if err := sh.RunV("chmod", "+x", "/usr/local/bin/swagger"); err != nil {
-			return err
-		}
-
-		// golang-ci
-		if err := os.MkdirAll("/tmp/golangci", 0755); err != nil {
-			return err
-		}
-		if err := sh.RunV("curl", "-o", "/tmp/golangci/ci.tar.gz", "-fL", golangciLinux); err != nil {
-			return err
-		}
-		if err := sh.RunV("tar", "-xzvf", "/tmp/golangci/ci.tar.gz", "-C", "/tmp/golangci/"); err != nil {
-			return err
-		}
-		return sh.RunV("mv", path.Join("/tmp/golangci", golangciPkg, "golangci-lint"), "/usr/local/bin")
-
-	default:
-		return errors.New("unknown environment: " + env)
+	if err := installSwagger(env); err != nil {
+		return err
 	}
+	return installGolangCiLint(env)
+}
+
+func installSwagger(uname string) error {
+	fmt.Println("setup: installing go-swagger")
+	url := fmt.Sprintf("https://github.com/go-swagger/go-swagger/releases/download/v%s/swagger_%s_amd64",
+		swaggerVersion, strings.ToLower(uname))
+	binary := path.Join(binDir, "swagger")
+	if err := sh.RunV("curl", "-o", binary, "-fL", url); err != nil {
+		return err
+	}
+	return sh.RunV("chmod", "+x", binary)
+}
+
+func installGolangCiLint(uname string) error {
+	fmt.Println("setup: installing golangci-lint")
+	downloadDir := filepath.Join(os.TempDir(), "golangci")
+	if err := os.MkdirAll(downloadDir, 0755); err != nil {
+		return err
+	}
+
+	pkg := fmt.Sprintf("golangci-lint-%s-%s-amd64", golangciVersion, strings.ToLower(uname))
+	url := fmt.Sprintf("https://github.com/golangci/golangci-lint/releases/download/v%s/%s.tar.gz",
+		golangciVersion, pkg)
+	if err := sh.RunV("curl", "-o", path.Join(downloadDir, "ci.tar.gz"), "-fL", url); err != nil {
+		return err
+	}
+
+	if err := sh.RunV("tar", "-xzvf", path.Join(downloadDir, "ci.tar.gz"), "-C", downloadDir); err != nil {
+		return err
+	}
+	return sh.RunV("mv", path.Join(downloadDir, pkg, "golangci-lint"), binDir)
 }

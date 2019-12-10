@@ -26,10 +26,6 @@ Parameters:
     Default: 180
     MinValue: 5
     MaxValue: 900
-  ExecutionRoleArn:
-    Type: String
-    Description: Use an existing Lambda execution role instead of creating a new one
-    Default: ''
   LayerVersionArns:
     Type: CommaDelimitedList
     Description: List of LayerVersion ARNs to attach to this function
@@ -37,11 +33,9 @@ Parameters:
 
 Conditions:
   AttachLayers: !Not [!Equals [!Join ['', !Ref LayerVersionArns], '']]
-  CreateExecutionRole: !Equals [!Ref ExecutionRoleArn, '']
 
 Resources:
   ExecutionRole:
-    Condition: CreateExecutionRole
     Type: AWS::IAM::Role
     Properties:
       Description: Lambda execution role for panther-compliance-api
@@ -57,8 +51,6 @@ Resources:
       Tags:
         - Key: Application
           Value: Panther
-        - Key: Component
-          Value: AnalysisInfra
       Policies:
         -
           PolicyName: WriteLogs
@@ -70,8 +62,7 @@ Resources:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
                   - logs:PutLogEvents
-                Resource:
-                  - !GetAtt LogGroup.Arn
+                Resource: !GetAtt LogGroup.Arn
         -
           PolicyName: DynamoManageItems
           PolicyDocument:
@@ -121,10 +112,9 @@ Resources:
       MemorySize: !Ref MemorySizeMB
       Runtime: go1.x
       Layers: !If [AttachLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
-      Role: !If [CreateExecutionRole, !GetAtt ExecutionRole.Arn, !Ref ExecutionRoleArn]
+      Role: !GetAtt ExecutionRole.Arn
       Tags:
         Application: Panther
-        Component: ComplianceAPI
       Timeout: !Ref TimeoutSec
 
   LogGroup:
@@ -172,8 +162,6 @@ Resources:
       Tags:
         - Key: Application
           Value: Panther
-        - Key: Component
-          Value: ComplianceAPI
       TimeToLiveSpecification:
         AttributeName: expiresAt
         Enabled: True

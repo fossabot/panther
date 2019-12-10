@@ -9,6 +9,8 @@ import (
 
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
+
+	"github.com/panther-labs/panther/pkg/shutil"
 )
 
 var buildEnv = map[string]string{"GOARCH": "amd64", "GOOS": "linux"}
@@ -52,15 +54,43 @@ func (b Build) Lambda() error {
 	}
 
 	for _, pkg := range packages {
-		targetDir := path.Join("out", "bin", pkg)
-		if !mg.Verbose() {
-			fmt.Println("build:lambda: go build " + targetDir)
-		}
-		if err := os.MkdirAll(targetDir, 0755); err != nil {
+		if err := buildPackage(pkg); err != nil {
 			return err
 		}
-		if err := sh.RunWith(buildEnv, "go", "build", "-ldflags", "-s -w", "-o", targetDir, "./"+pkg); err != nil {
-			return err
+	}
+
+	return nil
+}
+
+func buildPackage(pkg string) error {
+	targetDir := path.Join("out", "bin", pkg)
+	binary := path.Join(targetDir, "main")
+	oldInfo, statErr := os.Stat(binary)
+	oldHash, hashErr := shutil.SHA256(binary)
+
+	if !mg.Verbose() {
+		fmt.Println("build:lambda: go build " + targetDir)
+	}
+	if err := os.MkdirAll(targetDir, 0755); err != nil {
+		return err
+	}
+	if err := sh.RunWith(buildEnv, "go", "build", "-ldflags", "-s -w", "-o", targetDir, "./"+pkg); err != nil {
+		return err
+	}
+
+	if statErr == nil && hashErr == nil {
+		if hash, err := shutil.SHA256(binary); err == nil && hash == oldHash {
+			// Optimization - if the binary contents haven't changed, reset the last modified time.
+			// "aws cloudformation package" re-uploads any binary whose modification time has changed,
+			// even if the contents are identical. So this lets us skip any unmodified binaries, which can
+			// significantly reduce the total deployment time if only one or two functions changed.
+			//
+			// With 5 unmodified Lambda functions, deploy:backend went from 146s => 109s with this fix.
+			if mg.Verbose() {
+				fmt.Printf("build:lambda: %s unchanged, reverting timestamp\n", binary)
+			}
+			modTime := oldInfo.ModTime()
+			return os.Chtimes(binary, modTime, modTime)
 		}
 	}
 

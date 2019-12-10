@@ -13,10 +13,6 @@ Parameters:
     AllowedValues:
       - true
       - false
-  ExecutionRoleArn:
-    Type: String
-    Description: Use a single existing execution role for all Lambda functions
-    Default: ''
   LayerVersionArns:
     Type: CommaDelimitedList
     Description: List of LayerVersion ARNs to attach to every function
@@ -73,20 +69,17 @@ Resources:
       AliasName: alias/panther-sqs
       TargetKeyId: !Ref QueueEncryptionKey
 
-  ##### Nested Stacks #####
+  ##### Nested Stacks: Analysis Infra #####
   ComplianceAPI:
     Type: AWS::CloudFormation::Stack
     Properties:
       Parameters:
         CloudWatchLogRetentionDays: !Ref CloudWatchLogRetentionDays
         Debug: !Ref Debug
-        ExecutionRoleArn: !Ref ExecutionRoleArn
         LayerVersionArns: !Join [ ",", !Ref LayerVersionArns ]
       Tags:
         - Key: Application
           Value: Panther
-        - Key: Component
-          Value: AnalysisAPI
       TemplateURL: ../out/deployments/compliance/swagger.compliance_api.yml
 
   AnalysisAPI:
@@ -96,7 +89,6 @@ Resources:
         # Common settings
         CloudWatchLogRetentionDays: !Ref CloudWatchLogRetentionDays
         Debug: !Ref Debug
-        ExecutionRoleArn: !Ref ExecutionRoleArn
         LayerVersionArns: !Join [ ",", !Ref LayerVersionArns ]
         # Custom to this stack
         ComplianceApiId: !GetAtt ComplianceAPI.Outputs.GatewayId
@@ -106,8 +98,6 @@ Resources:
       Tags:
         - Key: Application
           Value: Panther
-        - Key: Component
-          Value: AnalysisAPI
       TemplateURL: ../out/deployments/shared/swagger.analysis_api.yml
 
   ResourcesAPI:
@@ -116,7 +106,6 @@ Resources:
       Parameters:
         CloudWatchLogRetentionDays: !Ref CloudWatchLogRetentionDays
         Debug: !Ref Debug
-        ExecutionRoleArn: !Ref ExecutionRoleArn
         LayerVersionArns: !Join [ ",", !Ref LayerVersionArns ]
         AnalysisApiId: !GetAtt AnalysisAPI.Outputs.GatewayId
         ComplianceApiId: !GetAtt ComplianceAPI.Outputs.GatewayId
@@ -124,9 +113,21 @@ Resources:
       Tags:
         - Key: Application
           Value: Panther
-        - Key: Component
-          Value: ResourcesAPI
       TemplateURL: ../out/deployments/compliance/swagger.resources_api.yml
+
+  AwsEventProcessor:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        CloudWatchLogRetentionDays: !Ref CloudWatchLogRetentionDays
+        Debug: !Ref Debug
+        LayerVersionArns: !Join [ ",", !Ref LayerVersionArns ]
+        ResourcesApiId: !GetAtt ResourcesAPI.Outputs.GatewayId
+        SQSKeyId: !Ref QueueEncryptionKey
+      Tags:
+        - Key: Application
+          Value: Panther
+      TemplateURL: compliance/aws_event_processor.yml
 
   LogProcessor:
     Type: AWS::CloudFormation::Stack

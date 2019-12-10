@@ -14,10 +14,6 @@ Parameters:
     AllowedValues:
       - true
       - false
-  ExecutionRoleArn:
-    Type: String
-    Description: Use an existing Lambda execution role instead of creating a new one
-    Default: ''
   LayerVersionArns:
     Type: CommaDelimitedList
     Description: List of base LayerVersion ARNs to attach to every Lambda function
@@ -68,7 +64,6 @@ Parameters:
 
 Conditions:
   AttachBaseLayers: !Not [!Equals [!Join ['', !Ref LayerVersionArns], '']]
-  CreateExecutionRole: !Equals [!Ref ExecutionRoleArn, '']
 
 Resources:
   ##### API Gateway #####
@@ -99,7 +94,6 @@ Resources:
 
   ##### API Lambda Handler #####
   HandlerExecutionRole:
-    Condition: CreateExecutionRole
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -122,8 +116,7 @@ Resources:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
                   - logs:PutLogEvents
-                Resource:
-                  - !GetAtt HandlerLogGroup.Arn
+                Resource: !GetAtt HandlerLogGroup.Arn
         -
           PolicyName: InvokeApis
           PolicyDocument:
@@ -204,11 +197,10 @@ Resources:
       Handler: main
       MemorySize: !Ref HandlerMemorySizeMB
       Layers: !If [AttachBaseLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
-      Role: !If [CreateExecutionRole, !GetAtt HandlerExecutionRole.Arn, !Ref ExecutionRoleArn]
+      Role: !GetAtt HandlerExecutionRole.Arn
       Runtime: go1.x
       Tags:
         Application: Panther
-        Component: AnalysisAPI
       Timeout: !Ref HandlerTimeoutSec
 
   HandlerLogGroup:
@@ -219,7 +211,6 @@ Resources:
 
   ##### Python Engine #####
   EngineExecutionRole:
-    Condition: CreateExecutionRole
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -278,11 +269,10 @@ Resources:
             - "${base},${pip}"
             - {base: !Join [",", !Ref LayerVersionArns], pip: !Ref PythonLayer}
         - [!Ref PythonLayer]
-      Role: !If [CreateExecutionRole, !GetAtt EngineExecutionRole.Arn, !Ref ExecutionRoleArn]
+      Role: !GetAtt EngineExecutionRole.Arn
       Runtime: python3.7
       Tags:
         Application: Panther
-        Component: AnalysisAPI
       Timeout: !Ref EngineTimeoutSec
 
   EngineLogGroup:
@@ -310,8 +300,6 @@ Resources:
       Tags:
         - Key: Application
           Value: Panther
-        - Key: Component
-          Value: AnalysisAPI
 
   Bucket:
     Type: AWS::S3::Bucket
@@ -336,8 +324,6 @@ Resources:
       Tags:
         - Key: Application
           Value: Panther
-        - Key: Component
-          Value: AnalysisAPI
       VersioningConfiguration:
         Status: Enabled
 

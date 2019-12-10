@@ -14,10 +14,6 @@ Parameters:
     AllowedValues:
       - true
       - false
-  ExecutionRoleArn:
-    Type: String
-    Description: Use an existing Lambda execution role instead of creating a new one
-    Default: ''
   LayerVersionArns:
     Type: CommaDelimitedList
     Description: List of base LayerVersion ARNs to attach to every Lambda function
@@ -60,7 +56,6 @@ Parameters:
 
 Conditions:
   AttachLayers: !Not [!Equals [!Join ['', !Ref LayerVersionArns], '']]
-  CreateExecutionRole: !Equals [!Ref ExecutionRoleArn, '']
 
 Resources:
   ##### API Gateway #####
@@ -91,7 +86,6 @@ Resources:
 
   ##### API Lambda Handler #####
   HandlerExecutionRole:
-    Condition: CreateExecutionRole
     Type: AWS::IAM::Role
     Properties:
       Description: Lambda execution role for panther-resources-api
@@ -118,8 +112,7 @@ Resources:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
                   - logs:PutLogEvents
-                Resource:
-                  - !GetAtt HandlerLogGroup.Arn
+                Resource: !GetAtt HandlerLogGroup.Arn
         -
           PolicyName: AccessComplianceApi
           PolicyDocument:
@@ -129,8 +122,8 @@ Resources:
                 Effect: Allow
                 Action: execute-api:Invoke
                 Resource:
-                  - !Sub arn:aws:execute-api:*:${AWS::AccountId}:${ComplianceApiId}/v1/GET/describe-org
-                  - !Sub arn:aws:execute-api:*:${AWS::AccountId}:${ComplianceApiId}/v1/POST/delete
+                  - !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ComplianceApiId}/v1/GET/describe-org
+                  - !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ComplianceApiId}/v1/POST/delete
         -
           PolicyName: DynamoManageItems
           PolicyDocument:
@@ -177,11 +170,10 @@ Resources:
       Handler: main
       Layers: !If [AttachLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
       MemorySize: !Ref HandlerMemorySizeMB
-      Role: !If [CreateExecutionRole, !GetAtt HandlerExecutionRole.Arn, !Ref ExecutionRoleArn]
+      Role: !GetAtt HandlerExecutionRole.Arn
       Runtime: go1.x
       Tags:
         Application: Panther
-        Component: ResourcesAPI
       Timeout: !Ref HandlerTimeoutSec
 
   HandlerLogGroup:
@@ -208,8 +200,6 @@ Resources:
       Tags:
         - Key: Application
           Value: Panther
-        - Key: Component
-          Value: ResourcesAPI
       TimeToLiveSpecification:  # Deleted resources are expired after 30 days
         AttributeName: expiresAt
         Enabled: true
@@ -227,8 +217,6 @@ Resources:
       Tags:
         - Key: Application
           Value: Panther
-        - Key: Component
-          Value: ResourceProcessor
       VisibilityTimeout: !Ref QueueProcessorTimeoutSec
 
   DeadLetterQueue:
@@ -239,13 +227,10 @@ Resources:
       Tags:
         - Key: Application
           Value: Panther
-        - Key: Component
-          Value: ResourceProcessor
       VisibilityTimeout: 60
 
   ##### Resource Processor #####
   QueueProcessorExecutionRole:
-    Condition: CreateExecutionRole
     Type: AWS::IAM::Role
     Properties:
       Description: Lambda execution role for panther-resource-processor
@@ -261,8 +246,6 @@ Resources:
       Tags:
         - Key: Application
           Value: Panther
-        - Key: Component
-          Value: ResourceProcessor
       Policies:
         -
           PolicyName: WriteLogs
@@ -274,8 +257,7 @@ Resources:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
                   - logs:PutLogEvents
-                Resource:
-                  - !GetAtt QueueProcessorLogGroup.Arn
+                Resource: !GetAtt QueueProcessorLogGroup.Arn
         -
           PolicyName: SendAndReceiveSqsMessages
           PolicyDocument:
@@ -356,11 +338,10 @@ Resources:
       Handler: main
       Layers: !If [AttachLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
       MemorySize: !Ref QueueProcessorMemorySizeMB
-      Role: !If [CreateExecutionRole, !GetAtt QueueProcessorExecutionRole.Arn, !Ref ExecutionRoleArn]
+      Role: !GetAtt QueueProcessorExecutionRole.Arn
       Runtime: go1.x
       Tags:
         Application: Panther
-        Component: ResourceProcessor
       Timeout: !Ref QueueProcessorTimeoutSec
 
 Outputs:
