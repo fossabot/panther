@@ -4,7 +4,7 @@ go 1.13
 
 require (
 	github.com/aws/aws-lambda-go v1.13.3
-	github.com/aws/aws-sdk-go v1.25.48
+	github.com/aws/aws-sdk-go v1.25.49
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/go-openapi/analysis v0.19.6 // indirect
 	github.com/go-openapi/errors v0.19.2
@@ -15,6 +15,8 @@ require (
 	github.com/go-openapi/validate v0.19.5
 	github.com/go-playground/universal-translator v0.17.0 // indirect
 	github.com/go-yaml/yaml v2.1.0+incompatible
+	github.com/google/go-cmp v0.3.0
+	github.com/hashicorp/golang-lru v0.5.3
 	github.com/json-iterator/go v1.1.8
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/leodido/go-urn v1.2.0 // indirect
@@ -27,8 +29,8 @@ require (
 	go.uber.org/multierr v1.4.0 // indirect
 	go.uber.org/zap v1.13.0
 	golang.org/x/lint v0.0.0-20191125180803-fdd1cda4f05f // indirect
-	golang.org/x/net v0.0.0-20191204025024-5ee1b9f4859a // indirect
-	golang.org/x/tools v0.0.0-20191205205310-69111344d4a5 // indirect
+	golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553 // indirect
+	golang.org/x/tools v0.0.0-20191209225234-22774f7dae43 // indirect
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 	gopkg.in/go-playground/validator.v9 v9.30.2
 	gopkg.in/yaml.v2 v2.2.7

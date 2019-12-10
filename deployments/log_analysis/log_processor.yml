@@ -1,0 +1,374 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+Description: Loading logs, classifying, normalizing and sending downstream
+
+Parameters:
+  CloudWatchLogRetentionDays:
+    Type: Number
+    Default: 365
+    Description: The number of days to retain CloudWatch Logs.
+  Debug:
+    Type: String
+    Default: false
+    Description: Toggle debug logging
+    AllowedValues:
+      - true
+      - false
+  MemorySizeMB:
+    Type: Number
+    Description: Memory (MB) available for the Lambda function
+    Default: 512
+    MinValue: 128
+    MaxValue: 3008
+  TimeoutSec:
+    Type: Number
+    Description: Timeout (seconds) for the Lambda function
+    Default: 180
+    MinValue: 5
+    MaxValue: 900
+  LayerVersionArns:
+    Type: CommaDelimitedList
+    Description: List of LayerVersion ARNs to attach to this function
+    Default: ''
+  S3BucketAccessLogs:
+    Type: String
+    Description: S3 bucket for storing S3 access logs
+  SQSKeyId:
+    Type: String
+    Description: KMS key ID for SQS encryption
+
+
+Conditions:
+  AttachLayers: !Not [!Equals [!Join ['', !Ref LayerVersionArns], '']]
+
+Resources:
+  FunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/panther-log-processor
+      RetentionInDays: !Ref CloudWatchLogRetentionDays
+
+  # SQS Queue, DLQ and Lambda
+  Queue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: panther-data-event-notifications
+      KmsMasterKeyId: !Ref SQSKeyId
+      VisibilityTimeout: !Ref TimeoutSec
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt [DeadLetterQueue, Arn]
+        maxReceiveCount: 10
+      Tags:
+        - Key: Application
+          Value: Panther
+
+  DeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: panther-data-event-notifications-dlq
+      MessageRetentionPeriod: 1209600 # Max duration - 14 days
+      VisibilityTimeout: !Ref TimeoutSec
+      Tags:
+        - Key: Application
+          Value: Panther
+
+  Function:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: panther-log-processor
+      CodeUri: ../../out/bin/internal/log_analysis/log_processor/main
+      Handler: main
+      Layers: !If [AttachLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
+      MemorySize: !Ref MemorySizeMB
+      Runtime: go1.x
+      Timeout: !Ref TimeoutSec
+      Environment:
+        Variables:
+          DEBUG: !Ref Debug
+      Tags:
+        Application: Panther
+      Events:
+        Queue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt Queue.Arn
+            BatchSize: 10
+      Policies:
+        - Id: PutCloudWatchLogs
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: !GetAtt FunctionLogGroup.Arn
+        - Id: ReceiveFromInputSqsQueue
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - sqs:DeleteMessage
+                - sqs:GetQueueAttributes
+                - sqs:ReceiveMessage
+              Resource: !GetAtt Queue.Arn
+            - Effect: Allow
+              Action:
+                - kms:Decrypt
+              Resource: !Sub arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/${SQSKeyId}
+        - Id: ReadFromS3
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:GetBucketLocation
+              Resource: '*'
+
+  ### Data Infrastructure ###
+  Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub panther-classified-data-${AWS::AccountId}-${AWS::Region}
+      LoggingConfiguration:
+        DestinationBucketName: !Ref S3BucketAccessLogs
+        LogFilePrefix: !Sub panther-classified-data-${AWS::AccountId}-${AWS::Region}/
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      AccessControl: Private
+      VersioningConfiguration:
+        Status: Enabled
+
+  GlueDatabase:
+    Type: AWS::Glue::Database
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseInput:
+        Description: Panther Classified Data
+        Name: panther
+
+  AwsCloudTrailGlueTable:
+    Type: AWS::Glue::Table
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseName: !Ref GlueDatabase
+      TableInput:
+        Name: aws_cloudtrail
+        StorageDescriptor:
+          InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat
+          OutputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat
+          Compressed: false
+          Location: !Sub s3://${Bucket}/
+          BucketColumns: []
+          SortColumns: []
+          StoredAsSubDirectories: false
+          SerdeInfo:
+            SerializationLibrary: org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe
+            Parameters:
+              serialization.format: '1'
+          Columns:
+            - Name: additionaleventdata
+              Type: map<string,string>
+            - Name: apiversion
+              Type: string
+            - Name: awsregion
+              Type: string
+            - Name: errorcode
+              Type: string
+            - Name: errormessage
+              Type: string
+            - Name: eventid
+              Type: string
+            - Name: eventname
+              Type: string
+            - Name: eventsource
+              Type: string
+            - Name: eventtime
+              Type: timestamp
+            - Name: eventtype
+              Type: string
+            - Name: eventversion
+              Type: string
+            - Name: managementevent
+              Type: boolean
+            - Name: readonly
+              Type: boolean
+            - Name: recipientaccountid
+              Type: string
+            - Name: requestid
+              Type: string
+            - Name: requestparameters
+              Type: map<string,string>
+            - Name: resources
+              Type: array<struct<arn:string,accountid:string,type:string>>
+            - Name: responseelements
+              Type: map<string,string>
+            - Name: serviceeventdetails
+              Type: map<string,string>
+            - Name: sharedeventid
+              Type: string
+            - Name: sourceipaddress
+              Type: string
+            - Name: useragent
+              Type: string
+            - Name: useridentity
+              Type: struct<type:string,principalid:string,arn:string,accountid:string,accesskeyid:string,username:string,sessioncontext:string,invokedby:string,identityprovider:string>
+            - Name: vpcendpointid
+              Type: string
+        PartitionKeys:
+          - Name: year
+            Type: int
+          - Name: month
+            Type: int
+          - Name: day
+            Type: int
+          - Name: hour
+            Type: int
+        TableType: EXTERNAL_TABLE
+
+  AwsVpcFlowGlueTable:
+    Type: AWS::Glue::Table
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseName: !Ref GlueDatabase
+      TableInput:
+        Name: aws_vpcflow
+        StorageDescriptor:
+          InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat
+          OutputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat
+          Compressed: false
+          Location: !Sub s3://${Bucket}/
+          BucketColumns: []
+          SortColumns: []
+          StoredAsSubDirectories: false
+          SerdeInfo:
+            SerializationLibrary: org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe
+            Parameters:
+              serialization.format: '1'
+          Columns:
+            - Name: version
+              Type: int
+            - Name: account
+              Type: string
+            - Name: interfaceid
+              Type: string
+            - Name: sourceaddr
+              Type: string
+            - Name: dstaddr
+              Type: string
+            - Name: srcport
+              Type: smallint
+            - Name: destport
+              Type: smallint
+            - Name: protocol
+              Type: tinyint
+            - Name: packets
+              Type: int
+            - Name: bytes
+              Type: bigint
+            - Name: start
+              Type: timestamp
+            - Name: end
+              Type: timestamp
+            - Name: action
+              Type: string
+            - Name: status
+              Type: string
+        PartitionKeys:
+          - Name: year
+            Type: int
+          - Name: month
+            Type: int
+          - Name: day
+            Type: int
+          - Name: hour
+            Type: int
+        TableType: EXTERNAL_TABLE
+
+  AwsS3ServerAccessGlueTable:
+    Type: AWS::Glue::Table
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseName: !Ref GlueDatabase
+      TableInput:
+        Name: aws_s3serveraccess
+        StorageDescriptor:
+          InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat
+          OutputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat
+          Compressed: false
+          Location: !Sub s3://${Bucket}/
+          BucketColumns: []
+          SortColumns: []
+          StoredAsSubDirectories: false
+          SerdeInfo:
+            SerializationLibrary: org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe
+            Parameters:
+              serialization.format: '1'
+          Columns:
+            - Name: bucketowner
+              Type: string
+            - Name: bucket
+              Type: string
+            - Name: time
+              Type: timestamp
+            - Name: remoteip
+              Type: string
+            - Name: requester
+              Type: string
+            - Name: requestid
+              Type: string
+            - Name: operation
+              Type: string
+            - Name: key
+              Type: string
+            - Name: requesturi
+              Type: string
+            - Name: httpstatus
+              Type: tinyint
+            - Name: errorcode
+              Type: string
+            - Name: bytessent
+              Type: bigint
+            - Name: objectsize
+              Type: bigint
+            - Name: totaltime
+              Type: int
+            - Name: turnaroundtime
+              Type: int
+            - Name: referrer
+              Type: string
+            - Name: useragent
+              Type: string
+            - Name: versionid
+              Type: string
+            - Name: hostid
+              Type: string
+            - Name: signatureversion
+              Type: string
+            - Name: ciphersuite
+              Type: string
+            - Name: authenticationtype
+              Type: string
+            - Name: hostheader
+              Type: string
+            - Name: tlsversion
+              Type: string
+            - Name: tlsversion
+              Type: array<string>
+        PartitionKeys:
+          - Name: year
+            Type: int
+          - Name: month
+            Type: int
+          - Name: day
+            Type: int
+          - Name: hour
+            Type: int
+        TableType: EXTERNAL_TABLE

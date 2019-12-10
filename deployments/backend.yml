@@ -128,6 +128,20 @@ Resources:
           Value: ResourcesAPI
       TemplateURL: ../out/deployments/compliance/swagger.resources_api.yml
 
+  LogProcessor:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        CloudWatchLogRetentionDays: !Ref CloudWatchLogRetentionDays
+        Debug: !Ref Debug
+        LayerVersionArns: !Join [ ",", !Ref LayerVersionArns ]
+        S3BucketAccessLogs: !ImportValue Panther-LogBucket
+        SQSKeyId: !Ref QueueEncryptionKey
+      Tags:
+        - Key: Application
+          Value: Panther
+      TemplateURL: log_analysis/log_processor.yml
+
 Outputs:
   AnalysisApiEndpoint:
     Description: panther-analysis-api Gateway HTTPS endpoint

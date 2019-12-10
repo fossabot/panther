@@ -4,5 +4,5 @@
 *             @panther-labs/eng
 
 # Specialized code owners:
-internal/     @austinbyers @jacknagz @kostaspap @nhakmiller
+internal/     @austinbyers @jacknagz @kostaspap @nhakmiller @rleighton
 web/          @drixta @3nvi
