@@ -21,7 +21,6 @@ const maxBackoffSeconds = 30
 
 // Handle is the entry point for the event stream analysis.
 //
-// WARNING: This data comes from customer accounts and is therefore untrusted.
 // Do not make any assumptions about the correctness of the incoming data.
 func Handle(batch *events.SQSEvent) error {
 	// De-duplicate all updates and deletes before delivering them.
@@ -55,8 +54,14 @@ func Handle(batch *events.SQSEvent) error {
 				return err
 			}
 
-		default: // raw CloudTrail record
+		case "": // raw data
 			handleCloudtrail(record.Body, changes)
+		default: // Unexpected type
+			zap.L().Warn("unexpected record type",
+				zap.String("type", gjson.Get(record.Body, "Type").Str),
+				zap.String("body", record.Body),
+			)
+			continue
 		}
 	}
 
@@ -64,14 +69,9 @@ func Handle(batch *events.SQSEvent) error {
 }
 
 func handleCloudtrail(body string, changes map[string]*resourceChange) {
-	if gjson.Get(body, "detail-type").Str != "AWS API Call via CloudTrail" {
-		zap.L().Warn("dropping unknown notification type", zap.String("body", body))
-		return
-	}
-
-	// this event requires a change to some number of resources
+	// this event potentially requires a change to some number of resources
 	// TODO - store the raw event somewhere
-	for _, summary := range classifyCloudWatchEvent(body) {
+	for _, summary := range classifyCloudTrailLog(body) {
 		zap.L().Info("resource change required", zap.Any("changeDetail", summary))
 		// TODO - Update this to not overwrite scan requests of different types
 		// More details here: https://panther-labs.atlassian.net/browse/ENG-1113

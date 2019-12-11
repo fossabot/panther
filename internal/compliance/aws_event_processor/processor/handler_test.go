@@ -100,7 +100,8 @@ const (
 		"requestID": "84135C596F3D9C7F",
 		"eventID": "43258a7e-eef1-44ef-9aff-1e5b4cfd825d",
 		"eventType": "AwsApiCall",
-		"vpcEndpointId": "vpce-a0d039c9"
+		"vpcEndpointId": "vpce-a0d039c9",
+		"recipientAccountId": "111111111111"
 	}
 }
 `

@@ -16,7 +16,7 @@ import (
 func TestClassifyCloudWatchEventBadSource(t *testing.T) {
 	logs := mockLogger()
 	accounts = exampleAccounts
-	require.Nil(t, classifyCloudWatchEvent(`{"source": "aws.nuka"}`))
+	require.Nil(t, classifyCloudTrailLog(`{"eventSource": "aws.nuka", "eventType": "AwsApiCall"}`))
 
 	expected := []observer.LoggedEntry{
 		{
@@ -31,13 +31,15 @@ func TestClassifyCloudWatchEventBadSource(t *testing.T) {
 func TestClassifyCloudWatchEventErrorCode(t *testing.T) {
 	logs := mockLogger()
 	accounts = exampleAccounts
-	require.Nil(t, classifyCloudWatchEvent(`{"source": "aws.s3", "detail": {"errorCode": "AccessDeniedException"}}`))
+	require.Nil(t, classifyCloudTrailLog(
+		`{"detail": {"errorCode": "AccessDeniedException", "eventSource": "s3.amazonaws.com"}, "detail-type": "AWS API Call via CloudTrail"}`),
+	)
 
 	expected := []observer.LoggedEntry{
 		{
 			Entry: zapcore.Entry{Level: zapcore.DebugLevel, Message: "dropping failed event"},
 			Context: []zapcore.Field{
-				zap.String("eventSource", "aws.s3"),
+				zap.String("eventSource", "s3.amazonaws.com"),
 				zap.String("errorCode", "AccessDeniedException"),
 			},
 		},
@@ -49,11 +51,13 @@ func TestClassifyCloudWatchEventErrorCode(t *testing.T) {
 func TestClassifyCloudWatchEventReadOnly(t *testing.T) {
 	logs := mockLogger()
 	accounts = exampleAccounts
-	require.Nil(t, classifyCloudWatchEvent(`{"source": "aws.s3", "detail": {"eventName": "ListBuckets"}`))
+	require.Nil(t, classifyCloudTrailLog(
+		`{"detail": {"eventName": "ListBuckets", "eventSource": "s3.amazonaws.com"}, "detail-type": "AWS API Call via CloudTrail"}`),
+	)
 
 	expected := []observer.LoggedEntry{
 		{
-			Entry:   zapcore.Entry{Level: zapcore.DebugLevel, Message: "aws.s3: ignoring read-only event"},
+			Entry:   zapcore.Entry{Level: zapcore.DebugLevel, Message: "s3.amazonaws.com: ignoring read-only event"},
 			Context: []zapcore.Field{zap.String("eventName", "ListBuckets")},
 		},
 	}
@@ -64,8 +68,14 @@ func TestClassifyCloudWatchEventReadOnly(t *testing.T) {
 func TestClassifyCloudWatchEventClassifyError(t *testing.T) {
 	logs := mockLogger()
 	accounts = exampleAccounts
-	body := `{"source": "aws.s3", "account": "111111111111", "detail": {"eventName": "DeleteBucket"}}`
-	require.Nil(t, classifyCloudWatchEvent(body))
+	body :=
+		`{	"detail": {
+				"eventName": "DeleteBucket",
+				"recipientAccountId": "111111111111",
+				"eventSource":"s3.amazonaws.com"
+			}, 
+			"detail-type": "AWS API Call via CloudTrail"}`
+	require.Nil(t, classifyCloudTrailLog(body))
 
 	expected := []observer.LoggedEntry{
 		{
@@ -82,8 +92,8 @@ func TestClassifyCloudWatchEventClassifyError(t *testing.T) {
 func TestClassifyCloudWatchEventUnauthorized(t *testing.T) {
 	logs := mockLogger()
 	accounts = exampleAccounts
-	body := `{"source": "aws.s3", "detail": {"requestParameters": {"bucketName": "panther"}}}`
-	changes := classifyCloudWatchEvent(body)
+	body := `{"eventType" : "AwsApiCall", "eventSource": "s3.amazonaws.com", "requestParameters": {"bucketName": "panther"}}`
+	changes := classifyCloudTrailLog(body)
 	assert.Len(t, changes, 0)
 
 	expected := []observer.LoggedEntry{
@@ -91,7 +101,7 @@ func TestClassifyCloudWatchEventUnauthorized(t *testing.T) {
 			Entry: zapcore.Entry{Level: zapcore.WarnLevel, Message: "dropping event from unauthorized account"},
 			Context: []zapcore.Field{
 				zap.String("accountId", ""),
-				zap.String("eventSource", "aws.s3"),
+				zap.String("eventSource", "s3.amazonaws.com"),
 			},
 		},
 	}
@@ -103,9 +113,10 @@ func TestClassifyCloudWatchEvent(t *testing.T) {
 	accounts = exampleAccounts
 	body := `
 {
-    "source": "aws.s3",
-	"account": "111111111111"
+	"detail-type": "AWS API Call via CloudTrail"
     "detail": {
+		"recipientAccountId": "111111111111",
+    	"eventSource": "s3.amazonaws.com",
         "awsRegion": "us-west-2",
         "eventName": "DeleteBucket",
         "eventTime": "2019-08-01T04:43:00Z",
@@ -113,7 +124,7 @@ func TestClassifyCloudWatchEvent(t *testing.T) {
 		"userIdentity": {"accountId": "111111111111"}
     }
 }`
-	result := classifyCloudWatchEvent(body)
+	result := classifyCloudTrailLog(body)
 	expected := []*resourceChange{{
 		AwsAccountID:  "111111111111",
 		Delete:        true,

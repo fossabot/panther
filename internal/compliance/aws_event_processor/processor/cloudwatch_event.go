@@ -25,36 +25,55 @@ type resourceChange struct {
 // The "classifier" takes a cloudtrail log and summarizes the required change.
 // integrationID does not need to be set by the individual classifiers.
 var classifiers = map[string]func(gjson.Result, string) []*resourceChange{
-	"aws.acm":                  classifyACM,
-	"aws.cloudformation":       classifyCloudFormation,
-	"aws.cloudtrail":           classifyCloudTrail,
-	"aws.config":               classifyConfig,
-	"aws.dynamodb":             classifyDynamoDB,
-	"aws.ec2":                  classifyEC2,
-	"aws.elasticloadbalancing": classifyELBV2,
-	"aws.guardduty":            classifyGuardDuty,
-	"aws.iam":                  classifyIAM,
-	"aws.kms":                  classifyKMS,
-	"aws.lambda":               classifyLambda,
-	"aws.logs":                 classifyCloudWatchLogGroup,
-	"aws.rds":                  classifyRDS,
-	"aws.redshift":             classifyRedshift,
-	"aws.s3":                   classifyS3,
-	"aws.waf":                  classifyWAF,
-	"aws.waf-regional":         classifyWAFRegional,
+	"acm.amazonaws.com":                  classifyACM,
+	"cloudformation.amazonaws.com":       classifyCloudFormation,
+	"cloudtrail.amazonaws.com":           classifyCloudTrail,
+	"config.amazonaws.com":               classifyConfig,
+	"dynamodb.amazonaws.com":             classifyDynamoDB,
+	"ec2.amazonaws.com":                  classifyEC2,
+	"elasticloadbalancing.amazonaws.com": classifyELBV2,
+	"guardduty.amazonaws.com":            classifyGuardDuty,
+	"iam.amazonaws.com":                  classifyIAM,
+	"kms.amazonaws.com":                  classifyKMS,
+	"lambda.amazonaws.com":               classifyLambda,
+	"logs.amazonaws.com":                 classifyCloudWatchLogGroup,
+	"rds.amazonaws.com":                  classifyRDS,
+	"redshift.amazonaws.com":             classifyRedshift,
+	"s3.amazonaws.com":                   classifyS3,
+	"waf.amazonaws.com":                  classifyWAF,
+	"waf-regional.amazonaws.com":         classifyWAFRegional,
 }
 
 // Classify the event as an update or delete operation, or drop it altogether.
-func classifyCloudWatchEvent(body string) []*resourceChange {
-	source := gjson.Get(body, "source").Str
+func classifyCloudTrailLog(body string) []*resourceChange {
+	var detail gjson.Result
+	switch {
+	case gjson.Get(body, "detail-type").Str == "AWS API Call via CloudTrail":
+		// Extract the CloudTrail log from the CloudWatch Event
+		detail = gjson.Get(body, "detail")
+	case gjson.Get(body, "eventType").Str == "AwsApiCall":
+		// Parse a CloudTrail log directly
+		detail = gjson.Parse(body)
+	default:
+		zap.L().Warn("dropping unknown notification type", zap.String("body", body))
+		return nil
+	}
+
+	if !detail.Exists() {
+		// Only possible if someone manually sends bad data to the log bucket
+		zap.L().Warn("unable to parse CloudTrail log", zap.String("body", body))
+		return nil
+	}
+
+	// Determine the AWS service the modified resource belongs to
+	source := detail.Get("eventSource").Str
 	classifier, ok := classifiers[source]
 	if !ok {
 		zap.L().Debug("dropping event from unsupported source", zap.String("eventSource", source))
 		return nil
 	}
 
-	// NOTE: we ignore the "detail.readOnly" field because it is not consistent
-	detail := gjson.Get(body, "detail")
+	// Drop failed events, as they do not result in a resource change
 	if errorCode := detail.Get("errorCode").Str; errorCode != "" {
 		zap.L().Debug("dropping failed event",
 			zap.String("eventSource", source),
@@ -62,7 +81,9 @@ func classifyCloudWatchEvent(body string) []*resourceChange {
 		return nil
 	}
 
-	// Ignore the most common read only resources
+	// Ignore the most common read only events
+	//
+	// NOTE: we ignore the "detail.readOnly" field because it is inaccurate
 	eventName := detail.Get("eventName").Str
 	if strings.HasPrefix(eventName, "Get") ||
 		strings.HasPrefix(eventName, "BatchGet") ||
@@ -74,7 +95,7 @@ func classifyCloudWatchEvent(body string) []*resourceChange {
 	}
 
 	// Check if this log is from a supported account
-	accountID := gjson.Get(body, "account").Str
+	accountID := detail.Get("recipientAccountId").Str
 	integration, ok := accounts[accountID]
 	if !ok {
 		zap.L().Warn("dropping event from unauthorized account",
