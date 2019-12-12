@@ -15,6 +15,8 @@ import (
 // Test contains targets for testing code syntax, style, and correctness.
 type Test mg.Namespace
 
+var build = Build{}
+
 // JoinErrors formats multiple errors into a single error.
 func JoinErrors(command string, errList []error) error {
 	if len(errList) == 0 {
@@ -30,6 +32,7 @@ func JoinErrors(command string, errList []error) error {
 
 // Lint Check code style
 func (t Test) Lint() error {
+	mg.Deps(build.API)
 	var errs []error
 
 	// go metalinting
@@ -102,6 +105,7 @@ func (t Test) Lint() error {
 
 // Unit Run unit tests
 func (Test) Unit() error {
+	mg.Deps(build.API)
 	args := []string{"test", "-cover", "./..."}
 	if mg.Verbose() {
 		args = append(args, "-v")
@@ -126,6 +130,7 @@ func (Test) Unit() error {
 
 // Cover Run Go unit tests and view test coverage in HTML
 func (t Test) Cover() error {
+	mg.Deps(build.API)
 	if err := os.MkdirAll("out/", 0755); err != nil {
 		return err
 	}
@@ -139,7 +144,7 @@ func (t Test) Cover() error {
 
 // CI Run all required checks
 func (t Test) CI() error {
-	if err := Build.Lambda(Build{}); err != nil {
+	if err := build.Lambda(); err != nil {
 		return err
 	}
 	if err := t.Unit(); err != nil {
@@ -150,6 +155,7 @@ func (t Test) CI() error {
 
 // Integration Run TestIntegration* for PKG (default: ./...)
 func (t Test) Integration() error {
+	mg.Deps(build.API)
 	if err := sh.Run("go", "clean", "-testcache"); err != nil {
 		return err
 	}

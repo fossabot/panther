@@ -20,7 +20,7 @@ Panther provides two main features: [cloud security](https://runpanther.io/compl
 [threat detection](https://runpanther.io/log-analysis), and provides flexibility to select only the features you need.
 
 ## Setup
-Install Go1.13+, [Mage](https://magefile.org/#installation), Node, and Python3:
+Install Go1.13+, Node, Python3, [Mage](https://magefile.org/#installation), and the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv1.html)
 
 ```
 brew install go node python3  # MacOS
@@ -31,22 +31,35 @@ go run bootstrap.go
 ```
 
 Then run `mage setup` to install the prerequisite development libraries.
-(`mage build` and `mage test` will automatically install Go packages as they are needed.)
 
 ## Development and Deployment
 Run `mage` to see the list of available commands (`-v` for verbose mode).
 Steps in a typical developer workflow might be:
 
 ```bash
+# Develop and Test
 mage build:api  # generate Go SDKs for Panther APIs
 mage fmt        # format all code
 mage test:ci    # run all required checks
 
-# Deploy and run integration tests
-mage deploy:pre  # deploy prerequisite S3 buckets
+# Deploy
+mage deploy:pre  # deploy prerequisite S3 buckets (only need to do once)
+mage deploy:backend
+
+# Optional: Deploy with parameters
 AWS_REGION=us-west-2 PARAMS="Debug=true" mage deploy:backend
-PKG=./internal/compliance/compliance-api/main mage test:integration
+
+# Integration tests
+mage test:integration  # Run all integration tests
+PKG=./internal/compliance/compliance-api/main mage test:integration  # Run tests for only one package
 ```
+
+You can also easily chain `mage` commands together. For example:
+
+```bash
+mage fmt test:ci deploy:backend test:integration
+```
+
 
 ## Repo Structure
 Since the majority of Panther is written in Go, we follow the [standard Go project layout](https://github.com/golang-standards/project-layout):

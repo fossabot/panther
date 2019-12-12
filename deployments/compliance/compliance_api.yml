@@ -9,11 +9,19 @@ Parameters:
     Default: 365
   Debug:
     Type: String
-    Default: false
     Description: Toggle debug logging
-    AllowedValues:
-      - true
-      - false
+    Default: false
+    AllowedValues: [true, false]
+  LayerVersionArns:
+    Type: CommaDelimitedList
+    Description: List of base LayerVersion ARNs to attach to every Lambda function
+    Default: ''
+  TracingMode:
+    Type: String
+    Description: Enable XRay tracing on Lambda and API Gateway
+    AllowedValues: ['', Active, PassThrough]
+    Default: ''
+
   MemorySizeMB:
     Type: Number
     Description: Memory (MB) available for the Lambda function
@@ -26,66 +34,12 @@ Parameters:
     Default: 180
     MinValue: 5
     MaxValue: 900
-  LayerVersionArns:
-    Type: CommaDelimitedList
-    Description: List of LayerVersion ARNs to attach to this function
-    Default: ''
 
 Conditions:
   AttachLayers: !Not [!Equals [!Join ['', !Ref LayerVersionArns], '']]
+  TracingEnabled: !Not [!Equals ['', !Ref TracingMode]]
 
 Resources:
-  ExecutionRole:
-    Type: AWS::IAM::Role
-    Properties:
-      Description: Lambda execution role for panther-compliance-api
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
-      Tags:
-        - Key: Application
-          Value: Panther
-      Policies:
-        -
-          PolicyName: WriteLogs
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Effect: Allow
-                Action:
-                  - logs:CreateLogGroup
-                  - logs:CreateLogStream
-                  - logs:PutLogEvents
-                Resource: !GetAtt LogGroup.Arn
-        -
-          PolicyName: DynamoManageItems
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              -
-                Effect: Allow
-                Action:
-                  - dynamodb:Query
-                  - dynamodb:*Item
-                  - dynamodb:Scan
-                Resource:
-                  - !GetAtt ComplianceTable.Arn
-                  - !Sub
-                    - '${arn}/index/*'
-                    - { arn: !GetAtt ComplianceTable.Arn }
-
-  GatewayApiLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: /aws/apigateway/panther-compliance-api
-      RetentionInDays: !Ref CloudWatchLogRetentionDays
-
   GatewayApi:
     Type: AWS::Serverless::Api
     Properties:
@@ -93,9 +47,7 @@ Resources:
       EndpointConfiguration: REGIONAL
       Name: panther-compliance-api
       StageName: v1  # NOTE: sam also builds a stage called "Stage"
-      TracingEnabled: true
-      AccessLogSetting:
-        DestinationArn: !GetAtt GatewayApiLogGroup.Arn
+      TracingEnabled: !If [TracingEnabled, true, false]
 
   Function:
     Type: AWS::Serverless::Function
@@ -112,10 +64,25 @@ Resources:
       MemorySize: !Ref MemorySizeMB
       Runtime: go1.x
       Layers: !If [AttachLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
-      Role: !GetAtt ExecutionRole.Arn
       Tags:
         Application: Panther
       Timeout: !Ref TimeoutSec
+      Tracing: !If [TracingEnabled, !Ref TracingMode, !Ref 'AWS::NoValue']
+      Policies:
+        - !If [TracingEnabled, 'arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess', !Ref 'AWS::NoValue']
+        - Id: DynamoManageItems
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:Query
+                - dynamodb:*Item
+                - dynamodb:Scan
+              Resource:
+                - !GetAtt ComplianceTable.Arn
+                - !Sub
+                  - '${arn}/index/*'
+                  - { arn: !GetAtt ComplianceTable.Arn }
 
   LogGroup:
     Type: AWS::Logs::LogGroup

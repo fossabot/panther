@@ -5,15 +5,23 @@ Description: Loading logs, classifying, normalizing and sending downstream
 Parameters:
   CloudWatchLogRetentionDays:
     Type: Number
+    Description: CloudWatch log retention period
     Default: 365
-    Description: The number of days to retain CloudWatch Logs.
   Debug:
     Type: String
-    Default: false
     Description: Toggle debug logging
-    AllowedValues:
-      - true
-      - false
+    Default: false
+    AllowedValues: [true, false]
+  LayerVersionArns:
+    Type: CommaDelimitedList
+    Description: List of base LayerVersion ARNs to attach to every Lambda function
+    Default: ''
+  TracingMode:
+    Type: String
+    Description: Enable XRay tracing on Lambda and API Gateway
+    AllowedValues: ['', Active, PassThrough]
+    Default: ''
+
   MemorySizeMB:
     Type: Number
     Description: Memory (MB) available for the Lambda function
@@ -26,10 +34,7 @@ Parameters:
     Default: 180
     MinValue: 5
     MaxValue: 900
-  LayerVersionArns:
-    Type: CommaDelimitedList
-    Description: List of LayerVersion ARNs to attach to this function
-    Default: ''
+
   S3BucketAccessLogs:
     Type: String
     Description: S3 bucket for storing S3 access logs
@@ -40,6 +45,7 @@ Parameters:
 
 Conditions:
   AttachLayers: !Not [!Equals [!Join ['', !Ref LayerVersionArns], '']]
+  TracingEnabled: !Not [!Equals ['', !Ref TracingMode]]
 
 Resources:
   FunctionLogGroup:
@@ -76,6 +82,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: panther-log-processor
+      Description: Downloads security logs from S3 for Panther analysis
       CodeUri: ../../out/bin/internal/log_analysis/log_processor/main
       Handler: main
       Layers: !If [AttachLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
@@ -93,6 +100,7 @@ Resources:
           Properties:
             Queue: !GetAtt Queue.Arn
             BatchSize: 10
+      Tracing: !If [TracingEnabled, !Ref TracingMode, !Ref 'AWS::NoValue']
       Policies:
         - Id: PutCloudWatchLogs
           Version: 2012-10-17

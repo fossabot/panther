@@ -13,7 +13,7 @@ import (
 
 	"github.com/panther-labs/panther/api/resources/client/operations"
 	api "github.com/panther-labs/panther/api/resources/models"
-	"github.com/panther-labs/panther/api/snapshot/poller"
+	"github.com/panther-labs/panther/internal/compliance/snapshot_poller/models/poller"
 	"github.com/panther-labs/panther/pkg/awsbatch/sqsbatch"
 )
 

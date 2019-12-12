@@ -7,7 +7,7 @@ import (
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 
-	"github.com/panther-labs/panther/api/snapshot/aws"
+	"github.com/panther-labs/panther/internal/compliance/snapshot_poller/models/aws"
 )
 
 func classifyEC2(detail gjson.Result, accountID string) []*resourceChange {

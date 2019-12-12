@@ -19,7 +19,6 @@ linters:
     - dogsled
     - dupl
     - funlen
-    - gocritic
     - gocyclo
     - gofmt
     - goimports
@@ -39,6 +38,7 @@ linters:
   # - gochecknoinits
   # - gochecknoglobals
   # - gocognit
+  # - gocritic
   # - godox
   # - interfacer
   # - prealloc
@@ -62,13 +62,18 @@ issues:
         - dupl
         - funlen
         - unparam
-    - path: api/snapshot/aws/
-      linters:
-        # struct field names are designed for Python access, won't match Go style
-        - golint
-        - stylecheck
     - path: internal/compliance/aws_event_processor/processor/
       linters:
         # long switch statements for aws event types don't need to be broken up
         - funlen
         - gocyclo
+    - path: internal/compliance/snapshot_poller/
+      linters:
+        # struct field names are designed for Python access, won't match Go style
+        - dupl
+        - golint
+        - stylecheck
+    - path: internal/compliance/snapshot_poller/pollers/aws/awstest/
+      linters:
+        # long lines with raw test strings
+        - lll

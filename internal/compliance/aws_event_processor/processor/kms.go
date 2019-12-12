@@ -7,7 +7,7 @@ import (
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 
-	schemas "github.com/panther-labs/panther/api/snapshot/aws"
+	schemas "github.com/panther-labs/panther/internal/compliance/snapshot_poller/models/aws"
 )
 
 func classifyKMS(detail gjson.Result, accountID string) []*resourceChange {

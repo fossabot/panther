@@ -11,12 +11,15 @@ Parameters:
     Type: String
     Description: Toggle debug logging
     Default: false
-    AllowedValues:
-      - true
-      - false
+    AllowedValues: [true, false]
   LayerVersionArns:
     Type: CommaDelimitedList
     Description: List of base LayerVersion ARNs to attach to every Lambda function
+    Default: ''
+  TracingMode:
+    Type: String
+    Description: Enable XRay tracing on Lambda and API Gateway
+    AllowedValues: ['', Active, PassThrough]
     Default: ''
 
   MemorySizeMB:
@@ -41,6 +44,7 @@ Parameters:
 
 Conditions:
   AttachLayers: !Not [!Equals [!Join ['', !Ref LayerVersionArns], '']]
+  TracingEnabled: !Not [!Equals ['', !Ref TracingMode]]
 
 Resources:
   EventQueue:
@@ -87,85 +91,6 @@ Resources:
           Value: Panther
       VisibilityTimeout: 60
 
-  # Lambda Function, Execution Role and Log Group
-  ExecutionRole:
-    Type: AWS::IAM::Role
-    Properties:
-      Description: Lambda execution role for aws-event-processor
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
-      Tags:
-        - Key: Application
-          Value: Panther
-      Policies:
-        -
-          PolicyName: PutCloudWatchLogs
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Effect: Allow
-                Action:
-                  - logs:CreateLogGroup
-                  - logs:CreateLogStream
-                  - logs:PutLogEvents
-                Resource: !GetAtt LogGroup.Arn
-        -
-          PolicyName: SendAndReceiveSqsMessages
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              -
-                Effect: Allow
-                Action:
-                  - kms:Decrypt
-                  - kms:GenerateDataKey
-                Resource: !Sub arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/${SQSKeyId}
-              -
-                Effect: Allow
-                Action:
-                  - sqs:DeleteMessage
-                  - sqs:GetQueueAttributes
-                  - sqs:ReceiveMessage
-                Resource: !GetAtt EventQueue.Arn
-              -
-                Effect: Allow
-                Action:
-                  - sqs:SendMessage
-                  - sqs:SendMessageBatch
-                Resource: !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:panther-snapshot-queue
-        -
-          PolicyName: ConfirmSubscription
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Effect: Allow
-                Action: sns:ConfirmSubscription
-                Resource: arn:aws:sns:*:*:*-PantherEventsTopic-*
-        -
-          PolicyName: DeleteResources
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Effect: Allow
-                Action: execute-api:Invoke
-                Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ResourcesApiId}/v1/POST/delete
-        -
-          PolicyName: InvokeSnapshotAPI
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              -
-                Effect: Allow
-                Action: lambda:InvokeFunction
-                Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:panther-snapshot-api
-
   LogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
@@ -193,8 +118,51 @@ Resources:
       Handler: main
       Layers: !If [AttachLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
       MemorySize: !Ref MemorySizeMB
-      Role: !GetAtt ExecutionRole.Arn
       Runtime: go1.x
       Tags:
         Application: Panther
       Timeout: !Ref TimeoutSec
+      Tracing: !If [TracingEnabled, !Ref TracingMode, !Ref 'AWS::NoValue']
+      Policies:
+        - !If [TracingEnabled, 'arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess', !Ref 'AWS::NoValue']
+        -
+          Id: SendAndReceiveSqsMessages
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - kms:Decrypt
+                - kms:GenerateDataKey
+              Resource: !Sub arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/${SQSKeyId}
+            - Effect: Allow
+              Action:
+                - sqs:DeleteMessage
+                - sqs:GetQueueAttributes
+                - sqs:ReceiveMessage
+              Resource: !GetAtt EventQueue.Arn
+            - Effect: Allow
+              Action:
+                - sqs:SendMessage
+                - sqs:SendMessageBatch
+              Resource: !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:panther-snapshot-queue
+        -
+          Id: ConfirmSubscription
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action: sns:ConfirmSubscription
+              Resource: arn:aws:sns:*:*:*-PantherEventsTopic-*
+        -
+          Id: DeleteResources
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action: execute-api:Invoke
+              Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ResourcesApiId}/v1/POST/delete
+        -
+          Id: InvokeSnapshotAPI
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action: lambda:InvokeFunction
+              Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:panther-snapshot-api

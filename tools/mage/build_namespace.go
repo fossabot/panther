@@ -9,6 +9,7 @@ import (
 
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
+	"github.com/magefile/mage/target"
 
 	"github.com/panther-labs/panther/pkg/shutil"
 )
@@ -26,6 +27,18 @@ func (b Build) API() error {
 	}
 
 	for _, spec := range specs {
+		needsRebuilt, err := apiNeedsRebuilt(spec)
+		if err != nil {
+			return err
+		}
+
+		if !needsRebuilt {
+			if mg.Verbose() {
+				fmt.Printf("build:api: %s client/models up to date\n", spec)
+			}
+			continue
+		}
+
 		if !mg.Verbose() {
 			fmt.Println("build:api: swagger generate " + spec)
 		}
@@ -36,6 +49,21 @@ func (b Build) API() error {
 	}
 
 	return nil
+}
+
+// Returns true if the generated client + models are older than the given client spec
+func apiNeedsRebuilt(spec string) (bool, error) {
+	clientNeedsUpdate, err := target.Dir(path.Join(path.Dir(spec), "client"), spec)
+	if err != nil {
+		return true, err
+	}
+
+	modelsNeedUpdate, err := target.Dir(path.Join(path.Dir(spec), "models"), spec)
+	if err != nil {
+		return true, err
+	}
+
+	return clientNeedsUpdate || modelsNeedUpdate, nil
 }
 
 // Lambda Compile all Lambda function source

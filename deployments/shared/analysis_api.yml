@@ -11,12 +11,15 @@ Parameters:
     Type: String
     Description: Toggle debug logging
     Default: false
-    AllowedValues:
-      - true
-      - false
+    AllowedValues: [true, false]
   LayerVersionArns:
     Type: CommaDelimitedList
     Description: List of base LayerVersion ARNs to attach to every Lambda function
+    Default: ''
+  TracingMode:
+    Type: String
+    Description: Enable XRay tracing on Lambda and API Gateway
+    AllowedValues: ['', Active, PassThrough]
     Default: ''
 
   HandlerMemorySizeMB:
@@ -64,25 +67,18 @@ Parameters:
 
 Conditions:
   AttachBaseLayers: !Not [!Equals [!Join ['', !Ref LayerVersionArns], '']]
+  TracingEnabled: !Not [!Equals ['', !Ref TracingMode]]
 
 Resources:
   ##### API Gateway #####
   GatewayApi:
     Type: AWS::Serverless::Api
     Properties:
-      AccessLogSetting:
-        DestinationArn: !GetAtt GatewayApiLogGroup.Arn
       DefinitionBody: api/analysis/api.yml
       EndpointConfiguration: REGIONAL
       Name: panther-analysis-api
       StageName: v1
-      TracingEnabled: true
-
-  GatewayApiLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: /aws/apigateway/panther-analysis-api
-      RetentionInDays: !Ref CloudWatchLogRetentionDays
+      TracingEnabled: !If [TracingEnabled, true, false]
 
   GatewayInvocationPermission:  # allow API gateway to invoke the Lambda function
     Type: AWS::Lambda::Permission
@@ -93,92 +89,6 @@ Resources:
       SourceArn: !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${GatewayApi}/*
 
   ##### API Lambda Handler #####
-  HandlerExecutionRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
-      Policies:
-        -
-          PolicyName: WriteLogs
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Effect: Allow
-                Action:
-                  - logs:CreateLogGroup
-                  - logs:CreateLogStream
-                  - logs:PutLogEvents
-                Resource: !GetAtt HandlerLogGroup.Arn
-        -
-          PolicyName: InvokeApis
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              -
-                Effect: Allow
-                Action: execute-api:Invoke
-                Resource:
-                  - !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${ComplianceApiId}/v1/GET/describe-org
-                  - !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${ComplianceApiId}/v1/POST/delete
-                  - !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${ComplianceApiId}/v1/POST/update
-              -
-                Effect: Allow
-                Action: lambda:InvokeFunction
-                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:panther-analysis-engine
-        -
-          PolicyName: ManageDataStores
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              -
-                Effect: Allow
-                Action:
-                  - dynamodb:*Item
-                  - dynamodb:Query
-                  - dynamodb:Scan
-                Resource: !GetAtt Table.Arn
-              -
-                Effect: Allow
-                Action:
-                  - s3:DeleteObject  # Does NOT grant permission to permanently delete versions
-                  - s3:GetObject*
-                  - s3:PutObject
-                Resource: !Sub arn:${AWS::Partition}:s3:::${Bucket}/*
-              -
-                Effect: Allow
-                Action:
-                  - s3:ListBucket
-                  - s3:ListBucketVersions
-                Resource: !GetAtt Bucket.Arn
-        -
-          PolicyName: PublishToResourceQueue
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              -
-                Effect: Allow
-                Action:
-                  - sqs:SendMessage
-                  - sqs:SendMessageBatch
-                Resource: !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:panther-resources
-              -
-                Effect: Allow
-                Action:
-                  - kms:Decrypt
-                  - kms:GenerateDataKey
-                Resource: !Sub arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/${SQSKeyId}
-      Tags:
-        - Key: Application
-          Value: Panther
-
   HandlerFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -197,11 +107,68 @@ Resources:
       Handler: main
       MemorySize: !Ref HandlerMemorySizeMB
       Layers: !If [AttachBaseLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
-      Role: !GetAtt HandlerExecutionRole.Arn
       Runtime: go1.x
       Tags:
         Application: Panther
       Timeout: !Ref HandlerTimeoutSec
+      Tracing: !If [TracingEnabled, !Ref TracingMode, !Ref 'AWS::NoValue']
+      Policies:
+        - !If [TracingEnabled, 'arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess', !Ref 'AWS::NoValue']
+        -
+          Id: InvokeApis
+          Version: 2012-10-17
+          Statement:
+            -
+              Effect: Allow
+              Action: execute-api:Invoke
+              Resource:
+                - !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${ComplianceApiId}/v1/GET/describe-org
+                - !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${ComplianceApiId}/v1/POST/delete
+                - !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${ComplianceApiId}/v1/POST/update
+            -
+              Effect: Allow
+              Action: lambda:InvokeFunction
+              Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:panther-analysis-engine
+        -
+          Id: ManageDataStores
+          Version: 2012-10-17
+          Statement:
+            -
+              Effect: Allow
+              Action:
+                - dynamodb:*Item
+                - dynamodb:Query
+                - dynamodb:Scan
+              Resource: !GetAtt Table.Arn
+            -
+              Effect: Allow
+              Action:
+                - s3:DeleteObject  # Does NOT grant permission to permanently delete versions
+                - s3:GetObject*
+                - s3:PutObject
+              Resource: !Sub arn:${AWS::Partition}:s3:::${Bucket}/*
+            -
+              Effect: Allow
+              Action:
+                - s3:ListBucket
+                - s3:ListBucketVersions
+              Resource: !GetAtt Bucket.Arn
+        -
+          Id: PublishToResourceQueue
+          Version: 2012-10-17
+          Statement:
+            -
+              Effect: Allow
+              Action:
+                - sqs:SendMessage
+                - sqs:SendMessageBatch
+              Resource: !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:panther-resources
+            -
+              Effect: Allow
+              Action:
+                - kms:Decrypt
+                - kms:GenerateDataKey
+              Resource: !Sub arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/${SQSKeyId}
 
   HandlerLogGroup:
     Type: AWS::Logs::LogGroup
@@ -210,35 +177,6 @@ Resources:
       RetentionInDays: !Ref CloudWatchLogRetentionDays
 
   ##### Python Engine #####
-  EngineExecutionRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
-      Policies:
-        -
-          PolicyName: WriteLogs
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Effect: Allow
-                Action:
-                  - logs:CreateLogGroup
-                  - logs:CreateLogStream
-                  - logs:PutLogEvents
-                Resource:
-                  - !GetAtt EngineLogGroup.Arn
-      Tags:
-        - Key: Application
-          Value: Panther
-
   PythonLayer:
     Type: AWS::Lambda::LayerVersion
     Properties:
@@ -269,11 +207,13 @@ Resources:
             - "${base},${pip}"
             - {base: !Join [",", !Ref LayerVersionArns], pip: !Ref PythonLayer}
         - [!Ref PythonLayer]
-      Role: !GetAtt EngineExecutionRole.Arn
       Runtime: python3.7
       Tags:
         Application: Panther
       Timeout: !Ref EngineTimeoutSec
+      Tracing: !If [TracingEnabled, !Ref TracingMode, !Ref 'AWS::NoValue']
+      Policies:
+        - !If [TracingEnabled, 'arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess', !Ref 'AWS::NoValue']
 
   EngineLogGroup:
     Type: AWS::Logs::LogGroup

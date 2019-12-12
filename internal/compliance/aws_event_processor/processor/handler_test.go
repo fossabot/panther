@@ -17,8 +17,8 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
-	schemas "github.com/panther-labs/panther/api/snapshot/aws"
-	"github.com/panther-labs/panther/api/snapshot/poller"
+	schemas "github.com/panther-labs/panther/internal/compliance/snapshot_poller/models/aws"
+	"github.com/panther-labs/panther/internal/compliance/snapshot_poller/models/poller"
 )
 
 const (

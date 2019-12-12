@@ -38,15 +38,8 @@ func Setup() error {
 	// TODO - This will change when we switch to Circle CI
 	// Some libraries are only needed for development, not for CI
 	if os.Getenv("CODEBUILD_CI") == "" {
-		fmt.Println("setup: installing goimports and awscli for local development")
+		fmt.Println("setup: installing goimports for local development")
 		if err := sh.RunV("go", "get", "golang.org/x/tools/cmd/goimports"); err != nil {
-			return err
-		}
-		args := []string{"install", "awscli"}
-		if !mg.Verbose() {
-			args = append(args, "--quiet")
-		}
-		if err := sh.RunV("pip3", args...); err != nil {
 			return err
 		}
 	}
