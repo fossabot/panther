@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	models "github.com/panther-labs/panther/api/snapshot"
+	"github.com/panther-labs/panther/api/lambda/snapshot/models"
 	"github.com/panther-labs/panther/pkg/genericapi"
 	"github.com/panther-labs/panther/pkg/testutils"
 )

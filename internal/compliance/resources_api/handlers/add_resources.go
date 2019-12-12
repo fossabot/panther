@@ -15,7 +15,7 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"go.uber.org/zap"
 
-	"github.com/panther-labs/panther/api/resources/models"
+	"github.com/panther-labs/panther/api/gateway/resources/models"
 	"github.com/panther-labs/panther/pkg/awsbatch/dynamodbbatch"
 	"github.com/panther-labs/panther/pkg/awsbatch/sqsbatch"
 )

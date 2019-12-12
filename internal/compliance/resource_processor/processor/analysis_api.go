@@ -5,7 +5,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/panther-labs/panther/api/analysis/client/operations"
+	"github.com/panther-labs/panther/api/gateway/analysis/client/operations"
 )
 
 const cacheDuration = 30 * time.Second

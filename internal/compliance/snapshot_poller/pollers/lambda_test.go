@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	resourcesapi "github.com/panther-labs/panther/api/resources/models"
+	resourcesapi "github.com/panther-labs/panther/api/gateway/resources/models"
 	awsmodels "github.com/panther-labs/panther/internal/compliance/snapshot_poller/models/aws"
 	pollermodels "github.com/panther-labs/panther/internal/compliance/snapshot_poller/models/poller"
 	awspollers "github.com/panther-labs/panther/internal/compliance/snapshot_poller/pollers/aws"

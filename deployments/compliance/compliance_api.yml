@@ -43,7 +43,7 @@ Resources:
   GatewayApi:
     Type: AWS::Serverless::Api
     Properties:
-      DefinitionBody: api/compliance/api.yml
+      DefinitionBody: api/gateway/compliance/api.yml
       EndpointConfiguration: REGIONAL
       Name: panther-compliance-api
       StageName: v1  # NOTE: sam also builds a stage called "Stage"

@@ -1,6 +1,8 @@
 package api
 
-import models "github.com/panther-labs/panther/api/snapshot"
+import (
+	"github.com/panther-labs/panther/api/lambda/snapshot/models"
+)
 
 // ListIntegrations returns all enabled integrations across each organization.
 //

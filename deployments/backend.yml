@@ -10,9 +10,7 @@ Parameters:
     Type: String
     Description: Toggle debug logging
     Default: false
-    AllowedValues:
-      - true
-      - false
+    AllowedValues: [true, false]
   LayerVersionArns:
     Type: CommaDelimitedList
     Description: List of LayerVersion ARNs to attach to every function
@@ -74,7 +72,7 @@ Resources:
       AliasName: alias/panther-sqs
       TargetKeyId: !Ref QueueEncryptionKey
 
-  ##### Nested Stacks: Analysis Infra #####
+  ##### Nested Stacks: Compliance #####
   ComplianceAPI:
     Type: AWS::CloudFormation::Stack
     Properties:
@@ -87,25 +85,6 @@ Resources:
         - Key: Application
           Value: Panther
       TemplateURL: ../out/deployments/compliance/swagger.compliance_api.yml
-
-  AnalysisAPI:
-    Type: AWS::CloudFormation::Stack
-    Properties:
-      Parameters:
-        # Common settings
-        CloudWatchLogRetentionDays: !Ref CloudWatchLogRetentionDays
-        Debug: !Ref Debug
-        LayerVersionArns: !Join [ ",", !Ref LayerVersionArns ]
-        TracingMode: !Ref TracingMode
-
-        ComplianceApiId: !GetAtt ComplianceAPI.Outputs.GatewayId
-        LayerObjectVersion: !Ref PythonLayerObjectVersion
-        S3BucketAccessLogs: !ImportValue Panther-LogBucket
-        SQSKeyId: !Ref QueueEncryptionKey
-      Tags:
-        - Key: Application
-          Value: Panther
-      TemplateURL: ../out/deployments/shared/swagger.analysis_api.yml
 
   ResourcesAPI:
     Type: AWS::CloudFormation::Stack
@@ -156,6 +135,7 @@ Resources:
           Value: Panther
       TemplateURL: compliance/snapshot.yml
 
+  ##### Nested Stacks: Log Analysis #####
   LogProcessor:
     Type: AWS::CloudFormation::Stack
     Properties:
@@ -171,6 +151,40 @@ Resources:
         - Key: Application
           Value: Panther
       TemplateURL: log_analysis/log_processor.yml
+
+
+  ##### Nested Stacks: Shared Infra #####
+  AnalysisAPI:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        # Common settings
+        CloudWatchLogRetentionDays: !Ref CloudWatchLogRetentionDays
+        Debug: !Ref Debug
+        LayerVersionArns: !Join [ ",", !Ref LayerVersionArns ]
+        TracingMode: !Ref TracingMode
+
+        ComplianceApiId: !GetAtt ComplianceAPI.Outputs.GatewayId
+        LayerObjectVersion: !Ref PythonLayerObjectVersion
+        S3BucketAccessLogs: !ImportValue Panther-LogBucket
+        SQSKeyId: !Ref QueueEncryptionKey
+      Tags:
+        - Key: Application
+          Value: Panther
+      TemplateURL: ../out/deployments/core/swagger.analysis_api.yml
+
+  AlertDelivery:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        CloudWatchLogRetentionDays: !Ref CloudWatchLogRetentionDays
+        Debug: !Ref Debug
+        LayerVersionArns: !Join [ ",", !Ref LayerVersionArns ]
+        TracingMode: !Ref TracingMode
+      Tags:
+        - Key: Application
+          Value: Panther
+      TemplateURL: core/outputs.yml
 
 Outputs:
   AnalysisApiEndpoint:

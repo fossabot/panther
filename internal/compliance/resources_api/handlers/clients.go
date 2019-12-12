@@ -10,7 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
 	"github.com/kelseyhightower/envconfig"
 
-	complianceapi "github.com/panther-labs/panther/api/compliance/client"
+	complianceapi "github.com/panther-labs/panther/api/gateway/compliance/client"
 	"github.com/panther-labs/panther/pkg/gatewayapi"
 )
 

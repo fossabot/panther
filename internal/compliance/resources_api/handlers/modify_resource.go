@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb/expression"
 	jsoniter "github.com/json-iterator/go"
 
-	"github.com/panther-labs/panther/api/resources/models"
+	"github.com/panther-labs/panther/api/gateway/resources/models"
 )
 
 // ModifyResource will update some of the resource properties.

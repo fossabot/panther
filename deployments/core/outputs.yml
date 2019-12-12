@@ -1,0 +1,200 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+Description: Alert Outputs + Delivery
+
+Parameters:
+  CloudWatchLogRetentionDays:
+    Type: Number
+    Description: CloudWatch log retention period
+    Default: 365
+  Debug:
+    Type: String
+    Description: Toggle debug logging
+    Default: false
+    AllowedValues: [true, false]
+  LayerVersionArns:
+    Type: CommaDelimitedList
+    Description: List of base LayerVersion ARNs to attach to every Lambda function
+    Default: ''
+  TracingMode:
+    Type: String
+    Description: Enable XRay tracing on Lambda and API Gateway
+    AllowedValues: ['', Active, PassThrough]
+    Default: ''
+
+  ApiMemorySizeMB:
+    Type: Number
+    Description: Memory (MB) available for the outputs-api Lambda function
+    Default: 512
+    MinValue: 128
+    MaxValue: 3008
+  ApiTimeoutSec:
+    Type: Number
+    Description: Timeout (seconds) for the outputs-api Lambda function
+    Default: 60
+    MinValue: 5
+    MaxValue: 900
+
+  EmailVerificationTemplate:
+    Type: String
+    Description: The name of the SES template used for verifying emails
+    Default: EmailVerificationTemplate
+  SesConfigurationSet:
+    Type: String
+    Description: The name of the SES Configuration set that will be used when sending emails
+    Default: PantherConfigurationSet
+
+Conditions:
+  AttachLayers: !Not [!Equals [!Join ['', !Ref LayerVersionArns], '']]
+  TracingEnabled: !Not [!Equals ['', !Ref TracingMode]]
+
+Resources:
+  ##### Outputs API #####
+  OutputsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: outputId
+          AttributeType: S
+        - AttributeName: displayName
+          AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+      GlobalSecondaryIndexes:
+        - IndexName: displayName-index
+          KeySchema:
+            - AttributeName: displayName
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      KeySchema:
+        - AttributeName: outputId
+          KeyType: HASH
+      PointInTimeRecoverySpecification:  # Create periodic table backups
+        PointInTimeRecoveryEnabled: True
+      SSESpecification:  # Enable server-side encryption
+        SSEEnabled: True
+      TableName: panther-outputs
+      Tags:
+        - Key: Application
+          Value: Panther
+
+  DefaultOutputsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: severity
+          AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: severity
+          KeyType: HASH
+      PointInTimeRecoverySpecification:  # Create periodic table backups
+        PointInTimeRecoveryEnabled: True
+      SSESpecification:  # Enable server-side encryption
+        SSEEnabled: True
+      TableName: panther-default-outputs
+      Tags:
+        - Key: Application
+          Value: Panther
+
+  EncryptionKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: alias/panther-alert-outputs
+      TargetKeyId: !Ref EncryptionKey
+
+  EncryptionKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: Encrypts Panther's alert output configuration
+      EnableKeyRotation: true
+      KeyPolicy:
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:root
+            Action: kms:*
+            Resource: '*'
+      Tags:
+        - Key: Application
+          Value: Panther
+
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../../out/bin/internal/core/outputs_api/main
+      Description: CRUD actions for alert outputs
+      Environment:
+        Variables:
+          DEBUG: !Ref Debug
+          KEY_ID: !Ref EncryptionKey
+          OUTPUTS_TABLE_NAME: !Ref OutputsTable
+          OUTPUTS_DISPLAY_NAME_INDEX_NAME: displayName-index
+          DEFAULTS_TABLE_NAME: !Ref DefaultOutputsTable
+          EMAIL_VERIFICATION_TEMPLATE: !Ref EmailVerificationTemplate
+          SES_CONFIGURATION_SET: !Ref SesConfigurationSet
+          USERS_API: panther-users-api
+      FunctionName: panther-outputs-api
+      Handler: main
+      Layers: !If [AttachLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
+      MemorySize: !Ref ApiMemorySizeMB
+      Runtime: go1.x
+      Tags:
+        Application: Panther
+      Timeout: !Ref ApiTimeoutSec
+      Tracing: !If [TracingEnabled, !Ref TracingMode, !Ref 'AWS::NoValue']
+      Policies:
+        - !If [TracingEnabled, 'arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess', !Ref 'AWS::NoValue']
+        -
+          Id: OutputsTables
+          Version: 2012-10-17
+          Statement:
+            -
+              Effect: Allow
+              Action:
+                - dynamodb:DeleteItem
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:Query
+                - dynamodb:Scan
+                - dynamodb:UpdateItem
+              Resource:
+                - !GetAtt OutputsTable.Arn
+                - !GetAtt DefaultOutputsTable.Arn
+                - !Sub '${OutputsTable.Arn}/index/*'
+        -
+          Id: CredentialEncryption
+          Version: 2012-10-17
+          Statement:
+            -
+              Effect: Allow
+              Action:
+                - kms:Decrypt
+                - kms:Encrypt
+                - kms:GenerateDataKey
+              Resource: !GetAtt EncryptionKey.Arn
+        -
+          Id: VerifyEmail
+          Version: 2012-10-17
+          Statement:
+            -
+              Effect: Allow
+              Action:
+                - ses:GetIdentityVerificationAttributes
+                - ses:SendCustomVerificationEmail
+                - ses:VerifyEmailAddress
+              Resource: '*'
+        -
+          Id: UsersAPI
+          Version: 2012-10-17
+          Statement:
+            -
+              Effect: Allow
+              Action: lambda:InvokeFunction
+              Resource: !Sub 'arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:panther-users-api'
+
+  ApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/panther-outputs-api
+      RetentionInDays: !Ref CloudWatchLogRetentionDays

@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go/aws"
 
-	"github.com/panther-labs/panther/api/compliance/models"
+	"github.com/panther-labs/panther/api/gateway/compliance/models"
 	"github.com/panther-labs/panther/pkg/gatewayapi"
 )
 

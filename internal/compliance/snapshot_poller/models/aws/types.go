@@ -4,7 +4,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/go-openapi/strfmt"
 
-	resourcesapimodels "github.com/panther-labs/panther/api/resources/models"
+	resourcesapimodels "github.com/panther-labs/panther/api/gateway/resources/models"
 )
 
 // Used to populate the GenericAWSResource.Region field for global AWS resources

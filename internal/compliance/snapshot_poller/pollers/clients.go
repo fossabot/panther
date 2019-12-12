@@ -5,7 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws/session"
 
-	"github.com/panther-labs/panther/api/resources/client"
+	"github.com/panther-labs/panther/api/gateway/resources/client"
 	"github.com/panther-labs/panther/pkg/gatewayapi"
 )
 

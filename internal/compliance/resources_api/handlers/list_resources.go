@@ -16,8 +16,8 @@ import (
 	"github.com/go-openapi/strfmt"
 	"go.uber.org/zap"
 
-	"github.com/panther-labs/panther/api/resources/client/operations"
-	"github.com/panther-labs/panther/api/resources/models"
+	"github.com/panther-labs/panther/api/gateway/resources/client/operations"
+	"github.com/panther-labs/panther/api/gateway/resources/models"
 	"github.com/panther-labs/panther/pkg/gatewayapi"
 )
 

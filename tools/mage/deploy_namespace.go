@@ -24,7 +24,7 @@ const (
 	backendStack    = "panther-backend"
 	backendTemplate = "deployments/backend.yml"
 	bucketStack     = "panther-buckets" // prereq stack with Panther S3 buckets
-	bucketTemplate  = "deployments/shared/buckets.yml"
+	bucketTemplate  = "deployments/core/buckets.yml"
 
 	// Python layer
 	layerSourceDir = "out/pip/analysis/python"

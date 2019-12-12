@@ -5,8 +5,8 @@ import (
 
 	"go.uber.org/zap"
 
-	complianceops "github.com/panther-labs/panther/api/compliance/client/operations"
-	"github.com/panther-labs/panther/api/resources/models"
+	complianceops "github.com/panther-labs/panther/api/gateway/compliance/client/operations"
+	"github.com/panther-labs/panther/api/gateway/resources/models"
 )
 
 const complianceCacheDuration = time.Minute

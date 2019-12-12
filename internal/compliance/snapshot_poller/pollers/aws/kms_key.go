@@ -11,7 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/kms/kmsiface"
 	"go.uber.org/zap"
 
-	apimodels "github.com/panther-labs/panther/api/resources/models"
+	apimodels "github.com/panther-labs/panther/api/gateway/resources/models"
 	awsmodels "github.com/panther-labs/panther/internal/compliance/snapshot_poller/models/aws"
 	pollermodels "github.com/panther-labs/panther/internal/compliance/snapshot_poller/models/poller"
 	"github.com/panther-labs/panther/internal/compliance/snapshot_poller/pollers/utils"

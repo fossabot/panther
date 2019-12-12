@@ -21,7 +21,7 @@ type Build mg.Namespace
 
 // API Generate Go client/models from Swagger specs in api/
 func (b Build) API() error {
-	specs, err := filepath.Glob("api/*/api.yml")
+	specs, err := filepath.Glob("api/gateway/*/api.yml")
 	if err != nil {
 		return err
 	}

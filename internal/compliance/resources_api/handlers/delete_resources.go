@@ -9,9 +9,9 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"go.uber.org/zap"
 
-	complianceops "github.com/panther-labs/panther/api/compliance/client/operations"
-	compliance "github.com/panther-labs/panther/api/compliance/models"
-	"github.com/panther-labs/panther/api/resources/models"
+	complianceops "github.com/panther-labs/panther/api/gateway/compliance/client/operations"
+	compliance "github.com/panther-labs/panther/api/gateway/compliance/models"
+	"github.com/panther-labs/panther/api/gateway/resources/models"
 )
 
 // Deleted resources are retained for 30 days in the database

@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/panther-labs/panther/api/resources/client"
-	"github.com/panther-labs/panther/api/resources/client/operations"
-	"github.com/panther-labs/panther/api/resources/models"
+	"github.com/panther-labs/panther/api/gateway/resources/client"
+	"github.com/panther-labs/panther/api/gateway/resources/client/operations"
+	"github.com/panther-labs/panther/api/gateway/resources/models"
 	"github.com/panther-labs/panther/pkg/gatewayapi"
 	"github.com/panther-labs/panther/pkg/testutils"
 )

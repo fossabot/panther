@@ -6,7 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/aws/aws-sdk-go/service/dynamodb/expression"
 
-	models "github.com/panther-labs/panther/api/snapshot"
+	"github.com/panther-labs/panther/api/lambda/snapshot/models"
 	"github.com/panther-labs/panther/pkg/genericapi"
 )
 

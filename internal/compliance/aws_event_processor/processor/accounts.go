@@ -9,7 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/lambda/lambdaiface"
 	"go.uber.org/zap"
 
-	snapshotmodels "github.com/panther-labs/panther/api/snapshot"
+	"github.com/panther-labs/panther/api/lambda/snapshot/models"
 	"github.com/panther-labs/panther/pkg/genericapi"
 )
 
@@ -20,7 +20,7 @@ const (
 
 var (
 	// Keyed on accountID
-	accounts            = make(map[string]*snapshotmodels.SourceIntegration)
+	accounts            = make(map[string]*models.SourceIntegration)
 	accountsLastUpdated time.Time
 	// Setup the clients to talk to the Snapshot API
 	sess                               = session.Must(session.NewSession())
@@ -28,7 +28,7 @@ var (
 )
 
 func resetAccountCache() {
-	accounts = make(map[string]*snapshotmodels.SourceIntegration)
+	accounts = make(map[string]*models.SourceIntegration)
 }
 
 func refreshAccounts() error {
@@ -38,12 +38,12 @@ func refreshAccounts() error {
 	}
 
 	zap.L().Info("populating account cache")
-	input := &snapshotmodels.LambdaInput{
-		ListIntegrations: &snapshotmodels.ListIntegrationsInput{
+	input := &models.LambdaInput{
+		ListIntegrations: &models.ListIntegrationsInput{
 			IntegrationType: aws.String("aws-scan"),
 		},
 	}
-	var output []*snapshotmodels.SourceIntegration
+	var output []*models.SourceIntegration
 	err := genericapi.Invoke(lambdaClient, snapshotAPIFunctionName, input, &output)
 	if err != nil {
 		return err

@@ -5,7 +5,7 @@ import (
 
 	"github.com/aws/aws-lambda-go/lambda"
 
-	models "github.com/panther-labs/panther/api/snapshot"
+	"github.com/panther-labs/panther/api/lambda/snapshot/models"
 	"github.com/panther-labs/panther/internal/compliance/snapshot_api/api"
 	"github.com/panther-labs/panther/pkg/genericapi"
 	"github.com/panther-labs/panther/pkg/lambdalogger"

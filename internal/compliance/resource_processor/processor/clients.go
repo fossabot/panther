@@ -11,9 +11,9 @@ import (
 	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
 	"github.com/kelseyhightower/envconfig"
 
-	analysisapi "github.com/panther-labs/panther/api/analysis/client"
-	complianceapi "github.com/panther-labs/panther/api/compliance/client"
-	resourceapi "github.com/panther-labs/panther/api/resources/client"
+	analysisapi "github.com/panther-labs/panther/api/gateway/analysis/client"
+	complianceapi "github.com/panther-labs/panther/api/gateway/compliance/client"
+	resourceapi "github.com/panther-labs/panther/api/gateway/resources/client"
 	"github.com/panther-labs/panther/pkg/gatewayapi"
 )
 

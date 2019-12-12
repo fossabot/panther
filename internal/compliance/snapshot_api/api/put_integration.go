@@ -10,7 +10,7 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"go.uber.org/zap"
 
-	models "github.com/panther-labs/panther/api/snapshot"
+	"github.com/panther-labs/panther/api/lambda/snapshot/models"
 	pollermodels "github.com/panther-labs/panther/internal/compliance/snapshot_poller/models/poller"
 	awspoller "github.com/panther-labs/panther/internal/compliance/snapshot_poller/pollers/aws"
 	"github.com/panther-labs/panther/pkg/awsbatch/sqsbatch"

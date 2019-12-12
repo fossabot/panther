@@ -66,7 +66,7 @@ Resources:
   GatewayApi:
     Type: AWS::Serverless::Api
     Properties:
-      DefinitionBody: api/resources/api.yml
+      DefinitionBody: api/gateway/resources/api.yml
       EndpointConfiguration: REGIONAL
       Name: panther-resources-api
       StageName: v1  # NOTE: sam also builds a stage called "Stage"

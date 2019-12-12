@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 
-	"github.com/panther-labs/panther/api/compliance/models"
+	"github.com/panther-labs/panther/api/gateway/compliance/models"
 )
 
 // Common GET parameters for paging operations (DescribePolicy and DescribeResource)

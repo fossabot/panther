@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
 	"go.uber.org/zap"
 
-	"github.com/panther-labs/panther/api/compliance/models"
+	"github.com/panther-labs/panther/api/gateway/compliance/models"
 )
 
 type policyMap map[models.PolicyID]*models.PolicySummary

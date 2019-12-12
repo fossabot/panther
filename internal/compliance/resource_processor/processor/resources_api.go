@@ -4,7 +4,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"go.uber.org/zap"
 
-	"github.com/panther-labs/panther/api/resources/client/operations"
+	"github.com/panther-labs/panther/api/gateway/resources/client/operations"
 )
 
 // How many resources (with attributes) we can request in a single page.

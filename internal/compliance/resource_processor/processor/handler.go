@@ -14,11 +14,11 @@ import (
 	"go.uber.org/zap"
 
 	alertmodels "github.com/panther-labs/panther/api/alert_processor"
-	enginemodels "github.com/panther-labs/panther/api/analysis"
-	analysismodels "github.com/panther-labs/panther/api/analysis/models"
-	complianceops "github.com/panther-labs/panther/api/compliance/client/operations"
-	compliancemodels "github.com/panther-labs/panther/api/compliance/models"
-	resourcemodels "github.com/panther-labs/panther/api/resources/models"
+	enginemodels "github.com/panther-labs/panther/api/gateway/analysis"
+	analysismodels "github.com/panther-labs/panther/api/gateway/analysis/models"
+	complianceops "github.com/panther-labs/panther/api/gateway/compliance/client/operations"
+	compliancemodels "github.com/panther-labs/panther/api/gateway/compliance/models"
+	resourcemodels "github.com/panther-labs/panther/api/gateway/resources/models"
 	"github.com/panther-labs/panther/pkg/awsbatch/sqsbatch"
 )
 

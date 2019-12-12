@@ -11,7 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb/expression"
 	"go.uber.org/zap"
 
-	"github.com/panther-labs/panther/api/resources/models"
+	"github.com/panther-labs/panther/api/gateway/resources/models"
 )
 
 // The resource struct stored in Dynamo has some different fields compared to the external models.Resource

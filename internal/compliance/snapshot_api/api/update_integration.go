@@ -1,7 +1,7 @@
 package api
 
 import (
-	models "github.com/panther-labs/panther/api/snapshot"
+	"github.com/panther-labs/panther/api/lambda/snapshot/models"
 )
 
 // UpdateIntegrationSettings makes an update to an integration from the UI.

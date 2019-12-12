@@ -12,13 +12,13 @@ func Clean() error {
 	dirs := []string{"out"} // directories to remove
 
 	// Remove generated Swagger client/models
-	pkgs, err := filepath.Glob("api/*/client")
+	pkgs, err := filepath.Glob("api/gateway/*/client")
 	if err != nil {
 		return err
 	}
 	dirs = append(dirs, pkgs...)
 
-	pkgs, err = filepath.Glob("api/*/models")
+	pkgs, err = filepath.Glob("api/gateway/*/models")
 	if err != nil {
 		return err
 	}
