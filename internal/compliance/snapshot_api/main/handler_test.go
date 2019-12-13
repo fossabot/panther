@@ -1,7 +1,8 @@
 package main
 
 import (
-	"flag"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -17,7 +18,8 @@ import (
 )
 
 const (
-	functionName = "panther-snapshot-api:live"
+	functionName = "panther-snapshot-api"
+	tableName    = "panther-source-integrations"
 	testUserID   = "97c4db4e-61d5-40a7-82de-6dd63b199bd2"
 	testUserID2  = "1ffa65fe-54fc-49ff-aafc-3f8bd386079e"
 )
@@ -26,14 +28,10 @@ type generatedIDs struct {
 	integrationID *string
 }
 
-const tableName = "PantherSourceIntegrations"
-
 var (
-	integrationFlag = flag.Bool("integration", false, "run integration tests")
-	regionFlag      = flag.String("region", "us-west-2", "the AWS region to run integration tests")
-
-	sess         *session.Session
-	lambdaClient *lambda.Lambda
+	integrationTest bool
+	sess            *session.Session
+	lambdaClient    *lambda.Lambda
 
 	generatedIntegrationIDs []*generatedIDs
 )
@@ -42,16 +40,17 @@ func TestRouter(t *testing.T) {
 	assert.Nil(t, router.VerifyHandlers(&models.LambdaInput{}))
 }
 
+func TestMain(m *testing.M) {
+	integrationTest = strings.ToLower(os.Getenv("INTEGRATION_TEST")) == "true"
+	os.Exit(m.Run())
+}
+
 func TestIntegration(t *testing.T) {
-	if !*integrationFlag {
+	if !integrationTest {
 		t.Skip()
 	}
 
-	if *regionFlag == "" {
-		t.Error("please provide a region")
-	}
-
-	sess = session.Must(session.NewSession(&aws.Config{Region: aws.String(*regionFlag)}))
+	sess = session.Must(session.NewSession())
 	lambdaClient = lambda.New(sess)
 
 	// Reset backend state - erase dynamo table
@@ -174,7 +173,7 @@ func updateIntegrationSettings(t *testing.T) {
 	require.NoError(t, genericapi.Invoke(lambdaClient, functionName, input, nil))
 
 	input = &models.LambdaInput{
-		ListIntegrations: &models.ListIntegrationsInput{},
+		ListIntegrations: &models.ListIntegrationsInput{IntegrationType: aws.String("aws-scan")},
 	}
 	var output []*models.SourceIntegration
 
@@ -219,7 +218,7 @@ func updateIntegrationLastScanStart(t *testing.T) {
 	// Get the updated Integration
 
 	input = &models.LambdaInput{
-		ListIntegrations: &models.ListIntegrationsInput{},
+		ListIntegrations: &models.ListIntegrationsInput{IntegrationType: aws.String("aws-scan")},
 	}
 	var output []*models.SourceIntegration
 
@@ -250,7 +249,7 @@ func updateIntegrationLastScanEnd(t *testing.T) {
 	require.NoError(t, genericapi.Invoke(lambdaClient, functionName, input, nil))
 
 	input = &models.LambdaInput{
-		ListIntegrations: &models.ListIntegrationsInput{},
+		ListIntegrations: &models.ListIntegrationsInput{IntegrationType: aws.String("aws-scan")},
 	}
 	var output []*models.SourceIntegration
 
@@ -283,7 +282,7 @@ func updateIntegrationLastScanEndWithError(t *testing.T) {
 	require.NoError(t, genericapi.Invoke(lambdaClient, functionName, input, nil))
 
 	input = &models.LambdaInput{
-		ListIntegrations: &models.ListIntegrationsInput{},
+		ListIntegrations: &models.ListIntegrationsInput{IntegrationType: aws.String("aws-scan")},
 	}
 	var output []*models.SourceIntegration
 

@@ -10,4 +10,4 @@ phases:
       - export PATH=/root/.local/bin:$PATH
   build:
     commands:
-      - mage -v test:ci
+      - mage test:ci

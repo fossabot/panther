@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	outputsAPI        = "panther-outputs-api:production"
+	outputsAPI        = "panther-outputs-api"
 	defaultsTableName = "panther-default-outputs"
 	tableName         = "panther-outputs"
 )
@@ -510,8 +510,18 @@ func getDefaults(t *testing.T) {
 	}
 
 	outputs, err := getDefaultOutputsInternal()
-
 	require.NoError(t, err)
+	require.Len(t, outputs.Defaults, 1)
+
+	ids := outputs.Defaults[0].OutputIDs
+	sort.Slice(ids, func(i, j int) bool {
+		return *(ids[i]) < *(ids[j])
+	})
+	ids = expectedResult.Defaults[0].OutputIDs
+	sort.Slice(ids, func(i, j int) bool {
+		return *(ids[i]) < *(ids[j])
+	})
+
 	assert.Equal(t, expectedResult, outputs)
 }
 

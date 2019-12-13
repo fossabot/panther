@@ -215,6 +215,9 @@ Resources:
         Debug: !Ref Debug
         LayerVersionArns: !Join [ ',', !Ref LayerVersionArns ]
         TracingMode: !Ref TracingMode
+
+        AppFqdn: app.runpanther.io  # TODO - this is just a placeholder
+        SQSKeyId: !Ref QueueEncryptionKey
       Tags:
         - Key: Application
           Value: Panther

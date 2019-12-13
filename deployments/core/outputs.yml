@@ -22,19 +22,59 @@ Parameters:
     AllowedValues: ['', Active, PassThrough]
     Default: ''
 
-  ApiMemorySizeMB:
+  ApiFunctionMemorySizeMB:
     Type: Number
     Description: Memory (MB) available for the outputs-api Lambda function
     Default: 512
     MinValue: 128
     MaxValue: 3008
-  ApiTimeoutSec:
+  ApiFunctionTimeoutSec:
     Type: Number
     Description: Timeout (seconds) for the outputs-api Lambda function
     Default: 60
     MinValue: 5
     MaxValue: 900
+  DeliveryFunctionMemorySizeMB:
+    Type: Number
+    Description: Memory (MB) available for the alert-delivery Lambda function
+    Default: 128
+    MinValue: 128
+    MaxValue: 3008
+  DeliveryFunctionTimeoutSec:
+    Type: Number
+    Description: Timeout (seconds) for the alert-delivery Lambda function
+    Default: 180
+    MinValue: 5
+    MaxValue: 900
 
+  AlertRetryDurationMins:
+    Type: Number
+    Description: Alerts which fail to send will be retried for this duration
+    Default: 30
+    MinValue: 5
+    MaxValue: 10080  # 1 week
+  MinRetryDelaySecs:
+    Type: Number
+    Description: Wait at least this long before retrying a failed alert
+    Default: 30
+    MinValue: 1
+    MaxValue: 86400  # 1 day
+  MaxRetryDelaySecs:
+    Type: Number
+    Description: Wait at most this long before retrying a failed alert
+    Default: 300  # 5 mins
+    MinValue: 1
+    MaxValue: 86400  # 1 day
+  MailFrom:
+    Type: String
+    Description: The email address that will appear in the 'MAIL FROM' field when Panther sends alert email to customers
+    Default: alerts@runpanther.io
+  AlertSqsRetentionSec:
+    Type: Number
+    Description: Number of seconds SQS will retain a message in the alerts queue
+    Default: 259200  # 3 days
+    MinValue: 60
+    MaxValue: 1209600
   EmailVerificationTemplate:
     Type: String
     Description: The name of the SES template used for verifying emails
@@ -43,6 +83,12 @@ Parameters:
     Type: String
     Description: The name of the SES Configuration set that will be used when sending emails
     Default: PantherConfigurationSet
+  AppFqdn:
+    Type: String
+    Description: FQDN for the Panther web app (e.g. 1.2.3.4 or app.runpanther.io)
+  SQSKeyId:
+    Type: String
+    Description: KMS key ID for SQS encryption
 
 Conditions:
   AttachLayers: !Not [!Equals [!Join ['', !Ref LayerVersionArns], '']]
@@ -137,11 +183,11 @@ Resources:
       FunctionName: panther-outputs-api
       Handler: main
       Layers: !If [AttachLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
-      MemorySize: !Ref ApiMemorySizeMB
+      MemorySize: !Ref ApiFunctionMemorySizeMB
       Runtime: go1.x
       Tags:
         Application: Panther
-      Timeout: !Ref ApiTimeoutSec
+      Timeout: !Ref ApiFunctionTimeoutSec
       Tracing: !If [TracingEnabled, !Ref TracingMode, !Ref 'AWS::NoValue']
       Policies:
         - !If [TracingEnabled, 'arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess', !Ref 'AWS::NoValue']
@@ -197,4 +243,107 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: /aws/lambda/panther-outputs-api
+      RetentionInDays: !Ref CloudWatchLogRetentionDays
+
+  ##### Alert Delivery #####
+  AlertQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: panther-alerts
+      MessageRetentionPeriod: !Ref AlertSqsRetentionSec
+      KmsMasterKeyId: !Ref SQSKeyId
+      Tags:
+        - Key: Application
+          Value: Panther
+      VisibilityTimeout: !Ref DeliveryFunctionTimeoutSec
+
+  AlertDeliveryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../../out/bin/internal/core/alert_delivery/main
+      Description: Dispatch alerts to their specified outputs
+      Environment:
+        Variables:
+          ALERT_QUEUE_URL: !Ref AlertQueue
+          ALERT_RETRY_DURATION_MINS: !Ref AlertRetryDurationMins
+          ALERT_URL_PREFIX : !Sub https://${AppFqdn}/alerts/
+          MAIL_FROM: !Ref MailFrom
+          MAX_RETRY_DELAY_SECS: !Ref MaxRetryDelaySecs
+          MIN_RETRY_DELAY_SECS: !Ref MinRetryDelaySecs
+          OUTPUTS_API: panther-outputs-api
+          OUTPUTS_REFRESH_INTERVAL_MIN: '5'
+          POLICY_URL_PREFIX: !Sub https://${AppFqdn}/policies/
+          SES_CONFIGURATION_SET : !Ref SesConfigurationSet
+      Events:
+        AlertQueue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt AlertQueue.Arn
+            BatchSize: 10
+      Layers: !If [AttachLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
+      FunctionName: panther-alert-delivery
+      Handler: main
+      MemorySize: !Ref DeliveryFunctionMemorySizeMB
+      Runtime: go1.x
+      Tags:
+        Application: Panther
+      Timeout: !Ref DeliveryFunctionTimeoutSec
+      Tracing: !If [TracingEnabled, !Ref TracingMode, !Ref 'AWS::NoValue']
+      Policies:
+        - !If [TracingEnabled, 'arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess', !Ref 'AWS::NoValue']
+        -
+          Id: OutputsAPI
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action: lambda:InvokeFunction
+              Resource: !Sub 'arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:panther-outputs-api'
+        -
+          Id: SendEmail
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action: ses:SendEmail
+              Resource: '*'
+              Condition:
+                StringLike:
+                  'ses:FromAddress': !Ref MailFrom
+        -
+          Id: PublishSnsMessage
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action: sns:Publish
+              Resource: '*'
+        -
+          Id: SendSqsAlert
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action: sqs:SendMessage
+              Resource: '*'
+        -
+          Id: DecryptAlertMessages
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - kms:Decrypt
+                - kms:GenerateDataKey
+              Resource: !Sub arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/${SQSKeyId}
+        -
+          Id: ReceiveAndDeleteAlerts
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - sqs:DeleteMessage
+                - sqs:GetQueueAttributes
+                - sqs:ReceiveMessage
+              Resource: !GetAtt AlertQueue.Arn
+
+  AlertDeliveryLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/panther-alert-delivery
       RetentionInDays: !Ref CloudWatchLogRetentionDays
