@@ -11,54 +11,65 @@ import (
 	"github.com/panther-labs/panther/internal/log_analysis/log_processor/destinations"
 )
 
+// ParsedEventBufferSize is the size of the buffer of the Go channel containing the parsed events.
+// Since there are different goroutines writing and reading from that channel each with different I/O characteristics,
+// we are specifying this buffer to avoid blocking the goroutines that write to the channel if the reader goroutine is
+// temporarily busy. The writer goroutines will block writing but only when the buffer has been full - something we need
+// to avoid using up lot of memory.
+// see also: https://golang.org/doc/effective_go.html#channels
+const ParsedEventBufferSize = 1000
+
 var (
-	streamProcessingWg sync.WaitGroup
-	destinationsWg     sync.WaitGroup
-	parsedEventChannel chan *common.ParsedEvent
-	errorChannel       chan error
+	parsedEventChannel      chan *common.ParsedEvent
+	destinationErrorChannel chan error
 )
 
 // Handle orchestrates the tasks of parsing logs, classification, normalization
 // and forwarding the logs to the appropriate destination
 func Handle(dataStreams []*common.DataStream) error {
 	zap.L().Info("handling data streams", zap.Int("numDataStreams", len(dataStreams)))
-	// Creating a buffered output channel
-	parsedEventChannel = make(chan *common.ParsedEvent, 1000)
-	errorChannel = make(chan error)
-	streamProcessingWg = sync.WaitGroup{}
-	destinationsWg = sync.WaitGroup{}
+	parsedEventChannel = make(chan *common.ParsedEvent, ParsedEventBufferSize)
+	destinationErrorChannel = make(chan error)
 
-	startDestinations()
+	go func() {
+		destination := destinations.CreateDestination()
+		err := destination.SendEvents(parsedEventChannel)
+		if err != nil {
+			destinationErrorChannel <- err
+		}
+		close(destinationErrorChannel)
+	}()
 
+	var streamProcessingWg sync.WaitGroup
 	for _, dataStream := range dataStreams {
 		streamProcessingWg.Add(1)
 		go func(input *common.DataStream) {
-			defer streamProcessingWg.Done()
 			processStream(input)
+			streamProcessingWg.Done()
 		}(dataStream)
 	}
-	zap.L().Info("waiting for stream processing to finish", zap.Int("numDataStreams", len(dataStreams)))
-	streamProcessingWg.Wait() //Wait for all go routines that process the data streams to stop
-	// Once all have stopped, close the channel to signal to destinations that there are no more
-	// parsed events left to process.
-	close(parsedEventChannel)
 
-	zap.L().Info("waiting for destination to finish")
-	destinationsWg.Wait()
-	close(errorChannel)
-
-	// If any error has occurred, the error will be returned by the Lambda
-	// If no error has occurred, this will be nil
-	return <-errorChannel
-}
-
-func startDestinations() {
-	destination := destinations.CreateDestination()
-	destinationsWg.Add(1)
 	go func() {
-		defer destinationsWg.Done()
-		destination.SendEvents(parsedEventChannel, errorChannel)
+		zap.L().Info("waiting for goroutines to stop reading data", zap.Int("numDataStreams", len(dataStreams)))
+		// Close the channel after all goroutines have finished writing to it.
+		// The Destination that is reading the channel will terminate
+		// after consuming all the buffered messages
+		streamProcessingWg.Wait()
+		zap.L().Info("data processing goroutines finished")
+		close(parsedEventChannel)
 	}()
+
+	// Blocking until the destination has finished.
+	// If the destination finished successfully this will return nil
+	// otherwise it will return an error and will cause Lambda invocation to fail
+	err := <-destinationErrorChannel
+	if err != nil {
+		zap.L().Warn("destination encountered an error", zap.Error(err))
+		// closing the parsed Event Channel - this will cause the readers to stop trying to send data to it
+		close(parsedEventChannel)
+	}
+
+	return err
 }
 
 //processStream loads the data from S3, parses it and writes them to the output channel
@@ -83,7 +94,7 @@ func processStream(input *common.DataStream) {
 		for _, parsedEvent := range classificationResult.Events {
 			message := &common.ParsedEvent{
 				Event:   parsedEvent,
-				LogType: classificationResult.LogType,
+				LogType: *classificationResult.LogType,
 			}
 			parsedEventChannel <- message
 		}

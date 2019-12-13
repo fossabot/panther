@@ -28,7 +28,7 @@ type FirehoseDestination struct {
 // It continuously reads events from outputChannel, groups them in batches per log type
 // and sends them to the appropriate Kinesis FIrehose. If the method encounters an error
 // it stops reading from the outputChannel and writes an error to the errorChannel
-func (destination *FirehoseDestination) SendEvents(parsedEventChannel chan *common.ParsedEvent, errorChannel chan error) {
+func (destination *FirehoseDestination) SendEvents(parsedEventChannel chan *common.ParsedEvent) error {
 	logtypeToRecords := make(map[string]*recordBatch)
 	eventsProcessed := 0
 	zap.L().Info("starting to read events from channel")
@@ -37,25 +37,23 @@ func (destination *FirehoseDestination) SendEvents(parsedEventChannel chan *comm
 		data, err := jsoniter.Marshal(event.Event)
 		if err != nil {
 			zap.L().Warn("failed to marshall event", zap.Error(err))
-			errorChannel <- err
-			return
+			return err
 		}
 		currentRecord := &firehose.Record{
 			Data: data,
 		}
 
-		records, ok := logtypeToRecords[*event.LogType]
+		records, ok := logtypeToRecords[event.LogType]
 		if !ok {
 			records = &recordBatch{}
-			logtypeToRecords[*event.LogType] = records
+			logtypeToRecords[event.LogType] = records
 		}
 
 		if !records.addRecord(currentRecord) {
 			err := destination.sendRecords(event.LogType, records.records)
 			if err != nil {
 				zap.L().Warn("failed to send records to firehose", zap.Error(err))
-				errorChannel <- err
-				return
+				return err
 			}
 			records.initialize(currentRecord)
 		}
@@ -65,24 +63,24 @@ func (destination *FirehoseDestination) SendEvents(parsedEventChannel chan *comm
 	// If the channel has been closed
 	// send the buffered messages before terminating
 	for logType, info := range logtypeToRecords {
-		err := destination.sendRecords(aws.String(logType), info.records)
+		err := destination.sendRecords(logType, info.records)
 		if err != nil {
 			zap.L().Warn("failed to send records to firehose", zap.Error(err))
-			errorChannel <- err
-			return
+			return err
 		}
 	}
 	zap.L().Info("Finished sending messages", zap.Int("events", eventsProcessed))
+	return nil
 }
 
-func (destination *FirehoseDestination) sendRecords(logType *string, records []*firehose.Record) error {
+func (destination *FirehoseDestination) sendRecords(logType string, records []*firehose.Record) error {
 	batchMessage := &firehose.PutRecordBatchInput{
 		Records:            records,
 		DeliveryStreamName: destination.getStreamName(logType),
 	}
 	zap.L().Debug("sending batch to firehose",
 		zap.Int("records", len(records)),
-		zap.String("logType", *logType),
+		zap.String("logType", logType),
 		zap.String("streamName", *batchMessage.DeliveryStreamName))
 
 	output, err := destination.client.PutRecordBatch(batchMessage)
@@ -103,9 +101,9 @@ func (destination *FirehoseDestination) sendRecords(logType *string, records []*
 	return nil
 }
 
-func (destination *FirehoseDestination) getStreamName(logType *string) *string {
+func (destination *FirehoseDestination) getStreamName(logType string) *string {
 	// converting "AWS.CloudTrail" to "panther_data_aws_cloudtrail"
-	formattedType := strings.Replace(strings.ToLower(*logType), ".", "_", -1)
+	formattedType := strings.Replace(strings.ToLower(logType), ".", "_", -1)
 	return aws.String(destination.firehosePrefix + "_" + formattedType)
 }
 

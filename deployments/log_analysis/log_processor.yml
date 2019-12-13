@@ -34,35 +34,33 @@ Parameters:
     Default: 180
     MinValue: 5
     MaxValue: 900
-
-  S3BucketAccessLogs:
+  ProcessedDataBucket:
     Type: String
-    Description: S3 bucket for storing S3 access logs
+    Description: S3 bucket for storing processed logs
+  SnsTopicArn:
+    Type: String
+    Description: The SNS Topic to send notifications for new files in staging S3 bucket
   SQSKeyId:
     Type: String
     Description: KMS key ID for SQS encryption
-
 
 Conditions:
   AttachLayers: !Not [!Equals [!Join ['', !Ref LayerVersionArns], '']]
   TracingEnabled: !Not [!Equals ['', !Ref TracingMode]]
 
 Resources:
-  FunctionLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: /aws/lambda/panther-log-processor
-      RetentionInDays: !Ref CloudWatchLogRetentionDays
 
   # SQS Queue, DLQ and Lambda
   Queue:
     Type: AWS::SQS::Queue
     Properties:
-      QueueName: panther-data-event-notifications
+      QueueName: panther-input-data-notifications
       KmsMasterKeyId: !Ref SQSKeyId
+      # Reference on KeyReuse: https://amzn.to/2ngIsFB
+      KmsDataKeyReusePeriodSeconds: 3600 # 1 hour
       VisibilityTimeout: !Ref TimeoutSec
       RedrivePolicy:
-        deadLetterTargetArn: !GetAtt [DeadLetterQueue, Arn]
+        deadLetterTargetArn: !GetAtt DeadLetterQueue.Arn
         maxReceiveCount: 10
       Tags:
         - Key: Application
@@ -71,12 +69,18 @@ Resources:
   DeadLetterQueue:
     Type: AWS::SQS::Queue
     Properties:
-      QueueName: panther-data-event-notifications-dlq
+      QueueName: panther-input-data-notifications-dlq
       MessageRetentionPeriod: 1209600 # Max duration - 14 days
       VisibilityTimeout: !Ref TimeoutSec
       Tags:
         - Key: Application
           Value: Panther
+
+  FunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/panther-log-processor
+      RetentionInDays: !Ref CloudWatchLogRetentionDays
 
   Function:
     Type: AWS::Serverless::Function
@@ -92,6 +96,8 @@ Resources:
       Environment:
         Variables:
           DEBUG: !Ref Debug
+          S3_BUCKET: !Ref ProcessedDataBucket
+          SNS_TOPIC_ARN: !Ref SnsTopicArn
       Tags:
         Application: Panther
       Events:
@@ -120,10 +126,6 @@ Resources:
                 - sqs:GetQueueAttributes
                 - sqs:ReceiveMessage
               Resource: !GetAtt Queue.Arn
-            - Effect: Allow
-              Action:
-                - kms:Decrypt
-              Resource: !Sub arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/${SQSKeyId}
         - Id: ReadFromS3
           Version: 2012-10-17
           Statement:
@@ -132,34 +134,35 @@ Resources:
                 - s3:GetObject
                 - s3:GetBucketLocation
               Resource: '*'
+        - Id: OutputToS3
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action: s3:PutObject
+              Resource: !Sub arn:${AWS::Partition}:s3:::${ProcessedDataBucket}/logs*
+        - Id: NotifySns
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action: sns:Publish
+              Resource: !Ref SnsTopicArn
+        - Id: AccessKms
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - kms:Decrypt
+                - kms:Encrypt
+                - kms:GenerateDataKey
+              Resource: !Sub arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/${SQSKeyId}
 
   ### Data Infrastructure ###
-  Bucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: !Sub panther-classified-data-${AWS::AccountId}-${AWS::Region}
-      LoggingConfiguration:
-        DestinationBucketName: !Ref S3BucketAccessLogs
-        LogFilePrefix: !Sub panther-classified-data-${AWS::AccountId}-${AWS::Region}/
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: AES256
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
-      AccessControl: Private
-      VersioningConfiguration:
-        Status: Enabled
-
   GlueDatabase:
     Type: AWS::Glue::Database
     Properties:
       CatalogId: !Ref AWS::AccountId
       DatabaseInput:
-        Description: Panther Classified Data
+        Description: Panther Processed Data
         Name: panther
 
   AwsCloudTrailGlueTable:
@@ -173,7 +176,7 @@ Resources:
           InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat
           OutputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat
           Compressed: false
-          Location: !Sub s3://${Bucket}/
+          Location: !Sub s3://${ProcessedDataBucket}/
           BucketColumns: []
           SortColumns: []
           StoredAsSubDirectories: false
@@ -252,7 +255,7 @@ Resources:
           InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat
           OutputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat
           Compressed: false
-          Location: !Sub s3://${Bucket}/
+          Location: !Sub s3://${ProcessedDataBucket}/
           BucketColumns: []
           SortColumns: []
           StoredAsSubDirectories: false
@@ -311,7 +314,7 @@ Resources:
           InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat
           OutputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat
           Compressed: false
-          Location: !Sub s3://${Bucket}/
+          Location: !Sub s3://${ProcessedDataBucket}/
           BucketColumns: []
           SortColumns: []
           StoredAsSubDirectories: false
