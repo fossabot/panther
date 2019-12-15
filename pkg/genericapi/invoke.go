@@ -14,7 +14,7 @@ import (
 //
 // Arguments:
 //     - client: initialized Lambda client
-//     - function: function name (optionally qualified), e.g. "panther-rules-api:production"
+//     - function: function name (optionally qualified), e.g. "panther-rules-api"
 //     - input: (pointer to struct) payload for Lambda function, processed via jsoniter.Marshal()
 //     - output: (optional - pointer to struct) Lambda response is jsoniter.Unmarshal()ed here
 //         - If nil, the Lambda response is ignored
@@ -29,7 +29,7 @@ import (
 // client := lambda.New(session.Must(session.NewSession()))
 // input := models.LambdaInput{AddRule: ...}
 // var output models.AddRuleOutput
-// err := Invoke(client, "panther-rules-api:production", &input, &output)
+// err := Invoke(client, "panther-rules-api", &input, &output)
 func Invoke(
 	client lambdaiface.LambdaAPI, function string, input interface{}, output interface{}) error {
 

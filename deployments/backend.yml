@@ -79,6 +79,54 @@ Resources:
       AliasName: alias/panther-sqs
       TargetKeyId: !Ref QueueEncryptionKey
 
+  ##### Nested Stacks: Core Infra #####
+  AnalysisAPI:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        CloudWatchLogRetentionDays: !Ref CloudWatchLogRetentionDays
+        Debug: !Ref Debug
+        LayerVersionArns: !Join [ ',', !Ref LayerVersionArns ]
+        TracingMode: !Ref TracingMode
+
+        ComplianceApiId: !GetAtt ComplianceAPI.Outputs.GatewayId
+        LayerObjectVersion: !Ref PythonLayerObjectVersion
+        S3BucketAccessLogs: !ImportValue Panther-LogBucket
+        SQSKeyId: !Ref QueueEncryptionKey
+      Tags:
+        - Key: Application
+          Value: Panther
+      TemplateURL: ../out/deployments/core/swagger.analysis_api.yml
+
+  AlertDelivery:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        CloudWatchLogRetentionDays: !Ref CloudWatchLogRetentionDays
+        Debug: !Ref Debug
+        LayerVersionArns: !Join [ ',', !Ref LayerVersionArns ]
+        TracingMode: !Ref TracingMode
+
+        AppFqdn: app.runpanther.io  # TODO - this is just a placeholder
+        SQSKeyId: !Ref QueueEncryptionKey
+      Tags:
+        - Key: Application
+          Value: Panther
+      TemplateURL: core/outputs.yml
+
+  AdminAPI:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        CloudWatchLogRetentionDays: !Ref CloudWatchLogRetentionDays
+        Debug: !Ref Debug
+        LayerVersionArns: !Join [ ",", !Ref LayerVersionArns ]
+        TracingMode: !Ref TracingMode
+      Tags:
+        - Key: Application
+          Value: Panther
+      TemplateURL: core/admin_api.yml
+
   ##### Nested Stacks: Compliance #####
   ComplianceAPI:
     Type: AWS::CloudFormation::Stack
@@ -187,41 +235,6 @@ Resources:
       TemplateURL: log_analysis/log_processor.yml
 
 
-  ##### Nested Stacks: Shared Infra #####
-  AnalysisAPI:
-    Type: AWS::CloudFormation::Stack
-    Properties:
-      Parameters:
-        # Common settings
-        CloudWatchLogRetentionDays: !Ref CloudWatchLogRetentionDays
-        Debug: !Ref Debug
-        LayerVersionArns: !Join [ ',', !Ref LayerVersionArns ]
-        TracingMode: !Ref TracingMode
-
-        ComplianceApiId: !GetAtt ComplianceAPI.Outputs.GatewayId
-        LayerObjectVersion: !Ref PythonLayerObjectVersion
-        S3BucketAccessLogs: !ImportValue Panther-LogBucket
-        SQSKeyId: !Ref QueueEncryptionKey
-      Tags:
-        - Key: Application
-          Value: Panther
-      TemplateURL: ../out/deployments/core/swagger.analysis_api.yml
-
-  AlertDelivery:
-    Type: AWS::CloudFormation::Stack
-    Properties:
-      Parameters:
-        CloudWatchLogRetentionDays: !Ref CloudWatchLogRetentionDays
-        Debug: !Ref Debug
-        LayerVersionArns: !Join [ ',', !Ref LayerVersionArns ]
-        TracingMode: !Ref TracingMode
-
-        AppFqdn: app.runpanther.io  # TODO - this is just a placeholder
-        SQSKeyId: !Ref QueueEncryptionKey
-      Tags:
-        - Key: Application
-          Value: Panther
-      TemplateURL: core/outputs.yml
 
 Outputs:
   AnalysisApiEndpoint:
