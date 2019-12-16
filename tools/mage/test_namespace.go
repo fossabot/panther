@@ -37,7 +37,7 @@ func (t Test) Lint() error {
 
 	// go metalinting
 	fmt.Println("test:lint: golang")
-	args := []string{"run"}
+	args := []string{"run", "--timeout", "10m"}
 	if mg.Verbose() {
 		args = append(args, "-v")
 	}

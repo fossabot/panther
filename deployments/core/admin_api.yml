@@ -343,10 +343,6 @@ Resources:
                 - dynamodb:Scan
               Resource: !GetAtt OrganizationTable.Arn
 
-
-
-
-
   ### API Gateway Infrastructure
   ApiGatewayRole:
     Type: AWS::IAM::Role
@@ -587,7 +583,7 @@ Resources:
         Tags:
           - Key: Application
             Value: Panther
-        TracingEnabled: true
+        TracingEnabled: !If [TracingEnabled, true, false]
       StageName: !Ref ApiGatewayStageName
 
   ApiGatewayUsagePlan:

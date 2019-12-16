@@ -8,7 +8,7 @@ require (
 	github.com/Masterminds/sprig v2.22.0+incompatible // indirect
 	github.com/SermoDigital/jose v0.9.1
 	github.com/aws/aws-lambda-go v1.13.3
-	github.com/aws/aws-sdk-go v1.26.1
+	github.com/aws/aws-sdk-go v1.26.2
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/go-openapi/analysis v0.19.7 // indirect
 	github.com/go-openapi/errors v0.19.3
@@ -31,6 +31,7 @@ require (
 	github.com/magefile/mage v1.9.0
 	github.com/matcornic/hermes v1.2.0
 	github.com/mitchellh/copystructure v1.0.0 // indirect
+	github.com/mitchellh/reflectwalk v1.0.1 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.1 // indirect
 	github.com/olekukonko/tablewriter v0.0.4 // indirect
@@ -41,9 +42,10 @@ require (
 	go.uber.org/atomic v1.5.1 // indirect
 	go.uber.org/multierr v1.4.0 // indirect
 	go.uber.org/zap v1.13.0
+	golang.org/x/crypto v0.0.0-20191206172530-e9b2fee46413 // indirect
 	golang.org/x/lint v0.0.0-20191125180803-fdd1cda4f05f // indirect
 	golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553 // indirect
-	golang.org/x/tools v0.0.0-20191213221258-04c2e8eff935 // indirect
+	golang.org/x/tools v0.0.0-20191216173652-a0e659d51361 // indirect
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 	gopkg.in/go-playground/validator.v9 v9.30.2
 	gopkg.in/russross/blackfriday.v2 v2.0.0 // indirect

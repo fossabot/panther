@@ -13,12 +13,12 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"go.uber.org/zap"
 
-	alertmodels "github.com/panther-labs/panther/api/alert_processor"
 	enginemodels "github.com/panther-labs/panther/api/gateway/analysis"
 	analysismodels "github.com/panther-labs/panther/api/gateway/analysis/models"
 	complianceops "github.com/panther-labs/panther/api/gateway/compliance/client/operations"
 	compliancemodels "github.com/panther-labs/panther/api/gateway/compliance/models"
 	resourcemodels "github.com/panther-labs/panther/api/gateway/resources/models"
+	alertmodels "github.com/panther-labs/panther/internal/compliance/alert_processor/models"
 	"github.com/panther-labs/panther/pkg/awsbatch/sqsbatch"
 )
 
