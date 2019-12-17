@@ -2,8 +2,8 @@ astroid==2.3.3
 attrs==19.3.0
 aws-sam-translator==1.19.0
 bandit==1.6.2
-boto3==1.10.37
-botocore==1.13.37
+boto3==1.10.40
+botocore==1.13.40
 cfn-lint==0.26.0
 docutils==0.15.2
 gitdb2==2.0.6

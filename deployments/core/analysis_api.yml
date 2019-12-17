@@ -50,14 +50,9 @@ Parameters:
   ComplianceApiId:
     Type: String
     Description: API Gateway for compliance-api
-  LayerKey:
+  PythonLayerArn:
     Type: String
-    Description: S3 key for the Python analysis layer
-    Default: layers/python-analysis.zip
-  LayerObjectVersion:
-    Type: String
-    Description: S3 object version for the layer zipfile
-    Default: ''
+    Description: Python Lambda layer with pip libraries for analysis
   S3BucketAccessLogs:
     Type: String
     Description: S3 bucket for storing S3 access logs
@@ -177,19 +172,6 @@ Resources:
       RetentionInDays: !Ref CloudWatchLogRetentionDays
 
   ##### Python Engine #####
-  PythonLayer:
-    Type: AWS::Lambda::LayerVersion
-    Properties:
-      CompatibleRuntimes:
-        - python3.6
-        - python3.7
-      Content:
-        S3Bucket: !Sub panther-source-${AWS::AccountId}-${AWS::Region}
-        S3Key: !Ref LayerKey
-        S3ObjectVersion: !Ref LayerObjectVersion
-      Description: Pip libraries available to the Python analysis function
-      LayerName: panther-analysis
-
   EngineFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -205,8 +187,8 @@ Resources:
           - ","
           - !Sub
             - "${base},${pip}"
-            - {base: !Join [",", !Ref LayerVersionArns], pip: !Ref PythonLayer}
-        - [!Ref PythonLayer]
+            - {base: !Join [",", !Ref LayerVersionArns], pip: !Ref PythonLayerArn}
+        - [!Ref PythonLayerArn]
       Runtime: python3.7
       Tags:
         Application: Panther

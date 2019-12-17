@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: 2010-09-09
 Transform: AWS::Serverless-2016-10-31
-Description: Lambdas for invoking remediation process
+Description: AWS Auto-Remediation Infrastructure
 
 Parameters:
   CloudWatchLogRetentionDays:
@@ -46,6 +46,19 @@ Parameters:
     Default: 512
     MinValue: 128
     MaxValue: 3008
+  RemediationTimeoutSec:
+    Type: Number
+    Description: Timeout (seconds) for the remediation-processor Lambda function
+    Default: 60
+    MinValue: 5
+    MaxValue: 900
+  RemediationMemorySizeMB:
+    Type: Number
+    Description: The memory that we will allocate for the remediation-processor Lambda functxion
+    Default: 128
+    MinValue: 128
+    MaxValue: 3008
+
   CrossAccountRoleName:
     Type: String
     Description: The name of the remediation IAM role to assume in each account
@@ -58,6 +71,9 @@ Parameters:
   AnalysisApiId:
     Type: String
     Description: API Gateway for analysis-api
+  PythonLayerArn:
+    Type: String
+    Description: Python Lambda layer with pip libraries for analysis
   ResourcesApiId:
     Type: String
     Description: API Gateway for resources-api
@@ -67,6 +83,7 @@ Parameters:
 
 Conditions:
   AttachLayers: !Not [!Equals [!Join ['', !Ref LayerVersionArns], '']]
+  DebugEnabled: !Equals [!Ref Debug, true]
   TracingEnabled: !Not [!Equals ['', !Ref TracingMode]]
 
 Resources:
@@ -263,6 +280,48 @@ Resources:
               Resource:
                 - !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${AnalysisApiId}/v1/GET/policy
                 - !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ResourcesApiId}/v1/GET/resource
+
+  ##### AWS Remediation #####
+  RemediationLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/panther-aws-remediation
+      RetentionInDays: !Ref CloudWatchLogRetentionDays
+
+  RemediationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../../../internal/compliance/remediation_aws
+      Description: Function that remediates issues with AWS resources
+      FunctionName: panther-aws-remediation
+      Handler: src.app.main.lambda_handler
+      Environment:
+        Variables:
+          # TODO: Support customizable logging levels (for every Lambda function)
+          LOGGING_LEVEL: !If [DebugEnabled, DEBUG, INFO]
+      Layers: !If
+        - AttachLayers
+        - !Split
+          # CFN doesn't have list append, so convert to/from CSV string to prepend base layers
+          - ","
+          - !Sub
+            - "${base},${pip}"
+            - {base: !Join [",", !Ref LayerVersionArns], pip: !Ref PythonLayerArn}
+        - [!Ref PythonLayerArn]
+      MemorySize: !Ref RemediationMemorySizeMB
+      Runtime: python3.7
+      Tags:
+        Application: Panther
+      Timeout: !Ref RemediationTimeoutSec
+      Tracing: !If [TracingEnabled, !Ref TracingMode, !Ref 'AWS::NoValue']
+      Policies:
+        - !If [TracingEnabled, 'arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess', !Ref 'AWS::NoValue']
+        - Id: AssumeRemediationRole
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action: sts:AssumeRole
+              Resource: !Sub arn:aws:iam::*:role/${CrossAccountRoleName}
 
 Outputs:
   GatewayId:

@@ -32,7 +32,9 @@ const (
 )
 
 // Modify this to update the pip libraries in the Python analysis layer
+// NOTE: Native libraries (e.g. numpy) aren't supported
 var pipLibs = []string{
+	"boto3==1.10.40", // the boto3 version in Lambda is usually out of date
 	"policyuniverse==1.3.2.1",
 }
 

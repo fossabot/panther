@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
@@ -15,7 +14,21 @@ import (
 // Test contains targets for testing code syntax, style, and correctness.
 type Test mg.Namespace
 
-var build = Build{}
+var (
+	build             = Build{}
+	pylintSrcDisabled = []string{
+		"duplicate-code",
+		"fixme",
+		"missing-module-docstring",
+		"too-few-public-methods",
+	}
+	pylintTestsDisabled = append(pylintSrcDisabled,
+		"missing-class-docstring",
+		"missing-function-docstring",
+		"no-self-use",
+		"protected-access",
+	)
+)
 
 // JoinErrors formats multiple errors into a single error.
 func JoinErrors(command string, errList []error) error {
@@ -62,16 +75,23 @@ func (t Test) Lint() error {
 	} else {
 		args = append(args, "--quiet")
 	}
-	if err := sh.RunV("venv/bin/bandit", append(args, pyTargets...)...); err != nil {
+	if err := sh.Run("venv/bin/bandit", append(args, pyTargets...)...); err != nil {
 		errs = append(errs, err)
 	}
 
-	// python lint
-	args = []string{"-j", "0", "--disable", "duplicate-code,fixme,too-few-public-methods", "--max-line-length", "140"}
+	// python lint - runs twice (once for src directories, once for test directories)
+	args = []string{"-j", "0", "--max-line-length", "140"}
 	if mg.Verbose() {
 		args = append(args, "--verbose")
 	}
-	if err := sh.RunV("venv/bin/pylint", append(args, pyTargets...)...); err != nil {
+	// pylint src
+	srcArgs := append(args, "--ignore", "tests", "--disable", strings.Join(pylintSrcDisabled, ","))
+	if err := sh.RunV("venv/bin/pylint", append(srcArgs, pyTargets...)...); err != nil {
+		errs = append(errs, err)
+	}
+	// pylint tests
+	testArgs := append(args, "--ignore", "src", "--disable", strings.Join(pylintTestsDisabled, ","))
+	if err := sh.RunV("venv/bin/pylint", append(testArgs, pyTargets...)...); err != nil {
 		errs = append(errs, err)
 	}
 
@@ -120,12 +140,15 @@ func (Test) Unit() error {
 	if mg.Verbose() {
 		args = append(args, "--verbose")
 	}
-	for _, target := range pyTargets {
-		args = append(args, path.Dir(target))
+
+	for _, target := range []string{"internal/core", "internal/compliance", "internal/log_analysis"} {
+		fmt.Println("test:unit python unittest", target)
+		if err := sh.RunV("venv/bin/python3", append(args, target)...); err != nil {
+			return err
+		}
 	}
 
-	fmt.Println("test:unit python unittest")
-	return sh.RunV("python3", args...)
+	return nil
 }
 
 // Cover Run Go unit tests and view test coverage in HTML
@@ -183,7 +206,7 @@ func (t Test) Integration() error {
 	// Run Python integration tests unless a Go pkg is specified
 	if os.Getenv("PKG") == "" {
 		fmt.Println("test:integration: python engine")
-		return sh.RunV("python3", "internal/core/analysis_engine/tests/integration.py")
+		return sh.RunV("venv/bin/python3", "internal/core/analysis_engine/tests/integration.py")
 	}
 	return nil
 }
