@@ -713,7 +713,6 @@ Resources:
               Action: states:DescribeExecution
               Resource: !Sub arn:aws:states:${AWS::Region}:${AWS::AccountId}:execution:${OnboardOrganizationStateMachine.Name}:*
 
-
   OnboardingFunctionLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:

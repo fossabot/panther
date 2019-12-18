@@ -278,7 +278,6 @@ Resources:
         Debug: !Ref Debug
         LayerVersionArns: !Join [ ',', !Ref LayerVersionArns ]
         TracingMode: !Ref TracingMode
-
         SnsTopicArn: !Ref ProcessedDataNotifications
         ProcessedDataBucket: !Ref ProcessedDataBucket
         SQSKeyId: !Ref QueueEncryptionKey
@@ -286,6 +285,22 @@ Resources:
         - Key: Application
           Value: Panther
       TemplateURL: log_analysis/log_processor.yml
+
+  Alerts:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        CloudWatchLogRetentionDays: !Ref CloudWatchLogRetentionDays
+        Debug: !Ref Debug
+        LayerVersionArns: !Join [ ',', !Ref LayerVersionArns ]
+        TracingMode: !Ref TracingMode
+
+        SQSKeyId: !Ref QueueEncryptionKey
+        AnalysisApiId: !GetAtt AnalysisAPI.Outputs.GatewayId
+      Tags:
+        - Key: Application
+          Value: Panther
+      TemplateURL: log_analysis/alerts.yml
 
 Outputs:
   AnalysisApiEndpoint:
