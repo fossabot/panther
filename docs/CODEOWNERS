@@ -1,8 +1,4 @@
 # Each line is a file pattern followed by one or more owners.
 
 # The default owners for everything in the repo:
-*             @panther-labs/eng
-
-# Specialized code owners:
-internal/     @austinbyers @jacknagz @kostaspap @nhakmiller @rleighton
-web/          @drixta @3nvi
+* @panther-labs/eng

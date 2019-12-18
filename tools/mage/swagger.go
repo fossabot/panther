@@ -18,17 +18,20 @@ const (
 	space8           = "        "
 )
 
-var apiDefinitionPattern = regexp.MustCompile(`DefinitionBody: api/[^#]+\.yml.*`)
+var (
+	swaggerPattern = regexp.MustCompile(`DefinitionBody: api/[^#]+\.yml.*`)
+	graphqlPattern = regexp.MustCompile(`Definition: api/[^#]+\.graphql.*`)
+)
 
-// Embed Swagger specs into all API CloudFormation templates, saving them to out/deployments
-func embedSwaggerAll() error {
+// Embed swagger/graphql specs into all API CloudFormation templates, saving them to out/deployments.
+func embedAPISpecs() error {
 	templates, err := filepath.Glob("deployments/*/*.yml")
 	if err != nil {
 		return err
 	}
 
 	for _, template := range templates {
-		if _, err := embedSwagger(template); err != nil {
+		if _, err := embedAPI(template); err != nil {
 			return err
 		}
 	}
@@ -36,10 +39,10 @@ func embedSwaggerAll() error {
 	return nil
 }
 
-// Transform a CloudFormation template by embedding API Swagger definitions.
+// Transform a CloudFormation template by embedding Swagger + GraphQL definitions.
 //
-// Returns the new template path, which may be unchanged if there was no api to embed.
-func embedSwagger(cfnFilename string) (string, error) {
+// Returns the new template path, which may be unchanged if there was nothing to embed.
+func embedAPI(cfnFilename string) (string, error) {
 	cfn, err := ioutil.ReadFile(cfnFilename)
 	if err != nil {
 		return "", fmt.Errorf("failed to open CloudFormation template %s: %s", cfnFilename, err)
@@ -47,7 +50,7 @@ func embedSwagger(cfnFilename string) (string, error) {
 
 	var errList []error
 	changed := false
-	newCfn := apiDefinitionPattern.ReplaceAllFunc(cfn, func(match []byte) []byte {
+	cfn = swaggerPattern.ReplaceAllFunc(cfn, func(match []byte) []byte {
 		apiFilename := strings.TrimSpace(strings.Split(string(match), " ")[1])
 		fmt.Printf("deploy:backend: %s embedding swagger DefinitionBody: %s\n", cfnFilename, apiFilename)
 
@@ -61,7 +64,22 @@ func embedSwagger(cfnFilename string) (string, error) {
 		return []byte("DefinitionBody:\n" + *body)
 	})
 
-	if err := JoinErrors("deploy:backend: swagger-embed", errList); err != nil {
+	cfn = graphqlPattern.ReplaceAllFunc(cfn, func(match []byte) []byte {
+		apiFilename := strings.TrimSpace(strings.Split(string(match), " ")[1])
+		fmt.Printf("deploy:backend: %s embedding graphql Definition: %s\n", cfnFilename, apiFilename)
+
+		graphql, err := ioutil.ReadFile(apiFilename)
+		if err != nil {
+			errList = append(errList, err)
+			return match
+		}
+
+		spaced := space8 + strings.ReplaceAll(string(graphql), "\n", "\n"+space8)
+		changed = true
+		return []byte("Definition: |\n" + spaced)
+	})
+
+	if err := JoinErrors("deploy:backend: embedAPI", errList); err != nil {
 		return "", err
 	}
 
@@ -75,9 +93,9 @@ func embedSwagger(cfnFilename string) (string, error) {
 		return "", fmt.Errorf("failed to build output dir %s: %s", outputDir, err)
 	}
 
-	cfnDest := path.Join(outputDir, "swagger."+path.Base(cfnFilename))
-	if err := ioutil.WriteFile(cfnDest, newCfn, 0644); err != nil {
-		return "", fmt.Errorf("failed to write swaggered CloudFormation template %s: %s", cfnDest, err)
+	cfnDest := path.Join(outputDir, "embedded."+path.Base(cfnFilename))
+	if err := ioutil.WriteFile(cfnDest, cfn, 0644); err != nil {
+		return "", fmt.Errorf("failed to write new CloudFormation template %s: %s", cfnDest, err)
 	}
 
 	return cfnDest, nil
@@ -90,14 +108,9 @@ func embedSwagger(cfnFilename string) (string, error) {
 // the ARN of the Lambda function being invoked for each endpoint. The interpolation does not work
 // if we just reference a swagger file - the api spec must be embedded into the CloudFormation itself.
 func loadSwagger(filename string) (*string, error) {
-	swagger, err := ioutil.ReadFile(filename)
+	apiBody, err := loadYamlFile(filename)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open '%s': %s", filename, err)
-	}
-
-	var apiBody map[string]interface{}
-	if err := yaml.Unmarshal(swagger, &apiBody); err != nil {
-		return nil, fmt.Errorf("failed to parse swagger yaml '%s': %s", filename, err)
+		return nil, err
 	}
 
 	// Allow AWS_IAM authorization (i.e. AWS SIGv4 signatures).

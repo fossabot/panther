@@ -108,7 +108,7 @@ func (t Test) Lint() error {
 	fmt.Println("test:lint: CloudFormation")
 	var templates []string
 	err := filepath.Walk("deployments", func(path string, info os.FileInfo, err error) error {
-		if strings.HasSuffix(path, ".yml") {
+		if strings.HasSuffix(path, ".yml") && !strings.HasSuffix(path, "config.yml") {
 			templates = append(templates, path)
 		}
 		return err

@@ -32,6 +32,8 @@ go run bootstrap.go
 
 Then run `mage setup` to install the prerequisite development libraries.
 
+Finally, configure the required fields in [panther_config.yml](deployments/panther_config.yml).
+
 ## Development and Deployment
 Run `mage` to see the list of available commands (`-v` for verbose mode).
 Steps in a typical developer workflow might be:
@@ -42,12 +44,8 @@ mage build:api  # generate Go SDKs for Panther APIs
 mage fmt        # format all code
 mage test:ci    # run all required checks
 
-# Deploy
 mage deploy:pre  # deploy prerequisite S3 buckets (only need to do once)
 mage deploy:backend
-
-# Optional: Deploy with parameters
-AWS_REGION=us-west-2 PARAMS="Debug=true" mage deploy:backend
 
 # Integration tests
 mage test:integration  # Run all integration tests
@@ -59,7 +57,6 @@ You can also easily chain `mage` commands together. For example:
 ```bash
 mage fmt test:ci deploy:backend test:integration
 ```
-
 
 ## Repo Structure
 Since the majority of Panther is written in Go, we follow the [standard Go project layout](https://github.com/golang-standards/project-layout):

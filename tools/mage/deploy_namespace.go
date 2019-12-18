@@ -3,6 +3,7 @@ package mage
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path"
 	"sort"
@@ -15,6 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
+	"gopkg.in/yaml.v2"
 
 	"github.com/panther-labs/panther/pkg/shutil"
 )
@@ -25,6 +27,7 @@ const (
 	backendTemplate = "deployments/backend.yml"
 	bucketStack     = "panther-buckets" // prereq stack with Panther S3 buckets
 	bucketTemplate  = "deployments/core/buckets.yml"
+	configFile      = "deployments/panther_config.yml"
 
 	// Python layer
 	layerSourceDir = "out/pip/analysis/python"
@@ -41,18 +44,23 @@ var pipLibs = []string{
 // Deploy defines mage targets for deploying Panther infrastructure.
 type Deploy mg.Namespace
 
-// Pre Deploy prerequisite S3 buckets with optional PARAMS
+// Pre Deploy prerequisite S3 buckets
 func (Deploy) Pre() error {
 	return cfnDeploy(bucketTemplate, "", bucketStack, nil)
 }
 
-// Backend Deploy backend infrastructure with optional PARAMS
+// Backend Deploy backend infrastructure
 func (Deploy) Backend() error {
+	config, err := loadYamlFile(configFile)
+	if err != nil {
+		return err
+	}
+
 	if err := Build.Lambda(Build{}); err != nil {
 		return err
 	}
 
-	if err := embedSwaggerAll(); err != nil {
+	if err := embedAPISpecs(); err != nil {
 		return err
 	}
 
@@ -76,7 +84,17 @@ func (Deploy) Backend() error {
 		return err
 	}
 
-	return cfnDeploy(template, bucket, backendStack, []string{"PythonLayerObjectVersion=" + version})
+	deployParams := []string{"PythonLayerObjectVersion=" + version}
+	if params, ok := config["ParameterValues"].(map[interface{}]interface{}); ok {
+		for key, val := range params {
+			if val == nil {
+				continue
+			}
+			deployParams = append(deployParams, fmt.Sprintf("%s=%v", key, val))
+		}
+	}
+
+	return cfnDeploy(template, bucket, backendStack, deployParams)
 }
 
 // GetSourceBucket returns the name of the Panther source S3 bucket for CloudFormation uploads.
@@ -179,7 +197,21 @@ func cfnPackage(templateFile, bucket, stack string) (string, error) {
 	return pkgOut, err
 }
 
-// Deploy the final CloudFormation template to a dev account.
+func loadYamlFile(path string) (map[string]interface{}, error) {
+	swagger, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open '%s': %s", path, err)
+	}
+
+	var result map[string]interface{}
+	if err := yaml.Unmarshal(swagger, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse yaml file '%s': %s", path, err)
+	}
+
+	return result, nil
+}
+
+// Deploy the final CloudFormation template.
 func cfnDeploy(templateFile, bucket, stack string, params []string) error {
 	args := []string{
 		"cloudformation", "deploy",
@@ -189,11 +221,6 @@ func cfnDeploy(templateFile, bucket, stack string, params []string) error {
 	}
 	if bucket != "" {
 		args = append(args, "--s3-bucket", bucket, "--s3-prefix", stack)
-	}
-
-	// Combine parameters from PARAMS env variable with those passed to this function.
-	if env := os.Getenv("PARAMS"); env != "" {
-		params = append(params, strings.Split(env, " ")...)
 	}
 	if len(params) > 0 {
 		args = append(args, "--parameter-overrides")

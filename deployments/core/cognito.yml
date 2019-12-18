@@ -1,0 +1,136 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Cognito User Pool with initial admin user
+
+Parameters:
+  FirstUserEmail:
+    Type: String
+    Description: Email address for the initial Panther user account
+  FirstUserGivenName:
+    Type: String
+    Description: Given/first name for the initial Panther user account
+    Default: ''
+  FirstUserFamilyName:
+    Type: String
+    Description: Family/last name for the initial Panther user account
+    Default: ''
+
+Resources:
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
+        # TODO: InviteMessageTemplate
+      MfaConfiguration: 'ON'
+      AutoVerifiedAttributes:  # Attributes you want the user to verify (poor naming choice by AWS)
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 12
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+          RequireUppercase: true
+      Schema:
+        - AttributeDataType: String
+          DeveloperOnlyAttribute: false
+          Mutable: true
+          Name: email
+          Required: true
+        - AttributeDataType: String
+          DeveloperOnlyAttribute: false
+          Mutable: true
+          Name: given_name
+        - AttributeDataType: String
+          DeveloperOnlyAttribute: false
+          Mutable: true
+          Name: family_name
+      UsernameAttributes:
+        - email
+      UserPoolName: panther-users
+      SmsConfiguration:
+        ExternalId: !Sub panther-${AWS::AccountId}-${AWS::Region}
+        SnsCallerArn: !GetAtt SNSRole.Arn
+
+  AdminGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      Description: Administrator for Panther web application
+      GroupName: Admin
+      Precedence: 0
+      UserPoolId: !Ref UserPool
+
+  AnalystGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      Description: Analyst for Panther web application, allows rule, alert and configuration managing
+      GroupName: Analyst
+      Precedence: 1
+      UserPoolId: !Ref UserPool
+
+  ObserverGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      Description: Observer Group for Panther web application, only have access to Read Only operations
+      GroupName: Observer
+      Precedence: 2
+      UserPoolId: !Ref UserPool
+
+  FirstUser:
+    Type: AWS::Cognito::UserPoolUser
+    Properties:
+      DesiredDeliveryMediums:
+        - EMAIL
+      UserAttributes:
+        - Name: email
+          Value: !Ref FirstUserEmail
+        - Name: given_name
+          Value: !Ref FirstUserGivenName
+        - Name: family_name
+          Value: !Ref FirstUserFamilyName
+      Username: !Ref FirstUserEmail
+      UserPoolId: !Ref UserPool
+
+  FirstUserMembership:
+    Type: AWS::Cognito::UserPoolUserToGroupAttachment
+    Properties:
+      GroupName: !Ref AdminGroup
+      Username: !Ref FirstUser
+      UserPoolId: !Ref UserPool
+
+  AppClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: Panther
+      GenerateSecret: false
+      RefreshTokenValidity: 1
+      UserPoolId: !Ref UserPool
+      WriteAttributes:
+        - email
+        - given_name
+        - family_name
+
+  SNSRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - cognito-idp.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: CognitoSNSPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: sns:publish
+                Resource: '*'
+
+Outputs:
+  UserPoolId:
+    Description: Cognito user pool ID
+    Value: !Ref UserPool

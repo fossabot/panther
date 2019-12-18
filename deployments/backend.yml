@@ -2,6 +2,18 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: Master Panther backend template
 
 Parameters:
+  UserEmail:
+    Type: String
+    Description: Email address for the initial Panther user account
+  UserGivenName:
+    Type: String
+    Description: Given/first name for the initial Panther user account
+    Default: ''
+  UserFamilyName:
+    Type: String
+    Description: Family/last name for the initial Panther user account
+    Default: ''
+
   CloudWatchLogRetentionDays:
     Type: Number
     Description: CloudWatch log retention period
@@ -113,7 +125,7 @@ Resources:
       Tags:
         - Key: Application
           Value: Panther
-      TemplateURL: ../out/deployments/core/swagger.analysis_api.yml
+      TemplateURL: ../out/deployments/core/embedded.analysis_api.yml
 
   AlertDelivery:
     Type: AWS::CloudFormation::Stack
@@ -124,7 +136,7 @@ Resources:
         LayerVersionArns: !Join [ ',', !Ref LayerVersionArns ]
         TracingMode: !Ref TracingMode
 
-        AppFqdn: app.runpanther.io  # TODO - this is just a placeholder
+        AppFqdn: app.runpanther.io  # TODO: placeholder
         SQSKeyId: !Ref QueueEncryptionKey
       Tags:
         - Key: Application
@@ -144,6 +156,32 @@ Resources:
           Value: Panther
       TemplateURL: core/admin_api.yml
 
+  Cognito:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        FirstUserEmail: !Ref UserEmail
+        FirstUserGivenName: !Ref UserGivenName
+        FirstUserFamilyName: !Ref UserFamilyName
+      Tags:
+        - Key: Application
+          Value: Panther
+      TemplateURL: core/cognito.yml
+
+  Appsync:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        AnalysisApi: !Sub 'https://${AnalysisAPI.Outputs.GatewayId}.execute-api.${AWS::Region}.amazonaws.com'
+        ComplianceApi: !Sub 'https://${ComplianceAPI.Outputs.GatewayId}.execute-api.${AWS::Region}.amazonaws.com'
+        RemediationApi: !Sub 'https://${RemediationAPI.Outputs.GatewayId}.execute-api.${AWS::Region}.amazonaws.com'
+        ResourcesApi: !Sub 'https://${ResourcesAPI.Outputs.GatewayId}.execute-api.${AWS::Region}.amazonaws.com'
+        UserPoolId: !GetAtt Cognito.Outputs.UserPoolId
+      Tags:
+        - Key: Application
+          Value: Panther
+      TemplateURL: ../out/deployments/core/embedded.appsync.yml
+
   ##### Nested Stacks: Compliance #####
   ComplianceAPI:
     Type: AWS::CloudFormation::Stack
@@ -156,7 +194,7 @@ Resources:
       Tags:
         - Key: Application
           Value: Panther
-      TemplateURL: ../out/deployments/compliance/swagger.compliance_api.yml
+      TemplateURL: ../out/deployments/compliance/embedded.compliance_api.yml
 
   ResourcesAPI:
     Type: AWS::CloudFormation::Stack
@@ -173,7 +211,7 @@ Resources:
       Tags:
         - Key: Application
           Value: Panther
-      TemplateURL: ../out/deployments/compliance/swagger.resources_api.yml
+      TemplateURL: ../out/deployments/compliance/embedded.resources_api.yml
 
   AwsEventProcessor:
     Type: AWS::CloudFormation::Stack
@@ -241,7 +279,7 @@ Resources:
       Tags:
         - Key: Application
           Value: Panther
-      TemplateURL: ../out/deployments/compliance/swagger.remediation.yml
+      TemplateURL: ../out/deployments/compliance/embedded.remediation.yml
 
   ##### Nested Stacks: Log Analysis #####
   ProcessedDataNotifications:

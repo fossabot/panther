@@ -1,0 +1,12 @@
+### Panther deployment configuration ###
+
+# These are passed as CloudFormation parameter overrides for the backend.yml stack.
+ParameterValues:
+  UserEmail: # TODO - REQUIRED
+  UserGivenName: ''
+  UserFamilyName: ''
+
+  CloudWatchLogRetentionDays: 365
+  Debug: false
+  LayerVersionArns: ''
+  TracingMode: ''
