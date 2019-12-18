@@ -2,27 +2,34 @@
 
 [![Built with Mage](https://magefile.org/badge.svg)](https://magefile.org)
 
-> **NOTE**: Panther is under active development and is still in alpha - breaking changes are likely
+---
 
 Panther is an open source, cloud-native SIEM written in Golang/React.
 
-Developed by a [dedicated team](https://runpanther.io/about/) of cloud and security experts, Panther is designed to be:
+Developed by a [dedicated team](https://runpanther.io/about/) of cloud security practitioners, Panther is designed to be:
 
-* **Flexible:** Python-based analysis for customized detection
-* **Scalable:** Built on a modern, serverless platform
-* **Secure:** Least-privilege access to encrypted infrastructure you control
-* **Integrated:** Enrich log analysis with information about your cloud
+* **Flexible:** Python-based detections with integrations into common tools such as PagerDuty, Slack, MS Teams, and more.
+* **Scalable:** Built on serverless for cost and operational efficiency at any scale.
+* **Secure:** Least-privilege and encrypted infrastructure that you control.
+* **Integrated:** Support for many popular security logs used for incident response, combined with rich information about your cloud resources.
+* **Automated:** Quick and simple deployments with AWS CloudFormation.
 
-Check out our [website](https://runpanther.io), [blog](https://blog.runpanther.io), and [documentation](https://docs.runpanther.io) to learn more!
+Panther use cases:
 
-## Products
-Panther provides two main features: [cloud security](https://runpanther.io/compliance/) and
-[threat detection](https://runpanther.io/log-analysis), and provides flexibility to select only the features you need.
+* **SIEM:** Centralize all security log data for detection, long-term storage, and investigations.
+* **[Threat Detection](https://runpanther.io/log-analysis):** Detect suspicious activity quickly and effectively with powerful Python rules.
+* **Alerting:** Send notifications to your team when new issues are identified.
+* **[Cloud Compliance](https://runpanther.io/compliance/):** Ensure AWS infrastructure abides by defined Python policies.
+* **Automatic Remediation:** Fix insecure infrastructure in any number of accounts.
+
+Check out our [website](https://runpanther.io), [blog](https://blog.runpanther.io), and [docs](https://docs.runpanther.io) to learn more.
+
+> **_NOTE:_** Panther is under active development and may experience breaking changes.
 
 ## Setup
 Install Go1.13+, Node, Python3, [Mage](https://magefile.org/#installation), and the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv1.html)
 
-```
+```bash
 brew install go node python3  # MacOS
 
 go get -u -d github.com/magefile/mage
@@ -34,28 +41,43 @@ Then run `mage setup` to install the prerequisite development libraries.
 
 Finally, configure the required fields in [panther_config.yml](deployments/panther_config.yml).
 
-## Development and Deployment
+## Workflows
 Run `mage` to see the list of available commands (`-v` for verbose mode).
-Steps in a typical developer workflow might be:
 
-```bash
-# Develop and Test
-mage build:api  # generate Go SDKs for Panther APIs
-mage fmt        # format all code
-mage test:ci    # run all required checks
-
-mage deploy:pre  # deploy prerequisite S3 buckets (only need to do once)
-mage deploy:backend
-
-# Integration tests
-mage test:integration  # Run all integration tests
-PKG=./internal/compliance/compliance-api/main mage test:integration  # Run tests for only one package
-```
-
-You can also easily chain `mage` commands together. For example:
+You can easily chain `mage` commands together, for example:
 
 ```bash
 mage fmt test:ci deploy:backend test:integration
+```
+
+### Develop
+
+Typical developer workflows.
+
+```bash
+mage build:api  # generate Go SDKs for Panther APIs
+mage fmt        # format all code
+mage test:ci    # run all required checks
+```
+
+### Deploy
+
+```bash
+mage deploy:pre  # deploy prerequisite S3 buckets (only need to do once)
+mage deploy:backend
+
+# Optional: Deploy with parameters
+AWS_REGION=us-west-2 PARAMS="Debug=true" mage deploy:backend
+```
+
+### Integration Testing
+
+Run tests on the deployed infrastructure to ensure each component is operating as intended.
+
+```bash
+mage test:integration  # Run all integration tests
+PKG=./internal/compliance/compliance-api/main mage test:integration  # Run tests for only one package
+Creates the necessary AWS infrastructure to setup the main Panther application.
 ```
 
 ## Repo Structure
@@ -68,3 +90,7 @@ Since the majority of Panther is written in Go, we follow the [standard Go proje
 * [`pkg/`](pkg) - shared standalone packages that could also be imported by other projects
 * [`tools/`](tools) - source code for mage targets
 * [`web/`](web) - web application source
+
+## Contributing
+
+Please read the [contributing guidelines](https://github.com/panther-labs/panther/blob/master/docs/CONTRIBUTING.md) before submitting pull requests.
