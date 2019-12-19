@@ -134,3 +134,6 @@ Outputs:
   UserPoolId:
     Description: Cognito user pool ID
     Value: !Ref UserPool
+  AppClientId:
+    Description: Cognito user pool client ID
+    Value: !Ref AppClient

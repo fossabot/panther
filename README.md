@@ -47,7 +47,7 @@ Run `mage` to see the list of available commands (`-v` for verbose mode).
 You can easily chain `mage` commands together, for example:
 
 ```bash
-mage fmt test:ci deploy:backend test:integration
+mage fmt test:ci deploy:app test:integration
 ```
 
 ### Develop
@@ -64,10 +64,10 @@ mage test:ci    # run all required checks
 
 ```bash
 mage deploy:pre  # deploy prerequisite S3 buckets (only need to do once)
-mage deploy:backend
+mage deploy:app
 
 # Optional: Deploy with parameters
-AWS_REGION=us-west-2 PARAMS="Debug=true" mage deploy:backend
+AWS_REGION=us-west-2 PARAMS="Debug=true" mage deploy:app
 ```
 
 ### Integration Testing
@@ -86,7 +86,7 @@ Since the majority of Panther is written in Go, we follow the [standard Go proje
 * [`api/`](api) - Go models and Swagger specs for communicating with Panther APIs
 * [`deployments/`](deployments) - CloudFormation templates for all of Panther's infrastructure
 * [`docs/`](docs) - code owners, contributing guidelines, etc
-* [`internal/`](internal) - backend components
+* [`internal/`](internal) - frontend & backend components
 * [`pkg/`](pkg) - shared standalone packages that could also be imported by other projects
 * [`tools/`](tools) - source code for mage targets
 * [`web/`](web) - web application source

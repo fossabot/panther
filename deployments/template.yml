@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: Master Panther backend template
+Description: Master Panther template for both front-end and back-end resources
 
 Parameters:
   UserEmail:
@@ -32,7 +32,6 @@ Parameters:
     Description: Enable XRay tracing on Lambda and API Gateway
     AllowedValues: ['', Active, PassThrough]
     Default: ''
-
   PythonLayerObjectVersion:
     Type: String
     Description: S3 object version for the python layer zipfile
@@ -41,6 +40,10 @@ Parameters:
     Type: String
     Description: S3 key for the Python analysis layer
     Default: layers/python-analysis.zip
+  WebApplicationClusterName:
+    Type: String
+    Default: panther-web-cluster
+    Description: The name of the cluster related to the web application deployment
 
 Resources:
   GatewayLoggingRole:
@@ -339,6 +342,53 @@ Resources:
         - Key: Application
           Value: Panther
       TemplateURL: log_analysis/alerts.yml
+
+  WebApplicationCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Ref WebApplicationClusterName
+      Tags:
+        - Key: Application
+          Value: Panther
+
+  WebApplicationNetworking:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Tags:
+        - Key: Application
+          Value: Panther
+      TemplateURL: web/networking.yml
+
+  WebApplicationLoadBalancer:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        VpcId: !GetAtt WebApplicationNetworking.Outputs.VpcId
+        SubnetOneId: !GetAtt WebApplicationNetworking.Outputs.SubnetOneId
+        SubnetTwoId: !GetAtt WebApplicationNetworking.Outputs.SubnetTwoId
+        LoadBalancerName: web
+      Tags:
+        - Key: Application
+          Value: Panther
+      TemplateURL: web/alb.yml
+
+  FrontendApplicationServer:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        ClusterName: !Ref WebApplicationCluster
+        VpcId: !GetAtt WebApplicationNetworking.Outputs.VpcId
+        SubnetOneId: !GetAtt WebApplicationNetworking.Outputs.SubnetOneId
+        SubnetTwoId: !GetAtt WebApplicationNetworking.Outputs.SubnetTwoId
+        LoadBalancerListenerArn: !GetAtt WebApplicationLoadBalancer.Outputs.LoadBalancerListenerArn
+        LoadBalancerSecurityGroupId: !GetAtt WebApplicationLoadBalancer.Outputs.LoadBalancerSecurityGroupId
+        GraphQLApiEndpoint: !GetAtt Appsync.Outputs.GraphQLApiEndpoint
+        CognitoAppClientId: !GetAtt Cognito.Outputs.AppClientId
+        CognitoUserPoolId: !GetAtt Cognito.Outputs.UserPoolId
+      Tags:
+        - Key: Application
+          Value: Panther
+      TemplateURL: web/server.yml
 
 Outputs:
   AnalysisApiEndpoint:

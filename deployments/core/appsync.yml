@@ -19,10 +19,10 @@ Parameters:
     Description: Cognito user pool ID
 
 Resources:
-  UIMiddlewareApi:
+  GraphQLApi:
     Type: AWS::AppSync::GraphQLApi
     Properties:
-      Name: panther-ui-middleware
+      Name: panther-graphql-api
       AuthenticationType: AMAZON_COGNITO_USER_POOLS
       UserPoolConfig:
         AwsRegion: !Ref AWS::Region
@@ -32,10 +32,10 @@ Resources:
         CloudWatchLogsRoleArn: !GetAtt AppsyncServiceRole.Arn
         FieldLogLevel: ALL
 
-  UIMiddlewareSchema:
+  GraphQLSchema:
     Type: AWS::AppSync::GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       Definition: api/graphql/schema.graphql
 
   AppsyncServiceRole:
@@ -73,7 +73,7 @@ Resources:
   AlertsAPILambdaDataSource:
     Type: AWS::AppSync::DataSource
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       Name: PantherAlertsAPILambda
       Type: AWS_LAMBDA
       ServiceRoleArn: !GetAtt AppsyncServiceRole.Arn
@@ -83,7 +83,7 @@ Resources:
   UsersAPILambdaDataSource:
     Type: AWS::AppSync::DataSource
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       Name: PantherUsersAPILambda
       Type: AWS_LAMBDA
       ServiceRoleArn: !GetAtt AppsyncServiceRole.Arn
@@ -93,7 +93,7 @@ Resources:
   DestinationsAPILambdaDataSource:
     Type: AWS::AppSync::DataSource
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       Name: PantherDestinationsAPILambda
       Type: AWS_LAMBDA
       ServiceRoleArn: !GetAtt AppsyncServiceRole.Arn
@@ -103,7 +103,7 @@ Resources:
   SnapshotAPILambdaDataSource:
     Type: AWS::AppSync::DataSource
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       Name: PantherSnapshotAPILambda
       Type: AWS_LAMBDA
       ServiceRoleArn: !GetAtt AppsyncServiceRole.Arn
@@ -113,7 +113,7 @@ Resources:
   OrganizationAPILambdaDataSource:
     Type: AWS::AppSync::DataSource
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       Name: PantherOrganizationAPILambda
       Type: AWS_LAMBDA
       ServiceRoleArn: !GetAtt AppsyncServiceRole.Arn
@@ -123,7 +123,7 @@ Resources:
   ResourcesAPIHttpDataSource:
     Type: AWS::AppSync::DataSource
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       Name: PantherResourcesAPIHttp
       Type: HTTP
       ServiceRoleArn: !GetAtt AppsyncServiceRole.Arn
@@ -138,7 +138,7 @@ Resources:
   ComplianceAPIHttpDataSource:
     Type: AWS::AppSync::DataSource
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       Name: PantherComplianceAPIHttp
       Type: HTTP
       ServiceRoleArn: !GetAtt AppsyncServiceRole.Arn
@@ -153,7 +153,7 @@ Resources:
   AnalysisAPIHttpDataSource:
     Type: AWS::AppSync::DataSource
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       Name: PantherAnalysisAPIHttp
       Type: HTTP
       ServiceRoleArn: !GetAtt AppsyncServiceRole.Arn
@@ -168,7 +168,7 @@ Resources:
   RemediationAPIHttpDataSource:
     Type: AWS::AppSync::DataSource
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       Name: PantherRemediationAPIHttp
       Type: HTTP
       ServiceRoleArn: !GetAtt AppsyncServiceRole.Arn
@@ -184,7 +184,7 @@ Resources:
   GetOrganizationFunction:
     Type: AWS::AppSync::FunctionConfiguration
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       Name: PantherGetOrganizationFunction
       Description: Get organization information
       FunctionVersion: '2018-05-29'
@@ -207,7 +207,7 @@ Resources:
   UpdateOrganizationFunction:
     Type: AWS::AppSync::FunctionConfiguration
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       Name: PantherUpdateOrganizationFunction
       Description: Update organization information
       FunctionVersion: '2018-05-29'
@@ -232,7 +232,7 @@ Resources:
   GetAlertFunction:
     Type: AWS::AppSync::FunctionConfiguration
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       Name: PantherGetAlertFunction
       Description: Get alert information
       FunctionVersion: '2018-05-29'
@@ -257,7 +257,7 @@ Resources:
   GetRuleForAlertFunction:
     Type: AWS::AppSync::FunctionConfiguration
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       Name: PantherGetRuleFunction
       Description: Get rule
       FunctionVersion: '2018-05-29'
@@ -295,9 +295,9 @@ Resources:
   ########## Resolvers ##########
   InviteUserResolver:
     Type: AWS::AppSync::Resolver
-    DependsOn: UIMiddlewareSchema
+    DependsOn: GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       TypeName: Mutation
       FieldName: inviteUser
       DataSourceName: !GetAtt UsersAPILambdaDataSource.Name
@@ -325,9 +325,9 @@ Resources:
 
   RemoveUserResolver:
     Type: AWS::AppSync::Resolver
-    DependsOn: UIMiddlewareSchema
+    DependsOn: GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       TypeName: Mutation
       FieldName: removeUser
       DataSourceName: !GetAtt UsersAPILambdaDataSource.Name
@@ -351,9 +351,9 @@ Resources:
 
   ResetUserPasswordResolver:
     Type: AWS::AppSync::Resolver
-    DependsOn: UIMiddlewareSchema
+    DependsOn: GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       TypeName: Mutation
       FieldName: resetUserPassword
       DataSourceName: !GetAtt UsersAPILambdaDataSource.Name
@@ -377,9 +377,9 @@ Resources:
 
   UpdateUserResolver:
     Type: AWS::AppSync::Resolver
-    DependsOn: UIMiddlewareSchema
+    DependsOn: GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       TypeName: Mutation
       FieldName: updateUser
       DataSourceName: !GetAtt UsersAPILambdaDataSource.Name
@@ -407,9 +407,9 @@ Resources:
 
   ListUsersResolver:
     Type: AWS::AppSync::Resolver
-    DependsOn: UIMiddlewareSchema
+    DependsOn: GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       TypeName: Query
       FieldName: users
       DataSourceName: !GetAtt UsersAPILambdaDataSource.Name
@@ -432,9 +432,9 @@ Resources:
 
   GetDestinationResolver:
     Type: AWS::AppSync::Resolver
-    DependsOn: UIMiddlewareSchema
+    DependsOn: GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       TypeName: Query
       FieldName: destination
       DataSourceName: !GetAtt DestinationsAPILambdaDataSource.Name
@@ -457,9 +457,9 @@ Resources:
 
   ListDestinationsResolver:
     Type: AWS::AppSync::Resolver
-    DependsOn: UIMiddlewareSchema
+    DependsOn: GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       TypeName: Query
       FieldName: destinations
       DataSourceName: !GetAtt DestinationsAPILambdaDataSource.Name
@@ -482,9 +482,9 @@ Resources:
 
   AddDestinationResolver:
     Type: AWS::AppSync::Resolver
-    DependsOn: UIMiddlewareSchema
+    DependsOn: GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       TypeName: Mutation
       FieldName: addDestination
       DataSourceName: !GetAtt DestinationsAPILambdaDataSource.Name
@@ -507,9 +507,9 @@ Resources:
 
   DeleteDestinationResolver:
     Type: AWS::AppSync::Resolver
-    DependsOn: UIMiddlewareSchema
+    DependsOn: GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       TypeName: Mutation
       FieldName: deleteDestination
       DataSourceName: !GetAtt DestinationsAPILambdaDataSource.Name
@@ -533,9 +533,9 @@ Resources:
 
   UpdateDestinationResolver:
     Type: AWS::AppSync::Resolver
-    DependsOn: UIMiddlewareSchema
+    DependsOn: GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       TypeName: Mutation
       FieldName: updateDestination
       DataSourceName: !GetAtt DestinationsAPILambdaDataSource.Name
@@ -558,9 +558,9 @@ Resources:
 
   ListIntegrationsResolver:
     Type: AWS::AppSync::Resolver
-    DependsOn: UIMiddlewareSchema
+    DependsOn: GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       TypeName: Query
       FieldName: integrations
       DataSourceName: !GetAtt SnapshotAPILambdaDataSource.Name
@@ -583,9 +583,9 @@ Resources:
 
   AddIntegrationResolver:
     Type: AWS::AppSync::Resolver
-    DependsOn: UIMiddlewareSchema
+    DependsOn: GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       TypeName: Mutation
       FieldName: addIntegration
       DataSourceName: !GetAtt SnapshotAPILambdaDataSource.Name
@@ -619,9 +619,9 @@ Resources:
 
   UpdateIntegrationResolver:
     Type: AWS::AppSync::Resolver
-    DependsOn: UIMiddlewareSchema
+    DependsOn: GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       TypeName: Mutation
       FieldName: updateIntegration
       DataSourceName: !GetAtt SnapshotAPILambdaDataSource.Name
@@ -648,9 +648,9 @@ Resources:
 
   DeleteIntegrationResolver:
     Type: AWS::AppSync::Resolver
-    DependsOn: UIMiddlewareSchema
+    DependsOn: GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       TypeName: Mutation
       FieldName: deleteIntegration
       DataSourceName: !GetAtt SnapshotAPILambdaDataSource.Name
@@ -673,9 +673,9 @@ Resources:
 
   GetOrganizationResolver:
     Type: AWS::AppSync::Resolver
-    DependsOn: UIMiddlewareSchema
+    DependsOn: GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       TypeName: Query
       FieldName: organization
       Kind: PIPELINE
@@ -689,9 +689,9 @@ Resources:
 
   UpdateOrganizationResolver:
     Type: AWS::AppSync::Resolver
-    DependsOn: UIMiddlewareSchema
+    DependsOn: GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       TypeName: Mutation
       FieldName: updateOrganization
       Kind: PIPELINE
@@ -709,9 +709,9 @@ Resources:
 
   ListPoliciesResolver:
     Type: AWS::AppSync::Resolver
-    DependsOn: UIMiddlewareSchema
+    DependsOn: GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       TypeName: Query
       FieldName: policies
       DataSourceName: !GetAtt AnalysisAPIHttpDataSource.Name
@@ -739,9 +739,9 @@ Resources:
 
   GetPolicyResolver:
     Type: AWS::AppSync::Resolver
-    DependsOn: UIMiddlewareSchema
+    DependsOn: GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       TypeName: Query
       FieldName: policy
       DataSourceName: !GetAtt AnalysisAPIHttpDataSource.Name
@@ -769,9 +769,9 @@ Resources:
 
   UpdatePolicyResolver:
     Type: AWS::AppSync::Resolver
-    DependsOn: UIMiddlewareSchema
+    DependsOn: GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       TypeName: Mutation
       FieldName: updatePolicy
       DataSourceName: !GetAtt AnalysisAPIHttpDataSource.Name
@@ -801,9 +801,9 @@ Resources:
 
   AddPolicyResolver:
     Type: AWS::AppSync::Resolver
-    DependsOn: UIMiddlewareSchema
+    DependsOn: GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       TypeName: Mutation
       FieldName: addPolicy
       DataSourceName: !GetAtt AnalysisAPIHttpDataSource.Name
@@ -833,9 +833,9 @@ Resources:
 
   DeletePolicyResolver:
     Type: AWS::AppSync::Resolver
-    DependsOn: UIMiddlewareSchema
+    DependsOn: GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       TypeName: Mutation
       FieldName: deletePolicy
       DataSourceName: !GetAtt AnalysisAPIHttpDataSource.Name
@@ -871,9 +871,9 @@ Resources:
 
   UploadPoliciesResolver:
     Type: AWS::AppSync::Resolver
-    DependsOn: UIMiddlewareSchema
+    DependsOn: GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       TypeName: Mutation
       FieldName: uploadPolicies
       DataSourceName: !GetAtt AnalysisAPIHttpDataSource.Name
@@ -903,9 +903,9 @@ Resources:
 
   ListResourcesResolver:
     Type: AWS::AppSync::Resolver
-    DependsOn: UIMiddlewareSchema
+    DependsOn: GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       TypeName: Query
       FieldName: resources
       DataSourceName: !GetAtt ResourcesAPIHttpDataSource.Name
@@ -934,9 +934,9 @@ Resources:
 
   GetResourceResolver:
     Type: AWS::AppSync::Resolver
-    DependsOn: UIMiddlewareSchema
+    DependsOn: GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       TypeName: Query
       FieldName: resource
       DataSourceName: !GetAtt ResourcesAPIHttpDataSource.Name
@@ -964,9 +964,9 @@ Resources:
 
   RemediateResourceResolver:
     Type: AWS::AppSync::Resolver
-    DependsOn: UIMiddlewareSchema
+    DependsOn: GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       TypeName: Mutation
       FieldName: remediateResource
       DataSourceName: !GetAtt RemediationAPIHttpDataSource.Name
@@ -994,9 +994,9 @@ Resources:
 
   ListRemediationsResolver:
     Type: AWS::AppSync::Resolver
-    DependsOn: UIMiddlewareSchema
+    DependsOn: GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       TypeName: Query
       FieldName: remediations
       DataSourceName: !GetAtt RemediationAPIHttpDataSource.Name
@@ -1026,9 +1026,9 @@ Resources:
 
   OrganizationStatsResolver:
     Type: AWS::AppSync::Resolver
-    DependsOn: UIMiddlewareSchema
+    DependsOn: GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       TypeName: Query
       FieldName: organizationStats
       DataSourceName: !GetAtt ComplianceAPIHttpDataSource.Name
@@ -1056,9 +1056,9 @@ Resources:
 
   ResourcesForPolicyResolver:
     Type: AWS::AppSync::Resolver
-    DependsOn: UIMiddlewareSchema
+    DependsOn: GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       TypeName: Query
       FieldName: resourcesForPolicy
       DataSourceName: !GetAtt ComplianceAPIHttpDataSource.Name
@@ -1086,9 +1086,9 @@ Resources:
 
   PoliciesForResourceResolver:
     Type: AWS::AppSync::Resolver
-    DependsOn: UIMiddlewareSchema
+    DependsOn: GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       TypeName: Query
       FieldName: policiesForResource
       DataSourceName: !GetAtt ComplianceAPIHttpDataSource.Name
@@ -1116,9 +1116,9 @@ Resources:
 
   SuppressPoliciesResolver:
     Type: AWS::AppSync::Resolver
-    DependsOn: UIMiddlewareSchema
+    DependsOn: GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       TypeName: Mutation
       FieldName: suppressPolicies
       DataSourceName: !GetAtt AnalysisAPIHttpDataSource.Name
@@ -1147,9 +1147,9 @@ Resources:
 
   ListRulesResolver:
     Type: AWS::AppSync::Resolver
-    DependsOn: UIMiddlewareSchema
+    DependsOn: GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       TypeName: Query
       FieldName: rules
       DataSourceName: !GetAtt AnalysisAPIHttpDataSource.Name
@@ -1177,9 +1177,9 @@ Resources:
 
   GetRuleResolver:
     Type: AWS::AppSync::Resolver
-    DependsOn: UIMiddlewareSchema
+    DependsOn: GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       TypeName: Query
       FieldName: rule
       DataSourceName: !GetAtt AnalysisAPIHttpDataSource.Name
@@ -1207,9 +1207,9 @@ Resources:
 
   UpdateRuleResolver:
     Type: AWS::AppSync::Resolver
-    DependsOn: UIMiddlewareSchema
+    DependsOn: GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       TypeName: Mutation
       FieldName: updateRule
       DataSourceName: !GetAtt AnalysisAPIHttpDataSource.Name
@@ -1239,9 +1239,9 @@ Resources:
 
   AddRuleResolver:
     Type: AWS::AppSync::Resolver
-    DependsOn: UIMiddlewareSchema
+    DependsOn: GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       TypeName: Mutation
       FieldName: addRule
       DataSourceName: !GetAtt AnalysisAPIHttpDataSource.Name
@@ -1271,9 +1271,9 @@ Resources:
 
   ListAlertsResolver:
     Type: AWS::AppSync::Resolver
-    DependsOn: UIMiddlewareSchema
+    DependsOn: GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       TypeName: Query
       FieldName: alerts
       DataSourceName: !GetAtt AlertsAPILambdaDataSource.Name
@@ -1294,9 +1294,9 @@ Resources:
 
   GetAlertResolver:
     Type: AWS::AppSync::Resolver
-    DependsOn: UIMiddlewareSchema
+    DependsOn: GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       TypeName: Query
       FieldName: alert
       Kind: PIPELINE
@@ -1312,9 +1312,9 @@ Resources:
 
   TestPolicyResolver:
     Type: AWS::AppSync::Resolver
-    DependsOn: UIMiddlewareSchema
+    DependsOn: GraphQLSchema
     Properties:
-      ApiId: !GetAtt UIMiddlewareApi.ApiId
+      ApiId: !GetAtt GraphQLApi.ApiId
       TypeName: Mutation
       FieldName: testPolicy
       DataSourceName: !GetAtt AnalysisAPIHttpDataSource.Name
@@ -1341,9 +1341,6 @@ Resources:
         #end
 
 Outputs:
-  UIMiddlewareApiEndpoint:
-    Description: The URL to the Appsync Endpoint
-    Value: !GetAtt UIMiddlewareApi.GraphQLUrl
-  UIMiddlewareApiId:
-    Description: The API ID of the Appsync API
-    Value: !GetAtt UIMiddlewareApi.ApiId
+  GraphQLApiEndpoint:
+    Description: The URL to the Appsync GraphQL Endpoint
+    Value: !GetAtt GraphQLApi.GraphQLUrl

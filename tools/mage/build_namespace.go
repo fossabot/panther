@@ -113,7 +113,7 @@ func buildPackage(pkg string) error {
 			// even if the contents are identical. So this lets us skip any unmodified binaries, which can
 			// significantly reduce the total deployment time if only one or two functions changed.
 			//
-			// With 5 unmodified Lambda functions, deploy:backend went from 146s => 109s with this fix.
+			// With 5 unmodified Lambda functions, deploy:app went from 146s => 109s with this fix.
 			if mg.Verbose() {
 				fmt.Printf("build:lambda: %s unchanged, reverting timestamp\n", binary)
 			}

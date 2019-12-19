@@ -1,6 +1,6 @@
 ### Panther deployment configuration ###
 
-# These are passed as CloudFormation parameter overrides for the backend.yml stack.
+# These are passed as CloudFormation parameter overrides for the template.yml stack.
 ParameterValues:
   UserEmail: # TODO - REQUIRED
   UserGivenName: ''

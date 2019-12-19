@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: Prerequisite S3 buckets which must exist before the Panther backend can be deployed
+Description: Prerequisite S3 buckets which must exist before the Panther stack can be deployed
 
 Parameters:
   AccessLogsBucketName:

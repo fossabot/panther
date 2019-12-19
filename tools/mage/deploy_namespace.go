@@ -23,11 +23,11 @@ import (
 
 const (
 	// CloudFormation templates + stacks
-	backendStack    = "panther-backend"
-	backendTemplate = "deployments/backend.yml"
-	bucketStack     = "panther-buckets" // prereq stack with Panther S3 buckets
-	bucketTemplate  = "deployments/core/buckets.yml"
-	configFile      = "deployments/panther_config.yml"
+	applicationStack    = "panther-app"
+	applicationTemplate = "deployments/template.yml"
+	bucketStack         = "panther-buckets" // prereq stack with Panther S3 buckets
+	bucketTemplate      = "deployments/core/buckets.yml"
+	configFile          = "deployments/panther_config.yml"
 
 	// Python layer
 	layerSourceDir = "out/pip/analysis/python"
@@ -49,8 +49,8 @@ func (Deploy) Pre() error {
 	return cfnDeploy(bucketTemplate, "", bucketStack, nil)
 }
 
-// Backend Deploy backend infrastructure
-func (Deploy) Backend() error {
+// Backend Deploy application infrastructure
+func (Deploy) App() error {
 	config, err := loadYamlFile(configFile)
 	if err != nil {
 		return err
@@ -79,7 +79,7 @@ func (Deploy) Backend() error {
 		return err
 	}
 
-	template, err := cfnPackage(backendTemplate, bucket, backendStack)
+	template, err := cfnPackage(applicationTemplate, bucket, applicationStack)
 	if err != nil {
 		return err
 	}
@@ -94,7 +94,7 @@ func (Deploy) Backend() error {
 		}
 	}
 
-	return cfnDeploy(template, bucket, backendStack, deployParams)
+	return cfnDeploy(template, bucket, applicationStack, deployParams)
 }
 
 // GetSourceBucket returns the name of the Panther source S3 bucket for CloudFormation uploads.
@@ -123,12 +123,12 @@ func uploadLayer(awsSession *session.Session, bucket, key string) (string, error
 	sort.Strings(pipLibs)
 	libString := strings.Join(pipLibs, ",")
 	if err == nil && aws.StringValue(head.Metadata["Libs"]) == libString {
-		fmt.Printf("deploy:backend: s3://%s/%s exists and is up to date\n", bucket, key)
+		fmt.Printf("deploy:app: s3://%s/%s exists and is up to date\n", bucket, key)
 		return *head.VersionId, nil
 	}
 
 	// The layer is re-uploaded only if it doesn't exist yet or the library versions changed.
-	fmt.Println("deploy:backend: downloading " + libString)
+	fmt.Println("deploy:app: downloading " + libString)
 	if err := os.RemoveAll(layerSourceDir); err != nil {
 		return "", err
 	}
@@ -152,7 +152,7 @@ func uploadLayer(awsSession *session.Session, bucket, key string) (string, error
 	}
 
 	// Upload to S3
-	fmt.Printf("deploy:backend: uploading %s to s3://%s/%s\n", layerZipfile, bucket, key)
+	fmt.Printf("deploy:app: uploading %s to s3://%s/%s\n", layerZipfile, bucket, key)
 	uploader := s3manager.NewUploader(awsSession)
 	zipFile, err := os.Open(layerZipfile)
 	if err != nil {
