@@ -103,7 +103,6 @@ Resources:
       DeploymentController:
         Type: ECS
       DesiredCount: 1
-      EnableECSManagedTags: true
       LaunchType: FARGATE
       NetworkConfiguration:
         AwsvpcConfiguration:
@@ -114,7 +113,6 @@ Resources:
             - !Ref SubnetOneId
             - !Ref SubnetTwoId
       PlatformVersion: LATEST
-      PropagateTags: SERVICE
       SchedulingStrategy: REPLICA
       ServiceName: !Ref ServiceName
       Tags:
