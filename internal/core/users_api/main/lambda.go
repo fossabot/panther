@@ -5,11 +5,10 @@ import (
 
 	"github.com/aws/aws-lambda-go/lambda"
 
-	"github.com/panther-labs/panther/pkg/genericapi"
-	"github.com/panther-labs/panther/pkg/lambdalogger"
-
 	"github.com/panther-labs/panther/api/lambda/users/models"
 	"github.com/panther-labs/panther/internal/core/users_api/api"
+	"github.com/panther-labs/panther/pkg/genericapi"
+	"github.com/panther-labs/panther/pkg/lambdalogger"
 )
 
 var router = genericapi.NewRouter(models.Validator(), &api.API{})

@@ -1,10 +1,9 @@
 package api
 
 import (
-	"github.com/panther-labs/panther/pkg/genericapi"
-
 	"github.com/panther-labs/panther/api/lambda/users/models"
 	users "github.com/panther-labs/panther/internal/core/users_api/table"
+	"github.com/panther-labs/panther/pkg/genericapi"
 )
 
 // AddUserToOrganization adds a mapping of user to organization ID

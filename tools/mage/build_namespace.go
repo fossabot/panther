@@ -81,8 +81,15 @@ func (b Build) Lambda() error {
 		return err
 	}
 
+	results := make(chan error)
 	for _, pkg := range packages {
-		if err := buildPackage(pkg); err != nil {
+		go func(pkg string) {
+			results <- buildPackage(pkg)
+		}(pkg)
+	}
+
+	for range packages {
+		if err = <-results; err != nil {
 			return err
 		}
 	}

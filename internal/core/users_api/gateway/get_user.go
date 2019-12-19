@@ -4,9 +4,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	provider "github.com/aws/aws-sdk-go/service/cognitoidentityprovider"
 
-	"github.com/panther-labs/panther/pkg/genericapi"
-
 	"github.com/panther-labs/panther/api/lambda/users/models"
+	"github.com/panther-labs/panther/pkg/genericapi"
 )
 
 func mapGetUserOutputToPantherUser(u *provider.AdminGetUserOutput) *models.User {

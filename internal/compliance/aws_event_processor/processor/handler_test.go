@@ -2,7 +2,6 @@
 package processor
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -224,13 +223,13 @@ func TestHandleUpdate(t *testing.T) {
 		},
 	}
 
-	body, err := json.Marshal(&expectedRequest)
+	body, err := jsoniter.MarshalToString(&expectedRequest)
 	require.NoError(t, err)
 	expectedInput := &sqs.SendMessageBatchInput{
 		Entries: []*sqs.SendMessageBatchRequestEntry{
 			{
 				Id:           aws.String("0"),
-				MessageBody:  aws.String(string(body)),
+				MessageBody:  aws.String(body),
 				DelaySeconds: aws.Int64(0),
 			},
 		},

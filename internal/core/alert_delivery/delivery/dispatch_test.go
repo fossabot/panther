@@ -1,15 +1,16 @@
 package delivery
 
 import (
-	"encoding/json"
 	"errors"
 	"testing"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/lambda"
+	jsoniter "github.com/json-iterator/go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	outputmodels "github.com/panther-labs/panther/api/lambda/outputs/models"
 	alertmodels "github.com/panther-labs/panther/internal/core/alert_delivery/models"
@@ -122,7 +123,8 @@ func TestSendOutputDoesNotExist(t *testing.T) {
 	lambdaClient = mockLambdaClient
 	ch := make(chan outputStatus, 1)
 
-	lambdaErr, _ := json.Marshal(genericapi.LambdaError{ErrorType: aws.String("DoesNotExistError")})
+	lambdaErr, err := jsoniter.Marshal(genericapi.LambdaError{ErrorType: aws.String("DoesNotExistError")})
+	require.NoError(t, err)
 	lambdaOutput := &lambda.InvokeOutput{
 		FunctionError: aws.String("error"),
 		Payload:       lambdaErr,

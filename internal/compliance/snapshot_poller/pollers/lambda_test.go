@@ -2,7 +2,6 @@ package pollers
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 	"time"
 
@@ -10,6 +9,7 @@ import (
 	"github.com/aws/aws-lambda-go/lambdacontext"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sts"
+	jsoniter "github.com/json-iterator/go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -21,8 +21,6 @@ import (
 	"github.com/panther-labs/panther/internal/compliance/snapshot_poller/pollers/utils"
 )
 
-// Test Lambda Context
-
 func testContext() context.Context {
 	return lambdacontext.NewContext(
 		context.Background(),
@@ -32,21 +30,6 @@ func testContext() context.Context {
 		},
 	)
 }
-
-// Mock Lambda Client
-
-//type mockLambdaClient struct {
-//	lambdaiface.LambdaAPI
-//	mock.Mock
-//}
-//
-//func (client *mockLambdaClient) Invoke(
-//	input *lambda.InvokeInput,
-//) (*lambda.InvokeOutput, error) {
-//
-//	args := client.Called(input)
-//	return args.Get(0).(*lambda.InvokeOutput), args.Error(1)
-//}
 
 var (
 	mockTime          = time.Time{}
@@ -90,11 +73,8 @@ func TestHandlerNonExistentIntegration(t *testing.T) {
 			},
 		},
 	}
-	testIntegrationBytes, err := json.Marshal(testIntegrations)
+	testIntegrationStr, err := jsoniter.MarshalToString(testIntegrations)
 	require.NoError(t, err)
-
-	// mockLambda := &mockLambdaClient{}
-	// lambdaClient = mockLambda
 
 	sampleEvent := events.SQSEvent{
 		Records: []events.SQSMessage{
@@ -102,7 +82,7 @@ func TestHandlerNonExistentIntegration(t *testing.T) {
 				AWSRegion:     "us-west-2",
 				MessageId:     "702a0aba-ab1f-11e8-b09c-f218981400a1",
 				ReceiptHandle: "AQEBCki01vLygW9L6Xq1hcSNR90swZdtgZHP1N5hEU1Dt22p66gQFxKEsVo7ObxpC+b/",
-				Body:          string(testIntegrationBytes),
+				Body:          testIntegrationStr,
 				Md5OfBody:     "d3673b20e6c009a81c73961b798f838a",
 			},
 		},
@@ -122,45 +102,8 @@ func TestHandler(t *testing.T) {
 			},
 		},
 	}
-	testIntegrationBytes, err := json.Marshal(testIntegrations)
+	testIntegrationStr, err := jsoniter.MarshalToString(testIntegrations)
 	require.NoError(t, err)
-
-	// Mock Lambda request/responses: Update Integration Start
-	// updateIntegrationStartPayload := &apimodels.LambdaInput{
-	// 	UpdateIntegrationLastScanStart: &apimodels.UpdateIntegrationLastScanStartInput{
-	// 		IntegrationID:     &testIntegrationID,
-	// 		LastScanStartTime: aws.Time(mockTime),
-	// 		ScanStatus:        aws.String("scanning"),
-	// 	},
-	// }
-	// updateIntegrationStartBytes, err := json.Marshal(updateIntegrationStartPayload)
-	// require.NoError(t, err)
-	// updateIntegrationStartInvokeInput := &lambda.InvokeInput{
-	// 	FunctionName: &snapshotAPIFunctionName,
-	// 	Payload:      updateIntegrationStartBytes,
-	// }
-	//
-	// // Mock Lambda request/responses: Update Integration End
-	// updateIntegrationEndPayload := &apimodels.LambdaInput{
-	// 	UpdateIntegrationLastScanEnd: &apimodels.UpdateIntegrationLastScanEndInput{
-	// 		IntegrationID:        &testIntegrationID,
-	// 		LastScanEndTime:      aws.Time(mockTime),
-	// 		ScanStatus:           aws.String("ok"),
-	// 		LastScanErrorMessage: aws.String(""),
-	// 	},
-	// }
-	// updateIntegrationEndBytes, err := json.Marshal(updateIntegrationEndPayload)
-	// require.NoError(t, err)
-	// updateIntegrationEndInvokeInput := &lambda.InvokeInput{
-	// 	FunctionName: &snapshotAPIFunctionName,
-	// 	Payload:      updateIntegrationEndBytes,
-	// }
-	//
-	// mockLambda := &mockLambdaClient{}
-	// genericInvokeOutSuccess := &lambda.InvokeOutput{StatusCode: aws.Int64(200)}
-	// mockLambda.On("Invoke", updateIntegrationStartInvokeInput).Return(genericInvokeOutSuccess, nil)
-	// mockLambda.On("Invoke", updateIntegrationEndInvokeInput).Return(genericInvokeOutSuccess, nil)
-	// lambdaClient = mockLambda
 
 	// Setup ACM client and function mocks
 	awstest.MockAcmForSetup = awstest.BuildMockAcmSvcAll()
@@ -261,7 +204,7 @@ func TestHandler(t *testing.T) {
 				AWSRegion:     "us-west-2",
 				MessageId:     "702a0aba-ab1f-11e8-b09c-f218981400a1",
 				ReceiptHandle: "AQEBCki01vLygW9L6Xq1hcSNR90swZdtgZHP1N5hEU1Dt22p66gQFxKEsVo7ObxpC+b/",
-				Body:          string(testIntegrationBytes),
+				Body:          testIntegrationStr,
 				Md5OfBody:     "d3673b20e6c009a81c73961b798f838a",
 			},
 		},

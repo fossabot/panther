@@ -1,9 +1,8 @@
 package encryption
 
 import (
-	"encoding/json"
-
 	"github.com/aws/aws-sdk-go/service/kms"
+	jsoniter "github.com/json-iterator/go"
 
 	"github.com/panther-labs/panther/pkg/genericapi"
 )
@@ -15,7 +14,7 @@ func (key *Key) DecryptConfig(ciphertext []byte, config interface{}) error {
 		return &genericapi.AWSError{Method: "kms.Decrypt", Err: err}
 	}
 
-	if err = json.Unmarshal(response.Plaintext, config); err != nil {
+	if err = jsoniter.Unmarshal(response.Plaintext, config); err != nil {
 		return &genericapi.InternalError{
 			Message: "failed to unmarshal config to json " + err.Error()}
 	}

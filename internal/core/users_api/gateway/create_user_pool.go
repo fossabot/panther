@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"net/url"
 	"strings"
 
@@ -9,6 +8,7 @@ import (
 	identityProvider "github.com/aws/aws-sdk-go/service/cognitoidentity"
 	userPoolProvider "github.com/aws/aws-sdk-go/service/cognitoidentityprovider"
 	"github.com/aws/aws-sdk-go/service/iam"
+	jsoniter "github.com/json-iterator/go"
 	"github.com/matcornic/hermes"
 	"go.uber.org/zap"
 
@@ -322,8 +322,7 @@ func updatePolicyCondition(g *UsersGateway, roleName *string, identityPoolID *st
 	}
 	var pd IAMAssumeRolePolicyDocument
 
-	err = json.Unmarshal([]byte(pdS), &pd)
-	if err != nil {
+	if err := jsoniter.UnmarshalFromString(pdS, &pd); err != nil {
 		zap.L().Error("error unmarshalling policy document", zap.Error(err))
 		return err
 	}
@@ -339,13 +338,13 @@ func updatePolicyCondition(g *UsersGateway, roleName *string, identityPoolID *st
 	} else {
 		pd.Statement[0].Condition.StringEquals.AUD = append(pd.Statement[0].Condition.StringEquals.AUD, identityPoolID)
 	}
-	c, err := json.Marshal(&pd)
+	c, err := jsoniter.MarshalToString(&pd)
 	if err != nil {
 		zap.L().Error("error marshalling policy document", zap.Error(err))
 		return err
 	}
 	if _, err = g.iamService.UpdateAssumeRolePolicy(&iam.UpdateAssumeRolePolicyInput{
-		PolicyDocument: aws.String(string(c)),
+		PolicyDocument: aws.String(c),
 		RoleName:       roleName,
 	}); err != nil {
 		zap.L().Error("error updating policy document", zap.Error(err))

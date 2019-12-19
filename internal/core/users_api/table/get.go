@@ -6,9 +6,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"go.uber.org/zap"
 
-	"github.com/panther-labs/panther/pkg/genericapi"
-
 	"github.com/panther-labs/panther/api/lambda/users/models"
+	"github.com/panther-labs/panther/pkg/genericapi"
 )
 
 // Get retrieves user to org mapping from the table.

@@ -3,10 +3,9 @@ package gateway
 import (
 	"testing"
 
-	"github.com/aws/aws-sdk-go/service/iam"
-
 	"github.com/aws/aws-sdk-go/aws"
 	provider "github.com/aws/aws-sdk-go/service/cognitoidentityprovider"
+	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 

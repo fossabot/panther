@@ -1,16 +1,15 @@
 package encryption
 
 import (
-	"encoding/json"
-
 	"github.com/aws/aws-sdk-go/service/kms"
+	jsoniter "github.com/json-iterator/go"
 
 	"github.com/panther-labs/panther/pkg/genericapi"
 )
 
 // EncryptConfig uses KMS to encrypt an output configuration.
 func (key *Key) EncryptConfig(config interface{}) ([]byte, error) {
-	body, err := json.Marshal(config)
+	body, err := jsoniter.Marshal(config)
 	if err != nil {
 		return nil, &genericapi.InternalError{
 			Message: "failed to marshal config to json " + err.Error()}

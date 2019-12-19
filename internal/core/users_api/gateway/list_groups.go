@@ -3,9 +3,8 @@ package gateway
 import (
 	provider "github.com/aws/aws-sdk-go/service/cognitoidentityprovider"
 
-	"github.com/panther-labs/panther/pkg/genericapi"
-
 	"github.com/panther-labs/panther/api/lambda/users/models"
+	"github.com/panther-labs/panther/pkg/genericapi"
 )
 
 // ListGroups calls cognito api to list groups for the user pool

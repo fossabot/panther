@@ -3,9 +3,8 @@ package api
 import (
 	"go.uber.org/zap"
 
-	"github.com/panther-labs/panther/pkg/genericapi"
-
 	"github.com/panther-labs/panther/api/lambda/users/models"
+	"github.com/panther-labs/panther/pkg/genericapi"
 )
 
 // ValidateCredentials validate the JWT token and returns the claims

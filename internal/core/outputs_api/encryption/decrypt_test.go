@@ -31,8 +31,11 @@ func TestDecryptConfigServiceError(t *testing.T) {
 }
 
 func TestDecryptConfigUnmarshalError(t *testing.T) {
+	type detail struct {
+		Name string `json:"name"`
+	}
 	key := &Key{client: &mockDecryptClient{returnPlaintext: []byte("access-token")}}
-	err := key.DecryptConfig([]byte("ciphertext"), nil)
+	err := key.DecryptConfig([]byte("ciphertext"), &detail{})
 	assert.NotNil(t, err.(*genericapi.InternalError))
 }
 

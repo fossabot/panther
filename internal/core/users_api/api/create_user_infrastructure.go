@@ -4,9 +4,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"go.uber.org/zap"
 
-	"github.com/panther-labs/panther/internal/core/users_api/gateway"
-
 	"github.com/panther-labs/panther/api/lambda/users/models"
+	"github.com/panther-labs/panther/internal/core/users_api/gateway"
 )
 
 // CreateUserInfrastructure creates user infrastructure needed for a new organization

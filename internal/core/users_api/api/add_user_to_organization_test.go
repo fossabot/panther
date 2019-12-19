@@ -6,10 +6,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/panther-labs/panther/pkg/genericapi"
-
 	"github.com/panther-labs/panther/api/lambda/users/models"
 	users "github.com/panther-labs/panther/internal/core/users_api/table"
+	"github.com/panther-labs/panther/pkg/genericapi"
 )
 
 var testAddUserToOrgInput = &models.AddUserToOrganizationInput{

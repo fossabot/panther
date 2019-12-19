@@ -11,10 +11,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/panther-labs/panther/api/lambda/organization/models"
 	"github.com/panther-labs/panther/pkg/genericapi"
 	"github.com/panther-labs/panther/pkg/testutils"
-
-	"github.com/panther-labs/panther/api/lambda/organization/models"
 )
 
 const (

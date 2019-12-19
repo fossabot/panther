@@ -4,10 +4,10 @@ package genericapi
 import (
 	"reflect"
 
-	"github.com/panther-labs/panther/pkg/gatewayapi"
-
 	"go.uber.org/zap"
 	"gopkg.in/go-playground/validator.v9"
+
+	"github.com/panther-labs/panther/pkg/gatewayapi"
 )
 
 // Router is a generic API router for golang Lambda functions.

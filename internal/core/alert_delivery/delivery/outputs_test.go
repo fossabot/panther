@@ -1,12 +1,12 @@
 package delivery
 
 import (
-	"encoding/json"
 	"errors"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/lambda"
+	jsoniter "github.com/json-iterator/go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -63,7 +63,7 @@ func TestGetAlertOutputIds(t *testing.T) {
 			},
 		},
 	}
-	payload, err := json.Marshal(output)
+	payload, err := jsoniter.Marshal(output)
 	require.NoError(t, err)
 	mockLambdaResponse := &lambda.InvokeOutput{Payload: payload}
 

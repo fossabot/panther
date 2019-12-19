@@ -2,12 +2,10 @@ package gluecf
 
 import (
 	"bytes"
-
-	"github.com/stretchr/testify/require"
+	"testing"
 
 	"github.com/stretchr/testify/assert"
-
-	"testing"
+	"github.com/stretchr/testify/require"
 
 	"github.com/panther-labs/panther/tools/cfngen"
 )

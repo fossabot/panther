@@ -58,17 +58,8 @@ func (t Test) Lint() error {
 		errs = append(errs, err)
 	}
 
-	// python yapf
-	fmt.Println("test:lint: python")
-	args = []string{"--diff", "--parallel", "--recursive"}
-	if mg.Verbose() {
-		args = append(args, "--verbose")
-	}
-	if output, err := sh.Output("venv/bin/yapf", append(args, pyTargets...)...); err != nil {
-		errs = append(errs, fmt.Errorf("yapf diff: %d bytes (err: %v)", len(output), err))
-	}
-
 	// python bandit (security linting)
+	fmt.Println("test:lint: python security")
 	args = []string{"--recursive"}
 	if mg.Verbose() {
 		args = append(args, "--verbose")
@@ -79,8 +70,18 @@ func (t Test) Lint() error {
 		errs = append(errs, err)
 	}
 
+	// python yapf
+	fmt.Println("test:lint: python")
+	args = []string{"--diff", "--parallel", "--recursive"}
+	if mg.Verbose() {
+		args = append(args, "--verbose")
+	}
+	if output, err := sh.Output("venv/bin/yapf", append(args, pyTargets...)...); err != nil {
+		errs = append(errs, fmt.Errorf("yapf diff: %d bytes (err: %v)", len(output), err))
+	}
+
 	// python lint - runs twice (once for src directories, once for test directories)
-	args = []string{"-j", "0", "--max-line-length", "140"}
+	args = []string{"-j", "0", "--max-line-length", "140", "--score", "no"}
 	if mg.Verbose() {
 		args = append(args, "--verbose")
 	}
@@ -96,7 +97,8 @@ func (t Test) Lint() error {
 	}
 
 	// python mypy (type check)
-	args = []string{"--cache-dir", "out/.mypy_cache", "--disallow-untyped-defs", "--ignore-missing-imports", "--warn-unused-ignores"}
+	args = []string{"--cache-dir", "out/.mypy_cache", "--no-error-summary",
+		"--disallow-untyped-defs", "--ignore-missing-imports", "--warn-unused-ignores"}
 	if mg.Verbose() {
 		args = append(args, "--verbose")
 	}
@@ -139,6 +141,8 @@ func (Test) Unit() error {
 	args = []string{"-m", "unittest", "discover"}
 	if mg.Verbose() {
 		args = append(args, "--verbose")
+	} else {
+		args = append(args, "--quiet")
 	}
 
 	for _, target := range []string{"internal/core", "internal/compliance", "internal/log_analysis"} {

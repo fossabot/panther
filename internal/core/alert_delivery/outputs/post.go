@@ -2,14 +2,15 @@ package outputs
 
 import (
 	"bytes"
-	"encoding/json"
 	"io/ioutil"
 	"net/http"
+
+	jsoniter "github.com/json-iterator/go"
 )
 
 // post sends a JSON body to an endpoint.
 func (client *HTTPWrapper) post(input *PostInput) *AlertDeliveryError {
-	payload, err := json.Marshal(input.body)
+	payload, err := jsoniter.Marshal(input.body)
 	if err != nil {
 		return &AlertDeliveryError{Message: "json marshal error: " + err.Error(), Permanent: true}
 	}

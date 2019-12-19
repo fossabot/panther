@@ -3,9 +3,8 @@ package api
 import (
 	"go.uber.org/zap"
 
-	"github.com/panther-labs/panther/internal/core/users_api/gateway"
-
 	"github.com/panther-labs/panther/api/lambda/users/models"
+	"github.com/panther-labs/panther/internal/core/users_api/gateway"
 )
 
 // InviteUser adds a new user to the Cognito user pool.

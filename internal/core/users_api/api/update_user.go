@@ -1,9 +1,8 @@
 package api
 
 import (
-	"github.com/panther-labs/panther/internal/core/users_api/gateway"
-
 	"github.com/panther-labs/panther/api/lambda/users/models"
+	"github.com/panther-labs/panther/internal/core/users_api/gateway"
 )
 
 func changeUserRole(input *models.UpdateUserInput) error {

@@ -5,8 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/panther-labs/panther/api/lambda/snapshot/models"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/lambda"
 	"github.com/aws/aws-sdk-go/service/lambda/lambdaiface"
@@ -14,6 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/panther-labs/panther/api/lambda/snapshot/models"
 )
 
 //

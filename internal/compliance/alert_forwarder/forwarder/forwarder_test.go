@@ -1,13 +1,13 @@
 package forwarder
 
 import (
-	"encoding/json"
 	"errors"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
+	jsoniter "github.com/json-iterator/go"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -36,10 +36,11 @@ func TestHandleAlert(t *testing.T) {
 		PolicyID: aws.String("policyId"),
 	}
 
-	expectedMsgBody, _ := json.Marshal(input)
+	expectedMsgBody, err := jsoniter.MarshalToString(input)
+	require.NoError(t, err)
 	expectedInput := &sqs.SendMessageInput{
 		QueueUrl:    aws.String("alertQueueURL"),
-		MessageBody: aws.String(string(expectedMsgBody)),
+		MessageBody: aws.String(expectedMsgBody),
 	}
 
 	mockSqsClient.On("SendMessage", expectedInput).Return(&sqs.SendMessageOutput{}, nil)

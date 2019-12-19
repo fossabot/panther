@@ -9,9 +9,8 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/go-playground/validator.v9"
 
-	"github.com/panther-labs/panther/pkg/lambdalogger"
-
 	"github.com/panther-labs/panther/internal/log_analysis/alert_merger/merger"
+	"github.com/panther-labs/panther/pkg/lambdalogger"
 )
 
 var validate = validator.New()

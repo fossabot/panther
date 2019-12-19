@@ -1,7 +1,6 @@
 package delivery
 
 import (
-	"encoding/json"
 	"math/rand"
 	"os"
 	"strconv"
@@ -9,6 +8,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
+	jsoniter "github.com/json-iterator/go"
 	"go.uber.org/zap"
 
 	"github.com/panther-labs/panther/internal/core/alert_delivery/models"
@@ -35,7 +35,7 @@ func retry(alerts []*models.Alert) {
 	maxDelaySeconds := mustParseInt(os.Getenv("MAX_RETRY_DELAY_SECS"))
 
 	for i, alert := range alerts {
-		body, err := json.Marshal(alert)
+		body, err := jsoniter.MarshalToString(alert)
 		if err != nil {
 			zap.L().Panic("error encoding alert as JSON", zap.Error(err))
 		}
@@ -43,7 +43,7 @@ func retry(alerts []*models.Alert) {
 		input.Entries[i] = &sqs.SendMessageBatchRequestEntry{
 			DelaySeconds: aws.Int64(int64(randomInt(minDelaySeconds, maxDelaySeconds))),
 			Id:           aws.String(strconv.Itoa(i)),
-			MessageBody:  aws.String(string(body)),
+			MessageBody:  aws.String(body),
 		}
 	}
 

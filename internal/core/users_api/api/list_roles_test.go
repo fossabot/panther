@@ -7,11 +7,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/panther-labs/panther/pkg/genericapi"
-
-	"github.com/panther-labs/panther/internal/core/users_api/gateway"
-
 	"github.com/panther-labs/panther/api/lambda/users/models"
+	"github.com/panther-labs/panther/internal/core/users_api/gateway"
+	"github.com/panther-labs/panther/pkg/genericapi"
 )
 
 type mockGatewayListRolesClient struct {

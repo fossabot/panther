@@ -3,14 +3,13 @@ package scheduler
 import (
 	"time"
 
-	"github.com/panther-labs/panther/api/lambda/snapshot/models"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/lambda"
 	"github.com/aws/aws-sdk-go/service/lambda/lambdaiface"
 	"go.uber.org/zap"
 
+	"github.com/panther-labs/panther/api/lambda/snapshot/models"
 	snapshotapi "github.com/panther-labs/panther/internal/compliance/snapshot_api/api"
 	"github.com/panther-labs/panther/pkg/genericapi"
 )

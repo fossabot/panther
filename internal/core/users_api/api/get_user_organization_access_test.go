@@ -1,20 +1,18 @@
 package api
 
 import (
-	"encoding/json"
 	"testing"
-
-	"github.com/panther-labs/panther/pkg/genericapi"
-
-	users "github.com/panther-labs/panther/internal/core/users_api/table"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/lambda"
+	jsoniter "github.com/json-iterator/go"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	organizationmodels "github.com/panther-labs/panther/api/lambda/organization/models"
-
 	"github.com/panther-labs/panther/api/lambda/users/models"
+	users "github.com/panther-labs/panther/internal/core/users_api/table"
+	"github.com/panther-labs/panther/pkg/genericapi"
 )
 
 func TestGetUserOrganizationAccessSuccess(t *testing.T) {
@@ -41,9 +39,12 @@ func TestGetUserOrganizationAccessSuccess(t *testing.T) {
 			},
 		},
 	}
-	mockOrgLambdaResponsePayload, _ := json.Marshal(getOrgOutput)
+	mockOrgLambdaResponsePayload, err := jsoniter.Marshal(getOrgOutput)
+	require.NoError(t, err)
 	mockOrgLambdaResponse := &lambda.InvokeOutput{Payload: mockOrgLambdaResponsePayload}
-	expecteOrgLambdaPayload, _ := json.Marshal(organizationmodels.LambdaInput{GetOrganization: &organizationmodels.GetOrganizationInput{}})
+	expecteOrgLambdaPayload, err := jsoniter.Marshal(
+		organizationmodels.LambdaInput{GetOrganization: &organizationmodels.GetOrganizationInput{}})
+	require.NoError(t, err)
 	expectedOrgLambdaInput := &lambda.InvokeInput{FunctionName: aws.String("organizationAPI"), Payload: expecteOrgLambdaPayload}
 	ml.On("Invoke", expectedOrgLambdaInput).Return(mockOrgLambdaResponse, nil)
 
@@ -80,9 +81,12 @@ func TestGetUserOrganizationAccessGetOrganizationsFailed(t *testing.T) {
 	ml := &mockLambdaClient{}
 	lambdaClient = ml
 	getOrgOutput := organizationmodels.GetOrganizationOutput{}
-	mockOrgLambdaResponsePayload, _ := json.Marshal(getOrgOutput)
+	mockOrgLambdaResponsePayload, err := jsoniter.Marshal(getOrgOutput)
+	require.NoError(t, err)
 	mockOrgLambdaResponse := &lambda.InvokeOutput{Payload: mockOrgLambdaResponsePayload}
-	expectedOrgLambdaPayload, _ := json.Marshal(organizationmodels.LambdaInput{GetOrganization: &organizationmodels.GetOrganizationInput{}})
+	expectedOrgLambdaPayload, err := jsoniter.Marshal(
+		organizationmodels.LambdaInput{GetOrganization: &organizationmodels.GetOrganizationInput{}})
+	require.NoError(t, err)
 	expectedOrgLambdaInput := &lambda.InvokeInput{FunctionName: aws.String("organizationAPI"), Payload: expectedOrgLambdaPayload}
 	ml.On("Invoke", expectedOrgLambdaInput).Return(mockOrgLambdaResponse, &genericapi.LambdaError{})
 

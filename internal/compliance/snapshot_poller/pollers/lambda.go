@@ -9,10 +9,9 @@ import (
 
 	"github.com/panther-labs/panther/api/gateway/resources/client/operations"
 	api "github.com/panther-labs/panther/api/gateway/resources/models"
-	"github.com/panther-labs/panther/pkg/lambdalogger"
-
 	pollermodels "github.com/panther-labs/panther/internal/compliance/snapshot_poller/models/poller"
 	pollers "github.com/panther-labs/panther/internal/compliance/snapshot_poller/pollers/aws"
+	"github.com/panther-labs/panther/pkg/lambdalogger"
 )
 
 const resourcesAPIBatchSize = 500
