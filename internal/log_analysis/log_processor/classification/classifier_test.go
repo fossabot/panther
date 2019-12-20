@@ -112,6 +112,36 @@ func TestClassifyNoMatch(t *testing.T) {
 	failingParser.AssertNumberOfCalls(t, "Parse", 1)
 }
 
+func TestClassifyParserPanic(t *testing.T) {
+	// uncomment to see the logs produced
+	/*
+		logger := zap.NewExample()
+		defer logger.Sync()
+		undo := zap.ReplaceGlobals(logger)
+		defer undo()
+	*/
+
+	panicParser := &mockParser{}
+
+	panicParser.On("Parse", mock.Anything).Run(func(args mock.Arguments) { panic("test parser panic") })
+	panicParser.On("LogType").Return("panic parser")
+
+	availableParsers := []*registry.LogParserMetadata{
+		{Parser: panicParser},
+	}
+	testRegistry := NewTestRegistry()
+	parserRegistry = testRegistry // re-bind as interface
+	for i := range availableParsers {
+		testRegistry.Add(availableParsers[i]) // update registry
+	}
+
+	classifier := NewClassifier()
+
+	result := classifier.Classify("log of death")
+	require.Equal(t, &ClassifierResult{}, result)
+	panicParser.AssertNumberOfCalls(t, "Parse", 1)
+}
+
 func requireLessOrEqualNumberOfCalls(t *testing.T, underTest *mockParser, method string, number int) {
 	timesCalled := 0
 	for _, call := range underTest.Calls {

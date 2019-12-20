@@ -2,9 +2,13 @@ package classification
 
 import (
 	"container/heap"
+	"fmt"
+	"runtime/debug"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"go.uber.org/zap"
+
+	"github.com/panther-labs/panther/internal/log_analysis/log_processor/parsers"
 )
 
 // ClassifierAPI is the interface for a classifier
@@ -35,6 +39,22 @@ type Classifier struct {
 	parsers *ParserPriorityQueue
 }
 
+// catch panics from parsers, log and continue
+func safeLogParse(parser parsers.LogParser, log string) (parsedEvents []interface{}) {
+	defer func() {
+		if r := recover(); r != nil {
+			zap.L().Error("parser panic",
+				zap.String("parser", parser.LogType()),
+				zap.Error(fmt.Errorf("%v", r)),
+				zap.String("stacktrace", string(debug.Stack())),
+				zap.String("log", log))
+			parsedEvents = nil // return indicator that parse failed
+		}
+	}()
+	parsedEvents = parser.Parse(log)
+	return parsedEvents
+}
+
 // Classify attempts to classify the provided log line
 func (c *Classifier) Classify(log string) *ClassifierResult {
 	// Slice containing the popped queue items
@@ -43,7 +63,7 @@ func (c *Classifier) Classify(log string) *ClassifierResult {
 
 	for c.parsers.Len() > 0 {
 		currentItem := c.parsers.Peek()
-		parsedEvents := currentItem.parser.Parse(log)
+		parsedEvents := safeLogParse(currentItem.parser, log)
 
 		// Parser failed to parse event
 		if parsedEvents == nil {
