@@ -2,8 +2,6 @@ package timestamp
 
 import (
 	"time"
-
-	"github.com/panther-labs/panther/tools/cfngen/gluecf"
 )
 
 // These objects are used to read timestamps and ensure a consistent JSON output for timestamps.
@@ -17,22 +15,6 @@ const (
 	jsonMarshalLayout = `"2006-01-02 15:04:05.000000000"`
 
 	ansicWithTZUnmarshalLayout = `"Mon Jan 2 15:04:05 2006 MST"` // similar to time.ANSIC but with MST
-
-	glueType = "timestamp" // type in Glue tables for timestamps
-)
-
-var (
-	// GlueMappings for timestamps. Reference this when generating CF
-	GlueMappings = []gluecf.CustomMapping{
-		{
-			From: "timestamp.RFC3339",
-			To:   glueType,
-		},
-		{
-			From: "timestamp.ANSICwithTZ",
-			To:   glueType,
-		},
-	}
 )
 
 // use these functions to parse all incoming dates to ensure UTC consistency

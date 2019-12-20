@@ -2,6 +2,7 @@ package gluecf
 
 import (
 	"fmt"
+	"reflect"
 	"strconv"
 	"testing"
 
@@ -42,10 +43,11 @@ type TestInterface interface {
 }
 
 func TestInferJsonColumns(t *testing.T) {
-	// used to test pointers
+	// used to test pointers and types
 	var s string = "S"
 	var i int32 = 1
 	var f float32 = 1
+	var simpleTestType TestCustomSimpleType
 
 	obj := struct { // nolint
 		BoolField bool
@@ -141,11 +143,11 @@ func TestInferJsonColumns(t *testing.T) {
 	}
 
 	customSimpleTypeMapping := CustomMapping{
-		From: "gluecf.TestCustomSimpleType",
+		From: reflect.TypeOf(simpleTestType),
 		To:   "foo",
 	}
 	customStructTypeMapping := CustomMapping{
-		From: "gluecf.TestCustomStructType",
+		From: reflect.TypeOf(TestCustomStructType{}),
 		To:   "bar",
 	}
 

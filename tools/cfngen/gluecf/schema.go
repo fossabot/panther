@@ -12,15 +12,15 @@ import (
 // Functions to infer schema by reflection
 
 type CustomMapping struct {
-	From string // name of <pkg><type> to map to To
-	To   string // Glue type to emit
+	From reflect.Type // type to map (result of reflect.TypeOf() )
+	To   string       // glue type to emit
 }
 
 // Walk object, create columns using JSON Serde expected types, allow optional custom mappings
 func InferJSONColumns(obj interface{}, customMappings ...CustomMapping) (cols []Column) {
 	customMappingsTable := make(map[string]string)
 	for _, customMapping := range customMappings {
-		customMappingsTable[customMapping.From] = customMapping.To
+		customMappingsTable[customMapping.From.String()] = customMapping.To
 	}
 
 	objValue := reflect.ValueOf(obj)

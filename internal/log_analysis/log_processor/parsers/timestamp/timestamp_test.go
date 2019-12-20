@@ -6,8 +6,6 @@ import (
 
 	jsoniter "github.com/json-iterator/go"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/panther-labs/panther/tools/cfngen/gluecf"
 )
 
 var (
@@ -55,14 +53,4 @@ func TestTimestampANSICwithTZ_Unmarshal(t *testing.T) {
 	err := jsoniter.Unmarshal([]byte(osqueryUnmarshalString), &ts)
 	assert.NoError(t, err)
 	assert.Equal(t, (ANSICwithTZ)(expectedTime), ts)
-}
-
-func TestTimestampRFC3339_SerializeToCF(t *testing.T) {
-	col := struct {
-		MyTime RFC3339
-	}{
-		(RFC3339)(expectedTime),
-	}
-	cfCol := gluecf.InferJSONColumns(col, GlueMappings...)
-	assert.Equal(t, glueType, cfCol[0].Type)
 }
