@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	stackName           = "panther-backend"
+	stackName           = "panther-app"
 	tableName           = "panther-analysis"
 	policiesRoot        = "./test_policies"
 	policiesZipLocation = "./bulk_upload.zip"

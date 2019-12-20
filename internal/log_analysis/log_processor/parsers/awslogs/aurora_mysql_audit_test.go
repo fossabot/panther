@@ -6,6 +6,8 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/require"
+
+	"github.com/panther-labs/panther/internal/log_analysis/log_processor/parsers/timestamp"
 )
 
 func TestAuroraMySQLAuditLog(t *testing.T) {
@@ -14,9 +16,9 @@ func TestAuroraMySQLAuditLog(t *testing.T) {
 		"'select `user_id` as `userId`, `address`, `type`, `access`, `ordinal`, `token`, `verified`, `organization_id` as `organizationId`, `expires_at` as `expiresAt`, `created_at` as `createdAt`, `updated_at` as `updatedAt` " +
 		"from `address_verification` where `ordinal` = \\'primary\\' and `access` = \\'public\\' and `type` = \\'phoneNumber\\' and `verified` = true and `user_id` = \\'12345678-8a3b-4d3f-96a7-19cc4c58c25d\\'',0"
 
-	expectedTime := time.Unix(1572546356, 975302000).In(time.UTC)
+	expectedTime := time.Unix(1572546356, 975302000).UTC()
 	expectedEvent := &AuroraMySQLAudit{
-		Timestamp:    aws.Time(expectedTime),
+		Timestamp:    (*timestamp.RFC3339)(&expectedTime),
 		ServerHost:   aws.String("db-instance-name"),
 		Username:     aws.String("someuser"),
 		Host:         aws.String("10.0.143.147"),
@@ -29,7 +31,7 @@ func TestAuroraMySQLAuditLog(t *testing.T) {
 		RetCode: aws.Int(0),
 	}
 	parser := &AuroraMySQLAuditParser{}
-	require.Equal(t, []interface{}{expectedEvent}, parser.Parse(log))
+	require.Equal(t, (interface{})(expectedEvent), parser.Parse(log)[0])
 }
 
 func TestAuroraMysqlAuditLogType(t *testing.T) {

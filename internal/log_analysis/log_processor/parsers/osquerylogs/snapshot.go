@@ -5,20 +5,22 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/panther-labs/panther/internal/log_analysis/log_processor/parsers"
+	"github.com/panther-labs/panther/internal/log_analysis/log_processor/parsers/timestamp"
 )
 
-// Snapshot contains all the data included in OsQuery differential logs
-// Reference: https://osquery.readthedocs.io/en/stable/deployment/logging/
+var SnapshotDesc = `Snapshot contains all the data included in OsQuery differential logs
+Reference: https://osquery.readthedocs.io/en/stable/deployment/logging/`
+
 type Snapshot struct {
-	Action         *string             `json:"action,omitempty" validate:"required,eq=snapshot"`
-	CalendarTime   *Time               `json:"calendarTime,omitempty" validate:"required"`
-	Counter        *int                `json:"counter,omitempty,string" validate:"required"`
-	Decorations    map[string]string   `json:"decorations,omitempty"`
-	Epoch          *int                `json:"epoch,omitempty,string" validate:"required"`
-	HostIdentifier *string             `json:"hostIdentifier,omitempty" validate:"required"`
-	Name           *string             `json:"name,omitempty" validate:"required"`
-	Snapshot       []map[string]string `json:"snapshot,omitempty" validate:"required"`
-	UnixTime       *int                `json:"unixTime,omitempty,string" validate:"required"`
+	Action         *string                `json:"action,omitempty" validate:"required,eq=snapshot"`
+	CalendarTime   *timestamp.ANSICwithTZ `json:"calendarTime,omitempty" validate:"required"`
+	Counter        *int                   `json:"counter,omitempty,string" validate:"required"`
+	Decorations    map[string]string      `json:"decorations,omitempty"`
+	Epoch          *int                   `json:"epoch,omitempty,string" validate:"required"`
+	HostIdentifier *string                `json:"hostIdentifier,omitempty" validate:"required"`
+	Name           *string                `json:"name,omitempty" validate:"required"`
+	Snapshot       []map[string]string    `json:"snapshot,omitempty" validate:"required"`
+	UnixTime       *int                   `json:"unixTime,omitempty,string" validate:"required"`
 }
 
 // SnapshotParser parses OsQuery snapshot logs

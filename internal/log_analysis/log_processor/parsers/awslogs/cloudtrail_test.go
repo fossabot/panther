@@ -6,6 +6,8 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/require"
+
+	"github.com/panther-labs/panther/internal/log_analysis/log_processor/parsers/timestamp"
 )
 
 func TestCloudTrailLog(t *testing.T) {
@@ -21,7 +23,7 @@ func TestCloudTrailLog(t *testing.T) {
 			Type:      aws.String("AWSService"),
 			InvokedBy: aws.String("cloudtrail.amazonaws.com"),
 		},
-		EventTime:       aws.Time(expectedDate),
+		EventTime:       (*timestamp.RFC3339)(&expectedDate),
 		EventSource:     aws.String("kms.amazonaws.com"),
 		EventName:       aws.String("GenerateDataKey"),
 		AWSRegion:       aws.String("us-west-2"),
@@ -51,7 +53,7 @@ func TestCloudTrailLog(t *testing.T) {
 		},
 	}
 
-	require.Equal(t, []interface{}{expectedEvent}, parser.Parse(log))
+	require.Equal(t, (interface{})(expectedEvent), parser.Parse(log)[0])
 }
 
 func TestCloudTrailLogType(t *testing.T) {

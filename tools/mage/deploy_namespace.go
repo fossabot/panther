@@ -60,6 +60,10 @@ func (Deploy) App() error {
 		return err
 	}
 
+	if err := generateGlueTables(); err != nil {
+		return err
+	}
+
 	if err := embedAPISpecs(); err != nil {
 		return err
 	}

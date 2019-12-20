@@ -5,70 +5,80 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"go.uber.org/zap"
 
 	"github.com/panther-labs/panther/internal/log_analysis/log_processor/parsers"
+	"github.com/panther-labs/panther/internal/log_analysis/log_processor/parsers/timestamp"
 )
 
-// ApplicationLoadBalancer logs Layer 7 network logs for your application load balancer.
-//
-// Reference: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-access-logs.html
-type ApplicationLoadBalancer struct {
-	Type                   *string    `json:"type,omitempty" validate:"oneof=http https h2 ws wss"`
-	Timestamp              *time.Time `json:"timestamp,omitempty" validate:"required"`
-	ELB                    *string    `json:"elb,omitempty"`
-	ClientIP               *string    `json:"clientIp,omitempty"`
-	ClientPort             *int       `json:"clientPort,omitempty"`
-	TargetIP               *string    `json:"targetIp,omitempty"`
-	TargetPort             *int       `json:"targetPort,omitempty"`
-	RequestProcessingTime  *float64   `json:"requestProcessingTime,omitempty"`
-	TargetProcessingTime   *float64   `json:"targetProcessingTime,omitempty"`
-	ResponseProcessingTime *float64   `json:"responseProcessingTime,omitempty"`
-	ELBStatusCode          *int       `json:"elbStatusCode,omitempty" validate:"min=100,max=600"`
-	TargetStatusCode       *int       `json:"targetStatusCode,omitempty"`
-	ReceivedBytes          *int       `json:"receivedBytes,omitempty"`
-	SentBytes              *int       `json:"sentBytes"`
-	RequestHTTPMethod      *string    `json:"requestHttpMethod,omitempty"`
-	RequestURL             *string    `json:"requestUrl,omitempty"`
-	RequestHTTPVersion     *string    `json:"requestHttpVersion,omitempty"`
-	UserAgent              *string    `json:"userAgent,omitempty"`
-	SSLCipher              *string    `json:"sslCipher,omitempty"`
-	SSLProtocol            *string    `json:"sslProtocol,omitempty"`
-	TargetGroupARN         *string    `json:"targetGroupArn,omitempty"`
-	TraceID                *string    `json:"traceId,omitempty"`
-	DomainName             *string    `json:"domainName,omitempty"`
-	ChosenCertARN          *string    `json:"chosenCertArn,omitempty"`
-	MatchedRulePriority    *int       `json:"matchedRulePriority,omitempty"`
-	RequestCreationTime    *time.Time `json:"requestCreationTime,omitempty"`
-	ActionsExecuted        []string   `json:"actionsExecuted,omitempty"`
-	RedirectURL            *string    `json:"redirectUrl,omitempty"`
-	ErrorReason            *string    `json:"errorReason,omitempty"`
+var ALBDesc = `Application Load Balancer logs Layer 7 network logs for your application load balancer.
+Reference: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-access-logs.html`
+
+const (
+	albMinNumberOfColumns = 25
+)
+
+type ALB struct {
+	Type                   *string            `json:"type,omitempty" validate:"oneof=http https h2 ws wss"`
+	Timestamp              *timestamp.RFC3339 `json:"timestamp,omitempty" validate:"required"`
+	ELB                    *string            `json:"elb,omitempty"`
+	ClientIP               *string            `json:"clientIp,omitempty"`
+	ClientPort             *int               `json:"clientPort,omitempty"`
+	TargetIP               *string            `json:"targetIp,omitempty"`
+	TargetPort             *int               `json:"targetPort,omitempty"`
+	RequestProcessingTime  *float64           `json:"requestProcessingTime,omitempty"`
+	TargetProcessingTime   *float64           `json:"targetProcessingTime,omitempty"`
+	ResponseProcessingTime *float64           `json:"responseProcessingTime,omitempty"`
+	ELBStatusCode          *int               `json:"elbStatusCode,omitempty" validate:"min=100,max=600"`
+	TargetStatusCode       *int               `json:"targetStatusCode,omitempty"`
+	ReceivedBytes          *int               `json:"receivedBytes,omitempty"`
+	SentBytes              *int               `json:"sentBytes"`
+	RequestHTTPMethod      *string            `json:"requestHttpMethod,omitempty"`
+	RequestURL             *string            `json:"requestUrl,omitempty"`
+	RequestHTTPVersion     *string            `json:"requestHttpVersion,omitempty"`
+	UserAgent              *string            `json:"userAgent,omitempty"`
+	SSLCipher              *string            `json:"sslCipher,omitempty"`
+	SSLProtocol            *string            `json:"sslProtocol,omitempty"`
+	TargetGroupARN         *string            `json:"targetGroupArn,omitempty"`
+	TraceID                *string            `json:"traceId,omitempty"`
+	DomainName             *string            `json:"domainName,omitempty"`
+	ChosenCertARN          *string            `json:"chosenCertArn,omitempty"`
+	MatchedRulePriority    *int               `json:"matchedRulePriority,omitempty"`
+	RequestCreationTime    *timestamp.RFC3339 `json:"requestCreationTime,omitempty"`
+	ActionsExecuted        []string           `json:"actionsExecuted,omitempty"`
+	RedirectURL            *string            `json:"redirectUrl,omitempty"`
+	ErrorReason            *string            `json:"errorReason,omitempty"`
 }
 
-// ApplicationLoadBalancerParser parses AWS Application Load Balancer logs
-type ApplicationLoadBalancerParser struct{}
+// ALBParser parses AWS Application Load Balancer logs
+type ALBParser struct{}
 
 // Parse returns the parsed events or nil if parsing failed
-func (p *ApplicationLoadBalancerParser) Parse(log string) []interface{} {
+func (p *ALBParser) Parse(log string) []interface{} {
 	reader := csv.NewReader(strings.NewReader(log))
 	reader.Comma = ' '
 
 	records, err := reader.ReadAll()
-	if err != nil {
+	if len(records) == 0 || err != nil {
 		zap.L().Debug("failed to parse the log as csv")
 		return nil
 	}
 
+	// parser should only receive 1 line at a time
 	record := records[0]
 
-	timestamp, err := time.Parse(time.RFC3339Nano, record[1])
+	if len(record) < albMinNumberOfColumns {
+		zap.L().Debug("failed to parse the log as csv (wrong number of columns)")
+		return nil
+	}
+
+	timeStamp, err := timestamp.Parse(time.RFC3339Nano, record[1])
 	if err != nil {
 		zap.L().Debug("failed to parse time", zap.Error(err))
 		return nil
 	}
 
-	requestCreationTime, err := time.Parse(time.RFC3339Nano, record[21])
+	requestCreationTime, err := timestamp.Parse(time.RFC3339Nano, record[21])
 	if err != nil {
 		zap.L().Debug("failed to parse requestCreationTime", zap.Error(err))
 		return nil
@@ -84,9 +94,9 @@ func (p *ApplicationLoadBalancerParser) Parse(log string) []interface{} {
 		return nil
 	}
 
-	event := &ApplicationLoadBalancer{
+	event := &ALB{
 		Type:                   csvStringToPointer(record[0]),
-		Timestamp:              aws.Time(timestamp),
+		Timestamp:              &timeStamp,
 		ELB:                    csvStringToPointer(record[2]),
 		ClientIP:               csvStringToPointer(clientIPPort[0]),
 		ClientPort:             csvStringToIntPointer(clientIPPort[1]),
@@ -110,7 +120,7 @@ func (p *ApplicationLoadBalancerParser) Parse(log string) []interface{} {
 		DomainName:             csvStringToPointer(record[18]),
 		ChosenCertARN:          csvStringToPointer(record[19]),
 		MatchedRulePriority:    csvStringToIntPointer(record[20]),
-		RequestCreationTime:    aws.Time(requestCreationTime),
+		RequestCreationTime:    &requestCreationTime,
 		ActionsExecuted:        csvStringToArray(record[22]),
 		RedirectURL:            csvStringToPointer(record[23]),
 		ErrorReason:            csvStringToPointer(record[24]),
@@ -125,6 +135,6 @@ func (p *ApplicationLoadBalancerParser) Parse(log string) []interface{} {
 }
 
 // LogType returns the log type supported by this parser
-func (p *ApplicationLoadBalancerParser) LogType() string {
-	return "AWS.ApplicationLoadBalancer"
+func (p *ALBParser) LogType() string {
+	return "AWS.ALB"
 }

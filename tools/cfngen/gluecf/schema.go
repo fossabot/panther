@@ -11,8 +11,18 @@ import (
 
 // Functions to infer schema by reflection
 
-// Walk object, create columns using JSON Serde expected types
-func InferJSONColumns(obj interface{}) (cols []Column) {
+type CustomMapping struct {
+	From string // name of <pkg><type> to map to To
+	To   string // Glue type to emit
+}
+
+// Walk object, create columns using JSON Serde expected types, allow optional custom mappings
+func InferJSONColumns(obj interface{}, customMappings ...CustomMapping) (cols []Column) {
+	customMappingsTable := make(map[string]string)
+	for _, customMapping := range customMappings {
+		customMappingsTable[customMapping.From] = customMapping.To
+	}
+
 	objValue := reflect.ValueOf(obj)
 	objType := objValue.Type()
 
@@ -22,7 +32,7 @@ func InferJSONColumns(obj interface{}) (cols []Column) {
 	}
 
 	for i := 0; i < objType.NumField(); i++ {
-		fieldName, jsonType, skip := inferStructFieldType(objType.Field(i))
+		fieldName, jsonType, skip := inferStructFieldType(objType.Field(i), customMappingsTable)
 		if skip {
 			continue
 		}
@@ -32,7 +42,7 @@ func InferJSONColumns(obj interface{}) (cols []Column) {
 	return cols
 }
 
-func inferStructFieldType(sf reflect.StructField) (fieldName, jsonType string, skip bool) {
+func inferStructFieldType(sf reflect.StructField, customMappingsTable map[string]string) (fieldName, jsonType string, skip bool) {
 	t := sf.Type
 
 	// deference pointers
@@ -72,10 +82,10 @@ func inferStructFieldType(sf reflect.StructField) (fieldName, jsonType string, s
 		sliceOfType := t.Elem()
 		switch sliceOfType.Kind() {
 		case reflect.Struct:
-			jsonType = fmt.Sprintf("array<struct<%s>>", inferStruct(sliceOfType))
+			jsonType = fmt.Sprintf("array<struct<%s>>", inferStruct(sliceOfType, customMappingsTable))
 			return
 		case reflect.Map:
-			jsonType = fmt.Sprintf("array<%s>", inferMap(sliceOfType))
+			jsonType = fmt.Sprintf("array<%s>", inferMap(sliceOfType, customMappingsTable))
 			return
 		default:
 			jsonType = fmt.Sprintf("array<%s>", toJSONType(sliceOfType))
@@ -83,20 +93,24 @@ func inferStructFieldType(sf reflect.StructField) (fieldName, jsonType string, s
 		}
 
 	case reflect.Map:
-		return fieldName, inferMap(t), skip
+		return fieldName, inferMap(t, customMappingsTable), skip
 
 	case reflect.Struct:
 
-		// special case for us: timestamps
-		if fmt.Sprintf("%v", t) == "time.Time" {
-			jsonType = "timestamp"
+		if to, found := customMappingsTable[t.String()]; found {
+			jsonType = to
 			return
 		}
 
-		jsonType = fmt.Sprintf("struct<%s>", inferStruct(t))
+		jsonType = fmt.Sprintf("struct<%s>", inferStruct(t, customMappingsTable))
 		return
 
 	default:
+		if mappedType, found := customMappingsTable[t.String()]; found {
+			jsonType = mappedType
+			return
+		}
+
 		// simple types
 		jsonType = toJSONType(t)
 		return
@@ -104,12 +118,12 @@ func inferStructFieldType(sf reflect.StructField) (fieldName, jsonType string, s
 }
 
 // Recursively expand a struct
-func inferStruct(structType reflect.Type) string { // return comma delimited
+func inferStruct(structType reflect.Type, customMappingsTable map[string]string) string { // return comma delimited
 	// recurse over components to get types
 	numFields := structType.NumField()
 	var keyPairs []string
 	for i := 0; i < numFields; i++ {
-		subFieldName, subFieldJSONType, subFieldSkip := inferStructFieldType(structType.Field(i))
+		subFieldName, subFieldJSONType, subFieldSkip := inferStructFieldType(structType.Field(i), customMappingsTable)
 		if subFieldSkip {
 			continue
 		}
@@ -119,10 +133,10 @@ func inferStruct(structType reflect.Type) string { // return comma delimited
 }
 
 // Recursively expand a map
-func inferMap(t reflect.Type) (jsonType string) {
+func inferMap(t reflect.Type, customMappingsTable map[string]string) (jsonType string) {
 	mapOfType := t.Elem()
 	if mapOfType.Kind() == reflect.Struct {
-		jsonType = fmt.Sprintf("map<%s,struct<%s>>", t.Key(), inferStruct(mapOfType))
+		jsonType = fmt.Sprintf("map<%s,struct<%s>>", t.Key(), inferStruct(mapOfType, customMappingsTable))
 		return
 	}
 	jsonType = fmt.Sprintf("map<%s,%s>", t.Key(), toJSONType(mapOfType))

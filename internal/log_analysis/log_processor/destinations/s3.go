@@ -17,16 +17,20 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/panther-labs/panther/internal/log_analysis/log_processor/common"
+	"github.com/panther-labs/panther/internal/log_analysis/log_processor/registry"
 )
 
 // s3ObjectKeyFormat represents the format of the S3 object key
-const s3ObjectKeyFormat = "logs/%s/year=%d/month=%02d/day=%02d/hour=%02d/%s_%s_%s.gz"
+// NOTE: currently same for all log types, if some become daily or minutely refactor to registry
+const s3ObjectKeyFormat = "%s/year=%d/month=%02d/day=%02d/hour=%02d/%s-%s.gz"
 
 var (
 	maxFileSize = 100 * 1000 * 1000 // 100MB uncompressed file size, should result in ~10MB output file size
 	// It should always be greater than the maximum expected event (log line) size
 	maxDuration      = 1 * time.Minute // Holding events for maximum 1 minute in memory
 	newLineDelimiter = []byte("\n")
+
+	parserRegistry registry.Interface = registry.AvailableParsers() // initialize
 )
 
 // S3Destination sends normalized events to S3
@@ -147,7 +151,10 @@ func (destination *S3Destination) sendData(logType string, buffer *s3EventBuffer
 		Body:   bytes.NewReader(payload),
 	}
 	if _, err := destination.s3Client.PutObject(request); err != nil {
-		zap.L().Warn("failed to put object in s3", zap.Error(err))
+		zap.L().Warn("failed to put object in s3",
+			zap.String("bucket", *request.Bucket),
+			zap.String("key", *request.Key),
+			zap.Error(err))
 		return err
 	}
 
@@ -170,7 +177,8 @@ func (destination *S3Destination) sendData(logType string, buffer *s3EventBuffer
 }
 
 func getS3ObjectKey(logType string, timestamp time.Time) string {
-	canonicalLogType := strings.Replace(strings.ToLower(logType), ".", "_", -1)
+	s3prefix := parserRegistry.LookupParser(logType).Glue.S3Prefix() // get the path used in Glue table
+	canonicalLogType := strings.Replace(strings.ToLower(s3prefix), ".", "_", -1)
 
 	return fmt.Sprintf(s3ObjectKeyFormat,
 		canonicalLogType,
@@ -178,7 +186,6 @@ func getS3ObjectKey(logType string, timestamp time.Time) string {
 		timestamp.Month(),
 		timestamp.Day(),
 		timestamp.Hour(),
-		canonicalLogType,
 		timestamp.Format("20060102T150405Z"),
 		uuid.New().String())
 }

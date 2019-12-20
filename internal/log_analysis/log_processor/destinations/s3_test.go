@@ -18,7 +18,28 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/panther-labs/panther/internal/log_analysis/log_processor/common"
+	"github.com/panther-labs/panther/internal/log_analysis/log_processor/parsers"
+	"github.com/panther-labs/panther/internal/log_analysis/log_processor/registry"
 )
+
+type mockParser struct {
+	parsers.LogParser
+	mock.Mock
+}
+
+func (m *mockParser) Parse(log string) []interface{} {
+	args := m.Called(log)
+	result := args.Get(0)
+	if result == nil {
+		return nil
+	}
+	return result.([]interface{})
+}
+
+func (m *mockParser) LogType() string {
+	args := m.Called()
+	return args.String(0)
+}
 
 type mockS3 struct {
 	s3iface.S3API
@@ -45,7 +66,44 @@ func (m *mockSns) Publish(input *sns.PublishInput) (*sns.PublishOutput, error) {
 	return args.Get(0).(*sns.PublishOutput), args.Error(1)
 }
 
+func registerMockParser(logType string, testEvent *testEvent) (testParser *mockParser) {
+	testParser = &mockParser{}
+	testParser.On("Parse", mock.Anything).Return([]interface{}{testEvent})
+	testParser.On("LogType").Return(logType)
+	p := registry.DefaultHourlyLogParser(testParser, testEvent, "Test "+logType)
+	testRegistry.Add(p)
+	return
+}
+
+// admit to registry.Interface interface
+type TestRegistry map[string]*registry.LogParserMetadata
+
+func NewTestRegistry() TestRegistry {
+	return make(map[string]*registry.LogParserMetadata)
+}
+
+func (r TestRegistry) Add(lpm *registry.LogParserMetadata) {
+	r[lpm.Parser.LogType()] = lpm
+}
+
+func (r TestRegistry) Elements() map[string]*registry.LogParserMetadata {
+	return r
+}
+
+func (r TestRegistry) LookupParser(logType string) (lpm *registry.LogParserMetadata) {
+	return (registry.Registry)(r).LookupParser(logType) // call registry code
+}
+
+var testRegistry = NewTestRegistry()
+
+// rebind for testing
+func initRegistry() {
+	parserRegistry = testRegistry // re-bind as interface
+}
+
 func TestSendDataToS3BeforeTerminating(t *testing.T) {
+	initRegistry()
+
 	mockSns := &mockSns{}
 	mockS3 := &mockS3{}
 	destination := &S3Destination{
@@ -56,10 +114,15 @@ func TestSendDataToS3BeforeTerminating(t *testing.T) {
 	}
 	eventChannel := make(chan *common.ParsedEvent, 1)
 
+	testEvent := testEvent{data: "test"}
+
+	// wire it up
+	logType := "testtype"
 	parsedEvent := &common.ParsedEvent{
-		Event:   testEvent{data: "test"},
-		LogType: "testtype",
+		Event:   testEvent,
+		LogType: logType,
 	}
+	registerMockParser(logType, &testEvent)
 
 	// sending event to buffered channel
 	eventChannel <- parsedEvent
@@ -108,6 +171,8 @@ func TestSendDataToS3BeforeTerminating(t *testing.T) {
 }
 
 func TestSendDataIfSizeLimitHasBeenReached(t *testing.T) {
+	initRegistry()
+
 	mockSns := &mockSns{}
 	mockS3 := &mockS3{}
 	destination := &S3Destination{
@@ -118,16 +183,22 @@ func TestSendDataIfSizeLimitHasBeenReached(t *testing.T) {
 	}
 	eventChannel := make(chan *common.ParsedEvent, 2)
 
+	testEvent := testEvent{data: "test"}
+
+	// wire it up
+	logType := "testtype"
+	registerMockParser(logType, &testEvent)
+
 	// sending 2 events to buffered channel
 	// The second should already cause the S3 object size limits to be exceeded
 	// so we expect two objects to be written to s3
 	eventChannel <- &common.ParsedEvent{
-		Event:   testEvent{data: "test"},
-		LogType: "testtype",
+		Event:   testEvent,
+		LogType: logType,
 	}
 	eventChannel <- &common.ParsedEvent{
-		Event:   testEvent{data: "test"},
-		LogType: "testtype",
+		Event:   testEvent,
+		LogType: logType,
 	}
 	close(eventChannel)
 
@@ -142,6 +213,8 @@ func TestSendDataIfSizeLimitHasBeenReached(t *testing.T) {
 }
 
 func TestSendDataIfTimeLimitHasBeenReached(t *testing.T) {
+	initRegistry()
+
 	mockSns := &mockSns{}
 	mockS3 := &mockS3{}
 	destination := &S3Destination{
@@ -152,16 +225,22 @@ func TestSendDataIfTimeLimitHasBeenReached(t *testing.T) {
 	}
 	eventChannel := make(chan *common.ParsedEvent, 2)
 
+	testEvent := testEvent{data: "test"}
+
+	// wire it up
+	logType := "testtype"
+	registerMockParser(logType, &testEvent)
+
 	// sending 2 events to buffered channel
 	// The second should already cause the S3 object size limits to be exceeded
 	// so we expect two objects to be written to s3
 	eventChannel <- &common.ParsedEvent{
-		Event:   testEvent{data: "test"},
-		LogType: "testtype",
+		Event:   testEvent,
+		LogType: logType,
 	}
 	eventChannel <- &common.ParsedEvent{
-		Event:   testEvent{data: "test"},
-		LogType: "testtype",
+		Event:   testEvent,
+		LogType: logType,
 	}
 	close(eventChannel)
 
@@ -175,6 +254,8 @@ func TestSendDataIfTimeLimitHasBeenReached(t *testing.T) {
 }
 
 func TestSendDataToS3FromMultipleLogTypesBeforeTerminating(t *testing.T) {
+	initRegistry()
+
 	mockSns := &mockSns{}
 	mockS3 := &mockS3{}
 	destination := &S3Destination{
@@ -185,13 +266,21 @@ func TestSendDataToS3FromMultipleLogTypesBeforeTerminating(t *testing.T) {
 	}
 	eventChannel := make(chan *common.ParsedEvent, 2)
 
+	testEvent := testEvent{data: "test"}
+
+	// wire it up
+	logType1 := "testtype1"
+	registerMockParser(logType1, &testEvent)
+	logType2 := "testtype2"
+	registerMockParser(logType2, &testEvent)
+
 	eventChannel <- &common.ParsedEvent{
-		Event:   testEvent{data: "test"},
-		LogType: "testtype1",
+		Event:   testEvent,
+		LogType: logType1,
 	}
 	eventChannel <- &common.ParsedEvent{
-		Event:   testEvent{data: "test"},
-		LogType: "testtype2",
+		Event:   testEvent,
+		LogType: logType2,
 	}
 	close(eventChannel)
 
@@ -202,6 +291,8 @@ func TestSendDataToS3FromMultipleLogTypesBeforeTerminating(t *testing.T) {
 }
 
 func TestSendDataFailsIfS3Fails(t *testing.T) {
+	initRegistry()
+
 	mockSns := &mockSns{}
 	mockS3 := &mockS3{}
 	destination := &S3Destination{
@@ -212,9 +303,15 @@ func TestSendDataFailsIfS3Fails(t *testing.T) {
 	}
 	eventChannel := make(chan *common.ParsedEvent, 1)
 
+	testEvent := testEvent{data: "test"}
+
+	// wire it up
+	logType := "testtype"
+	registerMockParser(logType, &testEvent)
+
 	eventChannel <- &common.ParsedEvent{
-		Event:   testEvent{data: "test"},
-		LogType: "testtype",
+		Event:   testEvent,
+		LogType: logType,
 	}
 	close(eventChannel)
 
@@ -224,6 +321,8 @@ func TestSendDataFailsIfS3Fails(t *testing.T) {
 }
 
 func TestSendDataFailsIfSnsFails(t *testing.T) {
+	initRegistry()
+
 	mockSns := &mockSns{}
 	mockS3 := &mockS3{}
 	destination := &S3Destination{
@@ -234,9 +333,15 @@ func TestSendDataFailsIfSnsFails(t *testing.T) {
 	}
 	eventChannel := make(chan *common.ParsedEvent, 1)
 
+	testEvent := testEvent{data: "test"}
+
+	// wire it up
+	logType := "testtype"
+	registerMockParser(logType, &testEvent)
+
 	eventChannel <- &common.ParsedEvent{
-		Event:   testEvent{data: "test"},
-		LogType: "testtype",
+		Event:   testEvent,
+		LogType: logType,
 	}
 	close(eventChannel)
 

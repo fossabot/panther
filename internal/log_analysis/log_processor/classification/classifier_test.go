@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/panther-labs/panther/internal/log_analysis/log_processor/parsers"
+	"github.com/panther-labs/panther/internal/log_analysis/log_processor/registry"
 )
 
 type mockParser struct {
@@ -29,6 +30,25 @@ func (m *mockParser) LogType() string {
 	return args.String(0)
 }
 
+// admit to registry.Interface interface
+type TestRegistry map[string]*registry.LogParserMetadata
+
+func NewTestRegistry() TestRegistry {
+	return make(map[string]*registry.LogParserMetadata)
+}
+
+func (r TestRegistry) Add(lpm *registry.LogParserMetadata) {
+	r[lpm.Parser.LogType()] = lpm
+}
+
+func (r TestRegistry) Elements() map[string]*registry.LogParserMetadata {
+	return r
+}
+
+func (r TestRegistry) LookupParser(logType string) (lpm *registry.LogParserMetadata) {
+	return (registry.Registry)(r).LookupParser(logType) // call registry code
+}
+
 func TestClassifyRespectsPriorityOfParsers(t *testing.T) {
 	succeedingParser := &mockParser{}
 	failingParser1 := &mockParser{}
@@ -41,7 +61,16 @@ func TestClassifyRespectsPriorityOfParsers(t *testing.T) {
 	failingParser2.On("Parse", mock.Anything).Return(nil)
 	failingParser2.On("LogType").Return("failure2")
 
-	availableParsers = []parsers.LogParser{failingParser1, succeedingParser, failingParser2}
+	availableParsers := []*registry.LogParserMetadata{
+		{Parser: failingParser1},
+		{Parser: succeedingParser},
+		{Parser: failingParser2},
+	}
+	testRegistry := NewTestRegistry()
+	parserRegistry = testRegistry // re-bind as interface
+	for i := range availableParsers {
+		testRegistry.Add(availableParsers[i]) // update registry
+	}
 
 	classifier := NewClassifier()
 
@@ -67,7 +96,14 @@ func TestClassifyNoMatch(t *testing.T) {
 	failingParser.On("Parse", mock.Anything).Return(nil)
 	failingParser.On("LogType").Return("failure")
 
-	availableParsers = []parsers.LogParser{failingParser}
+	availableParsers := []*registry.LogParserMetadata{
+		{Parser: failingParser},
+	}
+	testRegistry := NewTestRegistry()
+	parserRegistry = testRegistry // re-bind as interface
+	for i := range availableParsers {
+		testRegistry.Add(availableParsers[i]) // update registry
+	}
 
 	classifier := NewClassifier()
 

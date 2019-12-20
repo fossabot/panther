@@ -4,27 +4,32 @@ import (
 	"encoding/csv"
 	"strconv"
 	"strings"
-	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"go.uber.org/zap"
 
 	"github.com/panther-labs/panther/internal/log_analysis/log_processor/parsers"
+	"github.com/panther-labs/panther/internal/log_analysis/log_processor/parsers/timestamp"
 )
 
-// AuroraMySQLAudit is an RDS Aurora audit log which contains context around database calls.
-// Reference: https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/AuroraMySQL.Auditing.html
+var AuroraMySQLAuditDesc = `AuroraMySQLAudit is an RDS Aurora audit log which contains context around database calls.
+Reference: https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/AuroraMySQL.Auditing.html`
+
+// FIXME: SQL statement can cause MIS parsing, needs review and testing.
+const (
+	auroraMySQLAuditMinNumberOfColumns = 9
+)
+
 type AuroraMySQLAudit struct {
-	Timestamp    *time.Time `json:"timestamp,omitempty"`
-	ServerHost   *string    `json:"serverHost,omitempty"`
-	Username     *string    `json:"username,omitempty"`
-	Host         *string    `json:"host,omitempty"`
-	ConnectionID *int       `json:"connectionId,omitempty"`
-	QueryID      *int       `json:"queryId,omitempty"`
-	Operation    *string    `json:"operation,omitempty" validate:"oneof=CONNECT QUERY READ WRITE CREATE ALTER RENAME DROP"`
-	Database     *string    `json:"database,omitempty"`
-	Object       *string    `json:"object,omitempty"`
-	RetCode      *int       `json:"retCode,omitempty"`
+	Timestamp    *timestamp.RFC3339 `json:"timestamp,omitempty"`
+	ServerHost   *string            `json:"serverHost,omitempty"`
+	Username     *string            `json:"username,omitempty"`
+	Host         *string            `json:"host,omitempty"`
+	ConnectionID *int               `json:"connectionId,omitempty"`
+	QueryID      *int               `json:"queryId,omitempty"`
+	Operation    *string            `json:"operation,omitempty" validate:"oneof=CONNECT QUERY READ WRITE CREATE ALTER RENAME DROP"`
+	Database     *string            `json:"database,omitempty"`
+	Object       *string            `json:"object,omitempty"`
+	RetCode      *int               `json:"retCode,omitempty"`
 }
 
 // AuroraMySQLAuditParser parses AWS Aurora MySQL Audit logs
@@ -34,12 +39,17 @@ type AuroraMySQLAuditParser struct{}
 func (p *AuroraMySQLAuditParser) Parse(log string) []interface{} {
 	reader := csv.NewReader(strings.NewReader(log))
 	records, err := reader.ReadAll()
-	if err != nil {
+	if len(records) == 0 || err != nil {
 		zap.L().Debug("failed to parse the log as csv")
 		return nil
 	}
 
+	// parser should only receive 1 line at a time
 	record := records[0]
+	if len(record) < auroraMySQLAuditMinNumberOfColumns {
+		zap.L().Debug("failed to parse the log as csv (wrong number of columns)")
+		return nil
+	}
 
 	timestampUnixMillis, err := strconv.ParseInt(record[0], 0, 64)
 	if err != nil {
@@ -50,8 +60,10 @@ func (p *AuroraMySQLAuditParser) Parse(log string) []interface{} {
 	// We are concatenating them to re-create the field
 	objectString := strings.Join(record[8:len(record)-1], ",")
 
+	timeStamp := timestamp.Unix(timestampUnixMillis/1000000, timestampUnixMillis%1000000*1000)
+
 	event := &AuroraMySQLAudit{
-		Timestamp:    aws.Time(time.Unix(timestampUnixMillis/1000000, timestampUnixMillis%1000000*1000).In(time.UTC)),
+		Timestamp:    &timeStamp,
 		ServerHost:   csvStringToPointer(record[1]),
 		Username:     csvStringToPointer(record[2]),
 		Host:         csvStringToPointer(record[3]),

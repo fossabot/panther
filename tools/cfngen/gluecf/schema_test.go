@@ -4,10 +4,15 @@ import (
 	"fmt"
 	"strconv"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 )
+
+type TestCustomSimpleType int
+
+type TestCustomStructType struct {
+	Foo int
+}
 
 type TestStruct struct {
 	Field1 string
@@ -72,14 +77,15 @@ func TestInferJsonColumns(t *testing.T) {
 
 		MapSlice []map[string]string
 
-		TimeField time.Time
-
 		MapStringToInterface map[string]interface{}
 		MapStringToString    map[string]string
 		MapStringToStruct    map[string]TestStruct
 
 		StructField       TestStruct
 		NestedStructField NestedStruct
+
+		CustomTypeField   TestCustomSimpleType
+		CustomStructField TestCustomStructType
 	}{
 		BoolField: true,
 
@@ -112,8 +118,6 @@ func TestInferJsonColumns(t *testing.T) {
 			make(map[string]string),
 		},
 
-		TimeField: time.Date(2019, 12, 1, 1, 1, 1, 1, time.UTC),
-
 		MapStringToInterface: make(map[string]interface{}),
 		MapStringToString:    make(map[string]string),
 		MapStringToStruct:    make(map[string]TestStruct),
@@ -134,6 +138,15 @@ func TestInferJsonColumns(t *testing.T) {
 		default:
 			panic(fmt.Sprintf("Size of native int unexpected: %d", strconv.IntSize))
 		}
+	}
+
+	customSimpleTypeMapping := CustomMapping{
+		From: "gluecf.TestCustomSimpleType",
+		To:   "foo",
+	}
+	customStructTypeMapping := CustomMapping{
+		From: "gluecf.TestCustomStructType",
+		To:   "bar",
 	}
 
 	excpectedCols := []Column{
@@ -157,15 +170,16 @@ func TestInferJsonColumns(t *testing.T) {
 		{Name: "Float64Slice", Type: "array<double>"},
 		{Name: "StructSlice", Type: "array<struct<Field1:string,Field2:int>>"},
 		{Name: "MapSlice", Type: "array<map<string,string>>"},
-		{Name: "TimeField", Type: "timestamp"},
 		{Name: "MapStringToInterface", Type: "map<string,string>"}, // special case
 		{Name: "MapStringToString", Type: "map<string,string>"},
 		{Name: "MapStringToStruct", Type: "map<string,struct<Field1:string,Field2:int>>"},
 		{Name: "StructField", Type: "struct<Field1:string,Field2:int>"},
 		{Name: "NestedStructField", Type: "struct<A:struct<Field1:string,Field2:int>,B:struct<Field1:string,Field2:int>,C:struct<Field1:string,Field2:int>>"}, // nolint
+		{Name: "CustomTypeField", Type: "foo"},
+		{Name: "CustomStructField", Type: "bar"},
 	}
 
-	cols := InferJSONColumns(obj)
+	cols := InferJSONColumns(obj, customSimpleTypeMapping, customStructTypeMapping)
 
 	// uncomment to see results
 	/*

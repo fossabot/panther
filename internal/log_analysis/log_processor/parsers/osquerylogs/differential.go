@@ -5,23 +5,25 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/panther-labs/panther/internal/log_analysis/log_processor/parsers"
+	"github.com/panther-labs/panther/internal/log_analysis/log_processor/parsers/timestamp"
 )
 
-// Differential contains all the data included in OsQuery differential logs
-// Reference: https://osquery.readthedocs.io/en/stable/deployment/logging/
+var DifferentialDesc = `Differential contains all the data included in OsQuery differential logs
+Reference: https://osquery.readthedocs.io/en/stable/deployment/logging/`
+
 type Differential struct {
-	Action               *string           `json:"action,omitempty" validate:"required"`
-	CalendarTime         *Time             `json:"calendartime,omitempty" validate:"required"`
-	Columns              map[string]string `json:"columns,omitempty" validate:"required"`
-	Counter              *int              `json:"counter,omitempty,string"`
-	Decorations          map[string]string `json:"decorations,omitempty"`
-	Epoch                *int              `json:"epoch,omitempty,string" validate:"required"`
-	HostIdentifier       *string           `json:"hostIdentifier,omitempty" validate:"required"`
-	LogType              *string           `json:"logType,omitempty" validate:"required,eq=result"`
-	LogUnderscoreType    *string           `json:"log_type,omitempty"`
-	Name                 *string           `json:"name,omitempty" validate:"required"`
-	UnixTime             *int              `json:"unixTime,omitempty,string" validate:"required"`
-	LogNumericsAsNumbers *bool             `json:"logNumericsAsNumbers,omitempty,string"`
+	Action               *string                `json:"action,omitempty" validate:"required"`
+	CalendarTime         *timestamp.ANSICwithTZ `json:"calendartime,omitempty" validate:"required"`
+	Columns              map[string]string      `json:"columns,omitempty" validate:"required"`
+	Counter              *int                   `json:"counter,omitempty,string"`
+	Decorations          map[string]string      `json:"decorations,omitempty"`
+	Epoch                *int                   `json:"epoch,omitempty,string" validate:"required"`
+	HostIdentifier       *string                `json:"hostIdentifier,omitempty" validate:"required"`
+	LogType              *string                `json:"logType,omitempty" validate:"required,eq=result"`
+	LogUnderscoreType    *string                `json:"log_type,omitempty"`
+	Name                 *string                `json:"name,omitempty" validate:"required"`
+	UnixTime             *int                   `json:"unixTime,omitempty,string" validate:"required"`
+	LogNumericsAsNumbers *bool                  `json:"logNumericsAsNumbers,omitempty,string"`
 }
 
 // DifferentialParser parses OsQuery Differential logs

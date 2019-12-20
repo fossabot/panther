@@ -5,22 +5,24 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/panther-labs/panther/internal/log_analysis/log_processor/parsers"
+	"github.com/panther-labs/panther/internal/log_analysis/log_processor/parsers/timestamp"
 )
 
-// Status is a diagnostic osquery log about the daemon.
-// Reference: https://osquery.readthedocs.io/en/stable/deployment/logging/
+var StatusDesc = `Status is a diagnostic osquery log about the daemon.
+Reference: https://osquery.readthedocs.io/en/stable/deployment/logging/`
+
 type Status struct {
-	CalendarTime      *Time             `json:"calendarTime,omitempty" validate:"required"`
-	Decorations       map[string]string `json:"decorations,omitempty"`
-	Filename          *string           `json:"filename,omitempty" validate:"required"`
-	HostIdentifier    *string           `json:"hostIdentifier,omitempty" validate:"required"`
-	Line              *int              `json:"line,omitempty,string" validate:"required"`
-	LogType           *string           `json:"logType,omitempty" validate:"required,eq=status"`
-	LogUnderscoreType *string           `json:"log_type,omitempty"`
-	Message           *string           `json:"message,omitempty"`
-	Severity          *int              `json:"severity,omitempty,string" validate:"required"`
-	UnixTime          *int              `json:"unixTime,omitempty,string" validate:"required"`
-	Version           *string           `json:"version,omitempty" validate:"required"`
+	CalendarTime      *timestamp.ANSICwithTZ `json:"calendarTime,omitempty" validate:"required"`
+	Decorations       map[string]string      `json:"decorations,omitempty"`
+	Filename          *string                `json:"filename,omitempty" validate:"required"`
+	HostIdentifier    *string                `json:"hostIdentifier,omitempty" validate:"required"`
+	Line              *int                   `json:"line,omitempty,string" validate:"required"`
+	LogType           *string                `json:"logType,omitempty" validate:"required,eq=status"`
+	LogUnderscoreType *string                `json:"log_type,omitempty"`
+	Message           *string                `json:"message,omitempty"`
+	Severity          *int                   `json:"severity,omitempty,string" validate:"required"`
+	UnixTime          *int                   `json:"unixTime,omitempty,string" validate:"required"`
+	Version           *string                `json:"version,omitempty" validate:"required"`
 }
 
 // StatusParser parses OsQuery Status logs

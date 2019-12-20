@@ -32,14 +32,14 @@
    "Description": "Test table",
    "StorageDescriptor": {
     "InputFormat": "org.apache.hadoop.mapred.TextInputFormat",
-    "OutputFormat": "org.apache.hadoop.hive.ql.io.IgnoreKeyTextOutputFormat",
+    "OutputFormat": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
     "Location": {
      "Fn::Sub": "s3//${Bucket}/db1/jsonlTable"
     },
     "SerdeInfo": {
      "SerializationLibrary": "org.openx.data.jsonserde.JsonSerDe",
      "Parameters": {
-      "case.insensitive": "FALSE",
+      "case.insensitive": "TRUE",
       "serialization.format": "1"
      }
     },

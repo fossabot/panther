@@ -94,7 +94,7 @@ func TestIntegrationAPI(t *testing.T) {
 	// Lookup CloudFormation outputs
 	cfnClient := cloudformation.New(awsSession)
 	response, err := cfnClient.DescribeStacks(
-		&cloudformation.DescribeStacksInput{StackName: aws.String("panther-backend")})
+		&cloudformation.DescribeStacksInput{StackName: aws.String("panther-app")})
 	require.NoError(t, err)
 	var endpoint string
 	for _, output := range response.Stacks[0].Outputs {

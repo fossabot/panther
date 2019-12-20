@@ -1,16 +1,16 @@
 package awslogs
 
 import (
-	"time"
-
 	jsoniter "github.com/json-iterator/go"
 	"go.uber.org/zap"
 
 	"github.com/panther-labs/panther/internal/log_analysis/log_processor/parsers"
+	"github.com/panther-labs/panther/internal/log_analysis/log_processor/parsers/timestamp"
 )
 
-// AWSCloudTrail represents the content of a CloudTrail S3 object
-// Log format & samples can be seen here: https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-event-reference.html
+var CloudTrailDesc = `AWSCloudTrail represents the content of a CloudTrail S3 object.
+Log format & samples can be seen here: https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-event-reference.html`
+
 type CloudTrailRecords struct {
 	Records []*CloudTrail `json:"Records" validate:"required"`
 }
@@ -25,7 +25,7 @@ type CloudTrail struct {
 	EventID             *string                 `json:"eventId,omitempty" validate:"required"`
 	EventName           *string                 `json:"eventName,omitempty"`
 	EventSource         *string                 `json:"eventSource,omitempty"`
-	EventTime           *time.Time              `json:"eventTime,omitempty"`
+	EventTime           *timestamp.RFC3339      `json:"eventTime,omitempty"`
 	EventType           *string                 `json:"eventType,omitempty"`
 	EventVersion        *string                 `json:"eventVersion,omitempty" validate:"required"`
 	ManagementEvent     *bool                   `json:"managementEvent,omitempty"`

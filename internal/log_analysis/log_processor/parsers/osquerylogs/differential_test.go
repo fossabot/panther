@@ -6,13 +6,15 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/require"
+
+	"github.com/panther-labs/panther/internal/log_analysis/log_processor/parsers/timestamp"
 )
 
 func TestDifferentialLog(t *testing.T) {
 	//nolint:lll
 	log := `{"name":"pack_incident-response_mounts","hostIdentifier":"Quans-MacBook-Pro-2.local","calendarTime":"Tue Nov 5 06:08:26 2018 UTC","unixTime":"1572934106","epoch":"0","counter":"62","logNumericsAsNumbers":"false","decorations":{"host_uuid":"F919E9BF-0BF1-5456-8F6C-335243AEA537"},"columns":{"blocks":"61202533"},"action":"added","log_type":"result"}`
 
-	expectedDate := Time{time.Unix(1541398106, 0).In(time.UTC)}
+	expectedTime := time.Unix(1541398106, 0).UTC()
 	expectedEvent := &Differential{
 		Action:               aws.String("added"),
 		Name:                 aws.String("pack_incident-response_mounts"),
@@ -21,7 +23,7 @@ func TestDifferentialLog(t *testing.T) {
 		UnixTime:             aws.Int(1572934106),
 		LogNumericsAsNumbers: aws.Bool(false),
 		LogType:              aws.String("result"),
-		CalendarTime:         &expectedDate,
+		CalendarTime:         (*timestamp.ANSICwithTZ)(&expectedTime),
 		Columns: map[string]string{
 			"blocks": "61202533",
 		},
@@ -38,8 +40,8 @@ func TestDifferentialLog(t *testing.T) {
 func TestDifferentialLogWithoutLogNumericAsNumbers(t *testing.T) {
 	//nolint:lll
 	log := `{"action":"added","calendarTime":"Tue Nov 5 06:08:26 2018 UTC","columns":{"build_distro":"10.12"},"counter":"255","decorations":{"host_uuid":"37821E12-CC8A-5AA3-A90C-FAB28A5BF8F9" },"epoch":"0","hostIdentifier":"host.lan","log_type":"result","name":"pack_osquery-monitoring_osquery_info","unixTime":"1536682461"}`
-	expectedDate := Time{time.Unix(1541398106, 0).In(time.UTC)}
 
+	expectedTime := time.Unix(1541398106, 0).UTC()
 	expectedEvent := &Differential{
 		Action:         aws.String("added"),
 		Name:           aws.String("pack_osquery-monitoring_osquery_info"),
@@ -47,7 +49,7 @@ func TestDifferentialLogWithoutLogNumericAsNumbers(t *testing.T) {
 		HostIdentifier: aws.String(("host.lan")),
 		UnixTime:       aws.Int(1536682461),
 		LogType:        aws.String("result"),
-		CalendarTime:   &expectedDate,
+		CalendarTime:   (*timestamp.ANSICwithTZ)(&expectedTime),
 		Columns: map[string]string{
 			"build_distro": "10.12",
 		},

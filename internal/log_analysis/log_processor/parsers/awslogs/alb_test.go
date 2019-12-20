@@ -6,6 +6,8 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/require"
+
+	"github.com/panther-labs/panther/internal/log_analysis/log_processor/parsers/timestamp"
 )
 
 func TestHTTPLog(t *testing.T) {
@@ -14,11 +16,11 @@ func TestHTTPLog(t *testing.T) {
 		"\"curl/7.46.0\" - - arn:aws:elasticloadbalancing:us-east-2:123456789012:targetgroup/my-targets/73e2d6bc24d8a067 " +
 		"\"Root=1-58337262-36d228ad5d99923122bbe354\" \"-\" \"-\" 0 2018-08-26T14:17:23.186641Z \"forward\" \"-\" \"-\""
 
-	expectedTime := time.Unix(1535293043, 186641000).In(time.UTC)
+	expectedTime := time.Unix(1535293043, 186641000).UTC()
 
-	expectedEvent := &ApplicationLoadBalancer{
+	expectedEvent := &ALB{
 		Type:                   aws.String("http"),
-		Timestamp:              aws.Time(expectedTime),
+		Timestamp:              (*timestamp.RFC3339)(&expectedTime),
 		ELB:                    aws.String("app/my-loadbalancer/50dc6c495c0c9188"),
 		ClientIP:               aws.String("192.168.131.39"),
 		ClientPort:             aws.Int(2817),
@@ -42,14 +44,14 @@ func TestHTTPLog(t *testing.T) {
 		DomainName:             nil,
 		ChosenCertARN:          nil,
 		MatchedRulePriority:    aws.Int(0),
-		RequestCreationTime:    aws.Time(expectedTime),
+		RequestCreationTime:    (*timestamp.RFC3339)(&expectedTime),
 		ActionsExecuted:        []string{"forward"},
 		RedirectURL:            nil,
 		ErrorReason:            nil,
 	}
 
-	parser := &ApplicationLoadBalancerParser{}
-	require.Equal(t, []interface{}{expectedEvent}, parser.Parse(log))
+	parser := &ALBParser{}
+	require.Equal(t, (interface{})(expectedEvent), parser.Parse(log)[0])
 }
 
 func TestHTTPSLog(t *testing.T) {
@@ -60,11 +62,11 @@ func TestHTTPSLog(t *testing.T) {
 		"\"arn:aws:acm:us-east-2:123456789012:certificate/12345678-1234-1234-1234-123456789012\" " +
 		"1 2018-08-26T14:17:23.186641Z \"authenticate,forward\" \"-\" \"-\""
 
-	expectedTime := time.Unix(1535293043, 186641000).In(time.UTC)
+	expectedTime := time.Unix(1535293043, 186641000).UTC()
 
-	expectedEvent := &ApplicationLoadBalancer{
+	expectedEvent := &ALB{
 		Type:                   aws.String("https"),
-		Timestamp:              aws.Time(expectedTime),
+		Timestamp:              (*timestamp.RFC3339)(&expectedTime),
 		ELB:                    aws.String("app/my-loadbalancer/50dc6c495c0c9188"),
 		ClientIP:               aws.String("192.168.131.39"),
 		ClientPort:             aws.Int(2817),
@@ -88,14 +90,14 @@ func TestHTTPSLog(t *testing.T) {
 		DomainName:             aws.String("www.example.com"),
 		ChosenCertARN:          aws.String("arn:aws:acm:us-east-2:123456789012:certificate/12345678-1234-1234-1234-123456789012"),
 		MatchedRulePriority:    aws.Int(1),
-		RequestCreationTime:    aws.Time(expectedTime),
+		RequestCreationTime:    (*timestamp.RFC3339)(&expectedTime),
 		ActionsExecuted:        []string{"authenticate", "forward"},
 		RedirectURL:            nil,
 		ErrorReason:            nil,
 	}
 
-	parser := &ApplicationLoadBalancerParser{}
-	require.Equal(t, []interface{}{expectedEvent}, parser.Parse(log))
+	parser := &ALBParser{}
+	require.Equal(t, (interface{})(expectedEvent), parser.Parse(log)[0])
 }
 
 func TestHTTP2Log(t *testing.T) {
@@ -106,11 +108,11 @@ func TestHTTP2Log(t *testing.T) {
 		"\"Root=1-58337327-72bd00b0343d75b906739c42\" \"-\" \"-\" 1 2018-08-26T14:17:23.186641Z " +
 		"\"redirect\" \"https://example.com:80/\" \"-\""
 
-	expectedTime := time.Unix(1535293043, 186641000).In(time.UTC)
+	expectedTime := time.Unix(1535293043, 186641000).UTC()
 
-	expectedEvent := &ApplicationLoadBalancer{
+	expectedEvent := &ALB{
 		Type:                   aws.String("h2"),
-		Timestamp:              aws.Time(expectedTime),
+		Timestamp:              (*timestamp.RFC3339)(&expectedTime),
 		ELB:                    aws.String("app/my-loadbalancer/50dc6c495c0c9188"),
 		ClientIP:               aws.String("10.0.1.252"),
 		ClientPort:             aws.Int(48160),
@@ -134,17 +136,17 @@ func TestHTTP2Log(t *testing.T) {
 		DomainName:             nil,
 		ChosenCertARN:          nil,
 		MatchedRulePriority:    aws.Int(1),
-		RequestCreationTime:    aws.Time(expectedTime),
+		RequestCreationTime:    (*timestamp.RFC3339)(&expectedTime),
 		ActionsExecuted:        []string{"redirect"},
 		RedirectURL:            aws.String("https://example.com:80/"),
 		ErrorReason:            nil,
 	}
 
-	parser := &ApplicationLoadBalancerParser{}
-	require.Equal(t, []interface{}{expectedEvent}, parser.Parse(log))
+	parser := &ALBParser{}
+	require.Equal(t, (interface{})(expectedEvent), parser.Parse(log)[0])
 }
 
 func TestAlbLogType(t *testing.T) {
-	parser := &ApplicationLoadBalancerParser{}
-	require.Equal(t, "AWS.ApplicationLoadBalancer", parser.LogType())
+	parser := &ALBParser{}
+	require.Equal(t, "AWS.ALB", parser.LogType())
 }

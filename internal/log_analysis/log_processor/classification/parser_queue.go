@@ -2,22 +2,10 @@ package classification
 
 import (
 	"github.com/panther-labs/panther/internal/log_analysis/log_processor/parsers"
-	"github.com/panther-labs/panther/internal/log_analysis/log_processor/parsers/awslogs"
-	"github.com/panther-labs/panther/internal/log_analysis/log_processor/parsers/osquerylogs"
+	"github.com/panther-labs/panther/internal/log_analysis/log_processor/registry"
 )
 
-// A slice containing all the available parsers
-var availableParsers = []parsers.LogParser{
-	&awslogs.CloudTrailParser{},
-	&awslogs.S3ServerAccessParser{},
-	&awslogs.VPCFlowParser{},
-	&awslogs.ApplicationLoadBalancerParser{},
-	&awslogs.AuroraMySQLAuditParser{},
-	&osquerylogs.DifferentialParser{},
-	&osquerylogs.BatchParser{},
-	&osquerylogs.StatusParser{},
-	&osquerylogs.SnapshotParser{},
-}
+var parserRegistry registry.Interface = registry.AvailableParsers()
 
 // ParserPriorityQueue contains parsers in priority order
 type ParserPriorityQueue struct {
@@ -27,9 +15,9 @@ type ParserPriorityQueue struct {
 // initialize adds all parsers to the priority queue
 // All parsers have the same priority
 func (q *ParserPriorityQueue) initialize() {
-	for _, parser := range availableParsers {
+	for _, parserMetadata := range parserRegistry.Elements() {
 		q.items = append(q.items, &ParserQueueItem{
-			parser:  parser,
+			parser:  parserMetadata.Parser,
 			penalty: 1,
 		})
 	}

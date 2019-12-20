@@ -3,42 +3,46 @@ package awslogs
 import (
 	"encoding/csv"
 	"strings"
-	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"go.uber.org/zap"
 
 	"github.com/panther-labs/panther/internal/log_analysis/log_processor/parsers"
+	"github.com/panther-labs/panther/internal/log_analysis/log_processor/parsers/timestamp"
 )
 
-// S3ServerAccess is an AWS S3 Access Log.
-// Log format & samples can be seen here: https://docs.aws.amazon.com/AmazonS3/latest/dev/LogFormat.html
+var S3ServerAccessDesc = `S3ServerAccess is an AWS S3 Access Log.
+Log format & samples can be seen here: https://docs.aws.amazon.com/AmazonS3/latest/dev/LogFormat.html`
+
+const (
+	s3ServerAccessMinNumberOfColumns = 25
+)
+
 type S3ServerAccess struct {
-	BucketOwner        *string    `json:"bucketowner,omitempty" validate:"required,len=64,alphanum"`
-	Bucket             *string    `json:"bucket,omitempty"`
-	Time               *time.Time `json:"time,omitempty"`
-	RemoteIP           *string    `json:"remoteip,omitempty"`
-	Requester          *string    `json:"requester,omitempty"`
-	RequestID          *string    `json:"requestid,omitempty"`
-	Operation          *string    `json:"operation,omitempty"`
-	Key                *string    `json:"key,omitempty"`
-	RequestURI         *string    `json:"requesturi,omitempty"`
-	HTTPStatus         *int       `json:"httpstatus,omitempty" validate:"required,max=600,min=100"`
-	ErrorCode          *string    `json:"errorcode,omitempty"`
-	BytesSent          *int       `json:"bytessent,omitempty"`
-	ObjectSize         *int       `json:"objectsize,omitempty"`
-	TotalTime          *int       `json:"totaltime,omitempty"`
-	TurnAroundTime     *int       `json:"turnaroundtime,omitempty"`
-	Referrer           *string    `json:"referrer,omitempty"`
-	UserAgent          *string    `json:"useragent,omitempty"`
-	VersionID          *string    `json:"versionid,omitempty"`
-	HostID             *string    `json:"hostid,omitempty"`
-	SignatureVersion   *string    `json:"signatureversion,omitempty"`
-	CipherSuite        *string    `json:"ciphersuite,omitempty"`
-	AuthenticationType *string    `json:"authenticationtype,omitempty"`
-	HostHeader         *string    `json:"hostheader,omitempty"`
-	TLSVersion         *string    `json:"tlsVersion,omitempty"`
-	AdditionalFields   []string   `json:"additionalFields,omitempty"`
+	BucketOwner        *string            `json:"bucketowner,omitempty" validate:"required,len=64,alphanum"`
+	Bucket             *string            `json:"bucket,omitempty"`
+	Time               *timestamp.RFC3339 `json:"time,omitempty"`
+	RemoteIP           *string            `json:"remoteip,omitempty"`
+	Requester          *string            `json:"requester,omitempty"`
+	RequestID          *string            `json:"requestid,omitempty"`
+	Operation          *string            `json:"operation,omitempty"`
+	Key                *string            `json:"key,omitempty"`
+	RequestURI         *string            `json:"requesturi,omitempty"`
+	HTTPStatus         *int               `json:"httpstatus,omitempty" validate:"required,max=600,min=100"`
+	ErrorCode          *string            `json:"errorcode,omitempty"`
+	BytesSent          *int               `json:"bytessent,omitempty"`
+	ObjectSize         *int               `json:"objectsize,omitempty"`
+	TotalTime          *int               `json:"totaltime,omitempty"`
+	TurnAroundTime     *int               `json:"turnaroundtime,omitempty"`
+	Referrer           *string            `json:"referrer,omitempty"`
+	UserAgent          *string            `json:"useragent,omitempty"`
+	VersionID          *string            `json:"versionid,omitempty"`
+	HostID             *string            `json:"hostid,omitempty"`
+	SignatureVersion   *string            `json:"signatureversion,omitempty"`
+	CipherSuite        *string            `json:"ciphersuite,omitempty"`
+	AuthenticationType *string            `json:"authenticationtype,omitempty"`
+	HostHeader         *string            `json:"hostheader,omitempty"`
+	TLSVersion         *string            `json:"tlsVersion,omitempty"`
+	AdditionalFields   []string           `json:"additionalFields,omitempty"`
 }
 
 // S3ServerAccessParser parses AWS S3 Server Access logs
@@ -51,16 +55,22 @@ func (p *S3ServerAccessParser) Parse(log string) []interface{} {
 	reader.Comma = ' '
 
 	records, err := reader.ReadAll()
-	if err != nil {
+	if len(records) == 0 || err != nil {
 		zap.L().Debug("failed to parse the log as csv")
 		return nil
 	}
 
+	// parser should only receive 1 line at a time
 	record := records[0]
+	if len(record) < s3ServerAccessMinNumberOfColumns {
+		zap.L().Debug("failed to parse the log as csv (wrong number of columns)")
+		return nil
+	}
+
 	// The time in the logs is represented as [06/Feb/2019:00:00:38 +0000]
 	// The CSV reader will break the above date to two different fields `[06/Feb/2019:00:00:38` and `+0000]`
 	// We concatenate these fields before trying to parse them
-	parsedTime, err := time.Parse("[2/Jan/2006:15:04:05-0700]", record[2]+record[3])
+	parsedTime, err := timestamp.Parse("[2/Jan/2006:15:04:05-0700]", record[2]+record[3])
 	if err != nil {
 		zap.L().Debug("failed to parse timestamp log as csv")
 		return nil
@@ -74,7 +84,7 @@ func (p *S3ServerAccessParser) Parse(log string) []interface{} {
 	event := &S3ServerAccess{
 		BucketOwner:        csvStringToPointer(record[0]),
 		Bucket:             csvStringToPointer(record[1]),
-		Time:               aws.Time(parsedTime.In(time.UTC)),
+		Time:               &parsedTime,
 		RemoteIP:           csvStringToPointer(record[4]),
 		Requester:          csvStringToPointer(record[5]),
 		RequestID:          csvStringToPointer(record[6]),

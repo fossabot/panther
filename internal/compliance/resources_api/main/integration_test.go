@@ -19,7 +19,7 @@ import (
 	"github.com/panther-labs/panther/pkg/testutils"
 )
 
-const stackName = "panther-backend"
+const stackName = "panther-app"
 
 var (
 	integrationTest bool

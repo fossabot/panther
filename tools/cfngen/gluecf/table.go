@@ -4,9 +4,11 @@ package gluecf
 
 // Below structs match CF structure
 
+// NOTE: the use of type interface{} allows strings and structs (e.g., cfngen.Ref{} and cfngen.Sub{} )
+
 type Column struct {
-	Name    string // required
-	Type    string // required
+	Name    string
+	Type    string
 	Comment string `json:",omitempty"`
 }
 
@@ -16,39 +18,39 @@ type SerdeInfo struct {
 }
 
 type StorageDescriptor struct { // nolint
-	InputFormat            string      // required
-	OutputFormat           string      // required
+	InputFormat            string
+	OutputFormat           string
 	Compressed             bool        `json:",omitempty"`
 	Location               interface{} // required
 	BucketColumns          []Column    `json:",omitempty"`
 	SortColumns            []Column    `json:",omitempty"`
 	StoredAsSubDirectories bool        `json:",omitempty"`
-	SerdeInfo              SerdeInfo   // required
-	Columns                []Column    // required
+	SerdeInfo              SerdeInfo
+	Columns                []Column
 }
 
 type TableInput struct {
-	TableType         string            // required
-	Name              string            // required
-	Description       string            `json:",omitempty"`
-	StorageDescriptor StorageDescriptor // required
-	PartitionKeys     []Column          `json:",omitempty"`
+	TableType         string
+	Name              interface{}
+	Description       interface{} `json:",omitempty"`
+	StorageDescriptor StorageDescriptor
+	PartitionKeys     []Column `json:",omitempty"`
 }
 
 type TableProperties struct {
 	CatalogID    interface{} `json:"CatalogId"` // required,  string or Ref{}, need json tag to keep linter happy
-	DatabaseName string      // required
-	TableInput   TableInput  // required
+	DatabaseName interface{}
+	TableInput   TableInput
 }
 
 type Table struct {
-	Type       string   // required
+	Type       string
 	DependsOn  []string `json:",omitempty"`
 	Properties TableProperties
 }
 
 // Core function to create a table
-func newExternalTable(catalogID interface{}, databaseName, name, description string, sd *StorageDescriptor, pks []Column) (db *Table) {
+func newExternalTable(catalogID, databaseName, name, description interface{}, sd *StorageDescriptor, pks []Column) (db *Table) {
 	db = &Table{
 		Type: "AWS::Glue::Table",
 		Properties: TableProperties{
@@ -69,11 +71,11 @@ func newExternalTable(catalogID interface{}, databaseName, name, description str
 
 // inputs to table generation functions
 type NewTableInput struct {
-	CatalogID     interface{} // type interface{} allows strings and structs
-	DatabaseName  string
-	Name          string
-	Description   string
-	Location      interface{} // type interface{} allows strings and structs
+	CatalogID     interface{}
+	DatabaseName  interface{}
+	Name          interface{}
+	Description   interface{}
+	Location      interface{}
 	Columns       []Column
 	PartitionKeys []Column
 }
@@ -98,12 +100,12 @@ func NewParquetTable(input *NewTableInput) (db *Table) {
 func NewJSONLTable(input *NewTableInput) (db *Table) {
 	sd := &StorageDescriptor{
 		InputFormat:  "org.apache.hadoop.mapred.TextInputFormat",
-		OutputFormat: "org.apache.hadoop.hive.ql.io.IgnoreKeyTextOutputFormat",
+		OutputFormat: "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
 		SerdeInfo: SerdeInfo{
 			SerializationLibrary: "org.openx.data.jsonserde.JsonSerDe",
 			Parameters: map[string]interface{}{
 				"serialization.format": "1",
-				"case.insensitive":     "FALSE", // preserve case!
+				"case.insensitive":     "TRUE", // treat as lower case
 			},
 		},
 		Location: input.Location,

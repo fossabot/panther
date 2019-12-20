@@ -2,9 +2,11 @@ package gluecf
 
 // Generate CF for a gluecf database:  https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-database.html
 
+// NOTE: the use of type interface{} allows strings and structs (e.g., cfngen.Ref{} and cfngen.Sub{} )
+
 // Matches CF structure
 type DatabaseInput struct {
-	Name        string // required
+	Name        interface{}
 	Description string `json:",omitempty"`
 }
 

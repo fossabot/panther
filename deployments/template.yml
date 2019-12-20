@@ -327,6 +327,17 @@ Resources:
           Value: Panther
       TemplateURL: log_analysis/log_processor.yml
 
+  GlueTables:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        ProcessedDataBucket: !Ref ProcessedDataBucket
+      Tags:
+        - Key: Application
+          Value: Panther
+      TemplateURL: ../out/deployments/log_analysis/gluetables.json
+
+  ##### Nested Stacks: Shared Infra #####
   Alerts:
     Type: AWS::CloudFormation::Stack
     Properties:

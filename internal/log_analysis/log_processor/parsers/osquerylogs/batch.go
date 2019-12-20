@@ -7,19 +7,21 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/panther-labs/panther/internal/log_analysis/log_processor/parsers"
+	"github.com/panther-labs/panther/internal/log_analysis/log_processor/parsers/timestamp"
 )
 
-// Batch contains all the data included in OsQuery batch logs
-// Reference : https://osquery.readthedocs.io/en/stable/deployment/logging/
+var BatchDesc = `Batch contains all the data included in OsQuery batch logs
+Reference : https://osquery.readthedocs.io/en/stable/deployment/logging/`
+
 type Batch struct {
-	CalendarTime *Time             `json:"calendarTime,omitempty" validate:"required"`
-	Counter      *int              `json:"counter,omitempty,string"  validate:"required"`
-	Decorations  map[string]string `json:"decorations,omitempty"`
-	DiffResults  *BatchDiffResults `json:"diffResults,omitempty" validate:"required"`
-	Epoch        *int              `json:"epoch,omitempty,string"  validate:"required"`
-	Hostname     *string           `json:"hostname,omitempty"  validate:"required"`
-	Name         *string           `json:"name,omitempty"  validate:"required"`
-	UnixTime     *int              `json:"unixTime,omitempty,string"  validate:"required"`
+	CalendarTime *timestamp.ANSICwithTZ `json:"calendarTime,omitempty" validate:"required"`
+	Counter      *int                   `json:"counter,omitempty,string"  validate:"required"`
+	Decorations  map[string]string      `json:"decorations,omitempty"`
+	DiffResults  *BatchDiffResults      `json:"diffResults,omitempty" validate:"required"`
+	Epoch        *int                   `json:"epoch,omitempty,string"  validate:"required"`
+	Hostname     *string                `json:"hostname,omitempty"  validate:"required"`
+	Name         *string                `json:"name,omitempty"  validate:"required"`
+	UnixTime     *int                   `json:"unixTime,omitempty,string"  validate:"required"`
 }
 
 // OsqueryBatchDiffResults contains diff data for OsQuery batch results

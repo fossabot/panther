@@ -63,12 +63,6 @@ func Handle(dataStreams []*common.DataStream) error {
 	// If the destination finished successfully this will return nil
 	// otherwise it will return an error and will cause Lambda invocation to fail
 	err := <-destinationErrorChannel
-	if err != nil {
-		zap.L().Warn("destination encountered an error", zap.Error(err))
-		// closing the parsed Event Channel - this will cause the readers to stop trying to send data to it
-		close(parsedEventChannel)
-	}
-
 	return err
 }
 
