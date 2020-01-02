@@ -45,7 +45,7 @@ Resources:
       Scheme: internet-facing
       LoadBalancerAttributes:
         - Key: idle_timeout.timeout_seconds
-          Value: '30'
+          Value: "30"
       Subnets:
         - !Ref SubnetOneId
         - !Ref SubnetTwoId
@@ -71,12 +71,13 @@ Resources:
       Port: 80
       Protocol: HTTP
 
-
 Outputs:
   LoadBalancerListenerArn:
     Description: The ARN of the public load balancer that accepts & forwards incoming traffic to ECS tasks
     Value: !Ref PublicLoadBalancerListener
+  LoadBalancerUrl:
+    Description: The URL of the ALB
+    Value: !GetAtt PublicLoadBalancer.DNSName
   LoadBalancerSecurityGroupId:
     Description: The Security Group ID associated with the Public Loadbalancer that we have created
     Value: !Ref PublicLoadBalancerSecurityGroup
-
