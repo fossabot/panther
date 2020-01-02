@@ -180,6 +180,8 @@ func getS3ObjectKey(logType string, timestamp time.Time) string {
 	s3prefix := parserRegistry.LookupParser(logType).Glue.S3Prefix() // get the path used in Glue table
 	canonicalLogType := strings.Replace(strings.ToLower(s3prefix), ".", "_", -1)
 
+	timestamp = timestamp.UTC() // ensure UTC
+
 	return fmt.Sprintf(s3ObjectKeyFormat,
 		canonicalLogType,
 		timestamp.Year(),
