@@ -49,7 +49,7 @@ Run `mage` to see the list of available commands (`-v` for verbose mode).
 You can easily chain `mage` commands together, for example:
 
 ```bash
-mage fmt test:ci deploy:app test:integration
+mage fmt test:ci deploy test:integration
 ```
 
 ### Develop
@@ -64,21 +64,16 @@ mage test:ci    # run all required checks
 
 ### Deploy
 
-Before you deploy, please make sure you fill in the email of the user that we are going
-to automatically create for you. Please edit `deployments/panther_config.yml` and fill in the
-`UserEmail` parameter with the email of administrator in your team.
+If you haven't already, [configure](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html) your AWS region and credentials.
 
-After that
+Then deploying is as simple as `mage deploy`! You will be prompted to enter an email for
+the initial admin user unless it's already set in [panther_config.yml](deployments/panther_config.yml).
 
-```bash
-mage deploy:pre  # deploy prerequisite S3 buckets (only need to do once)
-mage deploy:app
+NOTE: The initial deploy will take 10-15 minutes, and the `deploy` command may timeout before the stack is
+actually finished. Check the AWS CloudFormation console for the status of your deployment.
 
-# Optional: Deploy with parameters
-export AWS_REGION=us-west-2
-export PARAMS="Debug=true"
-mage deploy:app
-```
+Once the deploy is complete, you should have received an email with your initial login credentials.
+Visit the `LoadBalancerUrl` in the `panther-app` stack outputs to sign in!
 
 ### Integration Testing
 

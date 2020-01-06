@@ -20,30 +20,36 @@ Parameters:
     Default: 365
   Debug:
     Type: String
-    Description: Toggle debug logging
+    # TODO: configurable logging levels (debug, info, warn, critical)
+    Description: Toggle debug logging for all Lambda functions
     Default: false
     AllowedValues: [true, false]
   LayerVersionArns:
     Type: CommaDelimitedList
     Description: List of LayerVersion ARNs to attach to every function
     Default: ''
+  PythonLayerVersionArn:
+    Type: String
+    Description: Custom Python layer for analysis and remediation
+    Default: ''
   TracingMode:
     Type: String
     Description: Enable XRay tracing on Lambda and API Gateway
     AllowedValues: ['', Active, PassThrough]
     Default: ''
+
+  # Set automatically by "mage deploy" unless PythonLayerVersionArn is specified.
+  PythonLayerKey:
+    Type: String
+    Description: S3 key for the Python analysis layer
+    Default: ''
   PythonLayerObjectVersion:
     Type: String
     Description: S3 object version for the python layer zipfile
     Default: ''
-  PythonLayerKey:
-    Type: String
-    Description: S3 key for the Python analysis layer
-    Default: layers/python-analysis.zip
-  WebApplicationClusterName:
-    Type: String
-    Default: panther-web-cluster
-    Description: The name of the cluster related to the web application deployment
+
+Conditions:
+  CreatePythonLayer: !Equals [!Ref PythonLayerVersionArn, '']
 
 Resources:
   GatewayLoggingRole:
@@ -99,13 +105,14 @@ Resources:
       TargetKeyId: !Ref QueueEncryptionKey
 
   PythonLayer:
+    Condition: CreatePythonLayer
     Type: AWS::Lambda::LayerVersion
     Properties:
       CompatibleRuntimes:
         - python3.6
         - python3.7
       Content:
-        S3Bucket: !Sub panther-source-${AWS::AccountId}-${AWS::Region}
+        S3Bucket: !ImportValue Panther-SourceBucket
         S3Key: !Ref PythonLayerKey
         S3ObjectVersion: !Ref PythonLayerObjectVersion
       Description: Pip libraries available to the Python analysis/remediation functions
@@ -122,7 +129,7 @@ Resources:
         TracingMode: !Ref TracingMode
 
         ComplianceApiId: !GetAtt ComplianceAPI.Outputs.GatewayId
-        PythonLayerArn: !Ref PythonLayer
+        PythonLayerArn: !If [CreatePythonLayer, !Ref PythonLayer, !Ref PythonLayerVersionArn]
         S3BucketAccessLogs: !ImportValue Panther-LogBucket
         SQSKeyId: !Ref QueueEncryptionKey
       Tags:
@@ -276,7 +283,7 @@ Resources:
         TracingMode: !Ref TracingMode
 
         AnalysisApiId: !GetAtt AnalysisAPI.Outputs.GatewayId
-        PythonLayerArn: !Ref PythonLayer
+        PythonLayerArn: !If [CreatePythonLayer, !Ref PythonLayer, !Ref PythonLayerVersionArn]
         ResourcesApiId: !GetAtt ResourcesAPI.Outputs.GatewayId
         SQSKeyId: !Ref QueueEncryptionKey
       Tags:
@@ -338,6 +345,7 @@ Resources:
       TemplateURL: ../out/deployments/log_analysis/gluetables.json
 
   ##### Nested Stacks: Shared Infra #####
+  # TODO: consolidate this with the "core infra" section
   Alerts:
     Type: AWS::CloudFormation::Stack
     Properties:
@@ -357,7 +365,7 @@ Resources:
   WebApplicationCluster:
     Type: AWS::ECS::Cluster
     Properties:
-      ClusterName: !Ref WebApplicationClusterName
+      ClusterName: panther-web-cluster
       Tags:
         - Key: Application
           Value: Panther
@@ -411,3 +419,6 @@ Outputs:
   ResourcesApiEndpoint:
     Description: panther-resources-api Gateway HTTPS endpoint
     Value: !Sub '${ResourcesAPI.Outputs.GatewayId}.execute-api.${AWS::Region}.amazonaws.com'
+  LoadBalancerUrl:
+    Description: Panther URL (application load balancer)
+    Value: !GetAtt WebApplicationLoadBalancer.Outputs.LoadBalancerUrl

@@ -52,7 +52,7 @@ func embedAPI(cfnFilename string) (string, error) {
 	changed := false
 	cfn = swaggerPattern.ReplaceAllFunc(cfn, func(match []byte) []byte {
 		apiFilename := strings.TrimSpace(strings.Split(string(match), " ")[1])
-		fmt.Printf("deploy:app: %s embedding swagger DefinitionBody: %s\n", cfnFilename, apiFilename)
+		fmt.Printf("deploy: %s embedding swagger DefinitionBody: %s\n", cfnFilename, apiFilename)
 
 		body, err := loadSwagger(apiFilename)
 		if err != nil {
@@ -66,7 +66,7 @@ func embedAPI(cfnFilename string) (string, error) {
 
 	cfn = graphqlPattern.ReplaceAllFunc(cfn, func(match []byte) []byte {
 		apiFilename := strings.TrimSpace(strings.Split(string(match), " ")[1])
-		fmt.Printf("deploy:app: %s embedding graphql Definition: %s\n", cfnFilename, apiFilename)
+		fmt.Printf("deploy: %s embedding graphql Definition: %s\n", cfnFilename, apiFilename)
 
 		graphql, err := ioutil.ReadFile(apiFilename)
 		if err != nil {
@@ -79,7 +79,7 @@ func embedAPI(cfnFilename string) (string, error) {
 		return []byte("Definition: |\n" + spaced)
 	})
 
-	if err := JoinErrors("deploy:app: embedAPI", errList); err != nil {
+	if err := JoinErrors("deploy: embedAPI", errList); err != nil {
 		return "", err
 	}
 

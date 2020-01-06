@@ -235,7 +235,7 @@ Resources:
   AlertsMergerFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ../../out/bin/internal/log_analysis/alerts_api/main
+      CodeUri: ../../out/bin/internal/log_analysis/alert_merger/main
       Description: Lambda for alert merging
       Environment:
         Variables:

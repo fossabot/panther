@@ -3,7 +3,6 @@ package mage
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"sort"
@@ -16,7 +15,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
-	"gopkg.in/yaml.v2"
 
 	"github.com/panther-labs/panther/pkg/shutil"
 )
@@ -27,44 +25,37 @@ const (
 	applicationTemplate = "deployments/template.yml"
 	bucketStack         = "panther-buckets" // prereq stack with Panther S3 buckets
 	bucketTemplate      = "deployments/core/buckets.yml"
-	configFile          = "deployments/panther_config.yml"
 
 	// Python layer
-	layerSourceDir = "out/pip/analysis/python"
-	layerZipfile   = "out/layer.zip"
+	layerSourceDir   = "out/pip/analysis/python"
+	layerZipfile     = "out/layer.zip"
+	layerS3ObjectKey = "layers/python-analysis.zip"
 )
 
-// Modify this to update the pip libraries in the Python analysis layer
-// NOTE: Native libraries (e.g. numpy) aren't supported
-var pipLibs = []string{
-	"boto3==1.10.40", // the boto3 version in Lambda is usually out of date
-	"policyuniverse==1.3.2.1",
-}
+// NOTE: Mage ignores the first word of the comment if it matches the function name.
+// So the comment below is intentionally "Deploy Deploy"
 
-// Deploy defines mage targets for deploying Panther infrastructure.
-type Deploy mg.Namespace
-
-// Pre Deploy prerequisite S3 buckets
-func (Deploy) Pre() error {
-	return cfnDeploy(bucketTemplate, "", bucketStack, nil)
-}
-
-// Backend Deploy application infrastructure
-func (Deploy) App() error {
+// Deploy Deploy application infrastructure
+func Deploy() error {
 	config, err := loadYamlFile(configFile)
 	if err != nil {
 		return err
 	}
 
-	if err := Build.Lambda(Build{}); err != nil {
+	bucketParams := flattenParameterValues(config["BucketsParameterValues"])
+	if err = cfnDeploy(bucketTemplate, "", bucketStack, bucketParams); err != nil {
 		return err
 	}
 
-	if err := generateGlueTables(); err != nil {
+	if err = Build.Lambda(Build{}); err != nil {
 		return err
 	}
 
-	if err := embedAPISpecs(); err != nil {
+	if err = generateGlueTables(); err != nil {
+		return err
+	}
+
+	if err = embedAPISpecs(); err != nil {
 		return err
 	}
 
@@ -73,12 +64,7 @@ func (Deploy) App() error {
 		return err
 	}
 
-	bucket, err := GetSourceBucket(awsSession)
-	if err != nil {
-		return err
-	}
-
-	version, err := uploadLayer(awsSession, bucket, "layers/python-analysis.zip")
+	bucket, err := getSourceBucket(awsSession)
 	if err != nil {
 		return err
 	}
@@ -88,21 +74,28 @@ func (Deploy) App() error {
 		return err
 	}
 
-	deployParams := []string{"PythonLayerObjectVersion=" + version}
-	if params, ok := config["ParameterValues"].(map[interface{}]interface{}); ok {
-		for key, val := range params {
-			if val == nil {
-				continue
-			}
-			deployParams = append(deployParams, fmt.Sprintf("%s=%v", key, val))
-		}
+	deployParams, err := getDeployParams(awsSession, config, bucket)
+	if err != nil {
+		return err
 	}
 
-	return cfnDeploy(template, bucket, applicationStack, deployParams)
+	if err := cfnDeploy(template, bucket, applicationStack, deployParams); err != nil {
+		return err
+	}
+
+	loadBalancer, err := getLoadBalancerURL(awsSession)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("deploy: Panther URL = http://%s\n", loadBalancer)
+	return nil
+
+	// TODO - install the initial rule sets here
 }
 
-// GetSourceBucket returns the name of the Panther source S3 bucket for CloudFormation uploads.
-func GetSourceBucket(awsSession *session.Session) (string, error) {
+// Get the name of the source bucket from the buckets stack outputs.
+func getSourceBucket(awsSession *session.Session) (string, error) {
 	cfnClient := cloudformation.New(awsSession)
 	input := &cloudformation.DescribeStacksInput{StackName: aws.String(bucketStack)}
 	response, err := cfnClient.DescribeStacks(input)
@@ -116,30 +109,64 @@ func GetSourceBucket(awsSession *session.Session) (string, error) {
 		}
 	}
 
-	return "", errors.New("SourceBucketName output not found in " + bucketStack)
+	return "", errors.New("SourceBucketName output not found in stack " + bucketStack)
+}
+
+// Generate the set of deploy parameters.
+//
+// This will prompt the user for required parameters if they are not set and
+// also upload the layer zipfile unless a custom layer is specified.
+func getDeployParams(awsSession *session.Session, config map[string]interface{}, bucket string) ([]string, error) {
+	params := config["AppParameterValues"].(map[interface{}]interface{})
+
+	// If no email is specified in the config file, prompt the user.
+	if !validEmail(params["UserEmail"].(string)) {
+		if err := promptRequiredValues(params); err != nil {
+			return nil, err
+		}
+	}
+
+	// If no custom Python layer is defined, then we need to build the default one.
+	if params["PythonLayerVersionArn"].(string) == "" {
+		// Convert libs from []interface{} to []string
+		rawLibs := config["PipLayer"].([]interface{})
+		libs := make([]string, len(rawLibs))
+		for i, lib := range rawLibs {
+			libs[i] = lib.(string)
+		}
+
+		version, err := uploadLayer(awsSession, libs, bucket, layerS3ObjectKey)
+		if err != nil {
+			return nil, err
+		}
+		params["PythonLayerKey"] = layerS3ObjectKey
+		params["PythonLayerObjectVersion"] = version
+	}
+
+	return flattenParameterValues(params), nil
 }
 
 // Upload custom Python analysis layer to S3 (if it isn't already), returning version ID
-func uploadLayer(awsSession *session.Session, bucket, key string) (string, error) {
+func uploadLayer(awsSession *session.Session, libs []string, bucket, key string) (string, error) {
 	s3Client := s3.New(awsSession)
 	head, err := s3Client.HeadObject(&s3.HeadObjectInput{Bucket: &bucket, Key: &key})
 
-	sort.Strings(pipLibs)
-	libString := strings.Join(pipLibs, ",")
+	sort.Strings(libs)
+	libString := strings.Join(libs, ",")
 	if err == nil && aws.StringValue(head.Metadata["Libs"]) == libString {
-		fmt.Printf("deploy:app: s3://%s/%s exists and is up to date\n", bucket, key)
+		fmt.Printf("deploy: s3://%s/%s exists and is up to date\n", bucket, key)
 		return *head.VersionId, nil
 	}
 
 	// The layer is re-uploaded only if it doesn't exist yet or the library versions changed.
-	fmt.Println("deploy:app: downloading " + libString)
+	fmt.Println("deploy: downloading " + libString)
 	if err := os.RemoveAll(layerSourceDir); err != nil {
 		return "", err
 	}
 	if err := os.MkdirAll(layerSourceDir, 0755); err != nil {
 		return "", err
 	}
-	args := append([]string{"install", "-t", layerSourceDir}, pipLibs...)
+	args := append([]string{"install", "-t", layerSourceDir}, libs...)
 	if err := sh.Run("pip3", args...); err != nil {
 		return "", err
 	}
@@ -156,7 +183,7 @@ func uploadLayer(awsSession *session.Session, bucket, key string) (string, error
 	}
 
 	// Upload to S3
-	fmt.Printf("deploy:app: uploading %s to s3://%s/%s\n", layerZipfile, bucket, key)
+	fmt.Printf("deploy: uploading %s to s3://%s/%s\n", layerZipfile, bucket, key)
 	uploader := s3manager.NewUploader(awsSession)
 	zipFile, err := os.Open(layerZipfile)
 	if err != nil {
@@ -201,25 +228,12 @@ func cfnPackage(templateFile, bucket, stack string) (string, error) {
 	return pkgOut, err
 }
 
-func loadYamlFile(path string) (map[string]interface{}, error) {
-	swagger, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open '%s': %s", path, err)
-	}
-
-	var result map[string]interface{}
-	if err := yaml.Unmarshal(swagger, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse yaml file '%s': %s", path, err)
-	}
-
-	return result, nil
-}
-
 // Deploy the final CloudFormation template.
 func cfnDeploy(templateFile, bucket, stack string, params []string) error {
 	args := []string{
 		"cloudformation", "deploy",
 		"--capabilities", "CAPABILITY_AUTO_EXPAND", "CAPABILITY_IAM", "CAPABILITY_NAMED_IAM",
+		"--no-fail-on-empty-changeset",
 		"--stack-name", stack,
 		"--template-file", templateFile,
 	}
@@ -236,4 +250,21 @@ func cfnDeploy(templateFile, bucket, stack string, params []string) error {
 		fmt.Printf("deploy: cloudformation deploy %s => %s\n", templateFile, stack)
 	}
 	return sh.Run("aws", args...)
+}
+
+func getLoadBalancerURL(awsSession *session.Session) (string, error) {
+	cfnClient := cloudformation.New(awsSession)
+	input := &cloudformation.DescribeStacksInput{StackName: aws.String(applicationStack)}
+	response, err := cfnClient.DescribeStacks(input)
+	if err != nil {
+		return "", err
+	}
+
+	for _, output := range response.Stacks[0].Outputs {
+		if aws.StringValue(output.OutputKey) == "LoadBalancerUrl" {
+			return *output.OutputValue, nil
+		}
+	}
+
+	return "", errors.New("LoadBalancerUrl output not found in stack " + applicationStack)
 }

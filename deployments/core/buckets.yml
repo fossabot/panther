@@ -79,3 +79,5 @@ Outputs:
   SourceBucketName:
     Description: S3 bucket name for Panther CloudFormation packaging
     Value: !Ref SourceBucket
+    Export:
+      Name: Panther-SourceBucket
