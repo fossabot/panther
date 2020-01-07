@@ -88,7 +88,7 @@ Resources:
   AlertsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: panther-alerts
+      TableName: panther-log-alerts
       AttributeDefinitions:
         - AttributeName: alertId
           AttributeType: S
@@ -110,8 +110,6 @@ Resources:
       KeySchema:
         - AttributeName: alertId
           KeyType: HASH
-        - AttributeName: creationTime
-          KeyType: RANGE
       PointInTimeRecoverySpecification:  # Create periodic table backups
         PointInTimeRecoveryEnabled: True
       SSESpecification:  # Enable server-side encryption
@@ -264,17 +262,6 @@ Resources:
       Policies:
         - !If [TracingEnabled, 'arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess', !Ref 'AWS::NoValue']
         -
-          Id: WriteLogs
-          Version: 2012-10-17
-          Statement:
-            - Effect: Allow
-              Action:
-                - logs:CreateLogGroup
-                - logs:CreateLogStream
-                - logs:PutLogEvents
-              Resource:
-                - !GetAtt AlertMergerLogGroup.Arn
-        -
           Id: ReceiveAndDeleteSQSMessages
           Version: 2012-10-17
           Statement:
@@ -320,3 +307,4 @@ Resources:
               Resource:
                 - !GetAtt AlertsTable.Arn
                 - !GetAtt EventsTable.Arn
+                - !GetAtt RecentAlertsTable.Arn

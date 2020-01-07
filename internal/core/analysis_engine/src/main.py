@@ -1,4 +1,3 @@
-"""Panther policy engine."""
 import logging
 import os
 import shutil
