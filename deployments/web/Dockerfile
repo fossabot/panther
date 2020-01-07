@@ -1,8 +1,11 @@
 # Can't use alpine due to some node_module deps
 FROM node:13.2-alpine
 
+LABEL description="The image that builds the web code and servers it through an express NodeJS server"
+
 # Build argument for versioning
 ARG PANTHER_VERSION
+
 
 # Setup default ENV variables
 ENV SERVER_PORT=8080
@@ -19,7 +22,7 @@ RUN mkdir /code
 WORKDIR /code
 
 # Mount the code
-ADD . .
+ADD web .
 
 # Install the dependencies
 RUN npm --production=false install

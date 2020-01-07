@@ -1,0 +1,19 @@
+# Misc
+.idea
+.github
+.circleci
+
+# Build
+build
+web/dist
+web/README.md
+
+# Deps
+web/node_modules
+venv
+
+# Generated
+out
+
+# External
+docs

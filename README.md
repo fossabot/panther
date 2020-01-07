@@ -1,6 +1,7 @@
 ![Panther Logo](docs/img/logo-banner.png)
 
 [![Built with Mage](https://magefile.org/badge.svg)](https://magefile.org)
+[![CircleCI](https://circleci.com/gh/panther-labs/panther.svg?style=svg)](https://circleci.com/gh/panther-labs/panther)
 
 ---
 
@@ -28,7 +29,12 @@ Check out our [website](https://runpanther.io), [blog](https://blog.runpanther.i
 
 ## Setup
 
-Install Go1.13+, Node, Python3, [Mage](https://magefile.org/#installation), and the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv1.html)
+The first thing to do is install the necessary build tools. You have the option to either install
+them manually on your machine or use the [docker image](https://hub.docker.com/r/pantherlabs/panther-buildpack) that we provide.
+
+### Manually
+
+Install Go1.13+, Node10+, Python3.7+, [Mage](https://magefile.org/#installation), and the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv1.html)
 
 ```bash
 brew install go node python3  # MacOS
@@ -38,9 +44,18 @@ cd $GOPATH/src/github.com/magefile/mage
 go run bootstrap.go
 ```
 
-Then run `mage setup` to install the prerequisite development libraries.
+Make sure that `$GOPATH` is setup correctly and then run `mage setup` to install the prerequisite development libraries.
 
-Finally, configure the required fields in [panther_config.yml](deployments/panther_config.yml).
+### With Docker
+
+On the project's root directory, run:
+
+```bash
+docker run -v $(pwd):/code -it pantherlabs/panther-buildpack bash # add `-m=4gb` flag if more memory is needed
+cd code
+```
+
+Run `mage setup` to install the prerequisite development libraries.
 
 ## Workflows
 
@@ -70,16 +85,69 @@ Then deploying is as simple as `mage deploy`! You will be prompted to enter a na
 the initial admin user. Once the deploy is complete, that email will receive a link to sign in.
 
 > NOTE: The initial deploy will take 10-15 minutes, and the `deploy` command may timeout before the stack is
-actually finished. Check the AWS CloudFormation console for the status of your deployment.
+> actually finished. Check the AWS CloudFormation console for the status of your deployment.
 
-### Integration Testing
+# Testing Panther
 
-Run tests on the deployed infrastructure to ensure each component is operating as intended.
+We strongly recommend running our tests locally before you submit any PR.
 
 ```bash
 mage test:integration  # Run all integration tests
 PKG=./internal/compliance/compliance-api/main mage test:integration  # Run tests for only one package
 ```
+
+To facilitate testing, we maintain [an image](https://hub.docker.com/r/pantherlabs/panther-buildpack) with all the necessary tools needed to run your tests.
+The `Dockerfile` for this image can be found at [build/ci/Dockerfile](build/ci/Dockerfile).
+
+In order to use this, you have to have [Docker](https://www.docker.com/) installed and just spin up and interactive container
+with our `pantherlabs/panther-buildpack` image:
+
+```
+docker container run -it pantherlabs/panther-buildpack bash
+```
+
+From there, you can run any of the testing commands that we provide
+
+## Maintaining the Testing Image
+
+Should a problem arise with
+the testing environment (e.g. a version of a certain tool is too old), feel free to contribute
+by modifying the `Dockerfile` accordingly.
+
+In order to publish the Dockerfile changes to our image repo (supposing that you are already connected to docker hub
+and that you are a member of `pantherlabs`), you have to:
+
+#### 1. Build & Tag the image
+
+To build the image from the modified `Dockerfile` and tag it for a release, run the following from the project's root directory:
+
+```
+docker build
+    -t pantherlabs/panther-buildpack:<NEW_VERSION> \
+    -t pantherlabs/panther-buildpack:latest \
+    -f ./build/ci/Dockerfile \
+    .
+```
+
+In order to decide what the `<NEW_VERSION>` should be, inspect the [latest published image](https://hub.docker.com/r/pantherlabs/panther-buildpack)
+and decide what its new value should be according to [semver rules](https://semver.org/).
+
+#### 2. Push the newly built & tagged image to docker hub
+
+To finally push the image, run:
+
+```
+docker push pantherlabs/panther-buildpack
+```
+
+## CI Service
+
+We utilise a public CircleCI project to run our test suite. The configuration can be found under `.circleci/config.yml`
+and all of our jobs use our custom panther docker image. If you create a deploy a new image, don't forget to also modify
+the CircleCI executor configuration.
+
+The CircleCI project can be found [here](https://circleci.com/gh/panther-labs/panther/)
+
 
 ## Repo Structure
 

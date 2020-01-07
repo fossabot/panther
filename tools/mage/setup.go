@@ -35,9 +35,8 @@ func Setup() error {
 		return err
 	}
 
-	// TODO - This will change when we switch to Circle CI
 	// Some libraries are only needed for development, not for CI
-	if os.Getenv("CODEBUILD_CI") == "" {
+	if os.Getenv("CI") == "" {
 		fmt.Println("setup: installing goimports for local development")
 		if err := sh.RunV("go", "get", "golang.org/x/tools/cmd/goimports"); err != nil {
 			return err
