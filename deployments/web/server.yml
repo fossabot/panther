@@ -50,6 +50,11 @@ Resources:
     Properties:
       Name: !Ref ServiceName
       HealthCheckProtocol: HTTP
+      HealthCheckEnabled: true
+      HealthCheckIntervalSeconds: 60
+      HealthCheckPath: /
+      HealthCheckTimeoutSeconds: 6
+      HealthyThresholdCount: 3
       TargetType: ip
       Port: !Ref Port
       Protocol: HTTP
@@ -68,7 +73,6 @@ Resources:
           ToPort: !Ref Port
           SourceSecurityGroupId: !Ref LoadBalancerSecurityGroupId
       VpcId: !Ref VpcId
-
 
   EcsSecurityGroupIngressFromPublicALB:
     Type: AWS::EC2::SecurityGroupIngress
@@ -104,6 +108,7 @@ Resources:
         Type: ECS
       DesiredCount: 1
       LaunchType: FARGATE
+      HealthCheckGracePeriodSeconds: 60
       NetworkConfiguration:
         AwsvpcConfiguration:
           AssignPublicIp: ENABLED
@@ -170,8 +175,7 @@ Resources:
     Type: AWS::ECS::TaskDefinition
     Properties:
       ContainerDefinitions:
-        -
-          Name: !Ref ServiceName
+        - Name: !Ref ServiceName
           Cpu: 1024
           DisableNetworking: false
           Environment:
@@ -188,7 +192,7 @@ Resources:
             - Name: AWS_COGNITO_USER_POOL_ID
               Value: !Ref CognitoUserPoolId
           Essential: true
-          Image: !Sub 349240696275.dkr.ecr.us-west-2.amazonaws.com/panther-ui:${ImageVersion}
+          Image: !Sub pantherlabs/panther-web:${ImageVersion}
           Interactive: false
           LogConfiguration:
             LogDriver: awslogs
