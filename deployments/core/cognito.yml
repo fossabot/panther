@@ -1,18 +1,10 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: Cognito User Pool with initial admin user
+Description: Cognito User Pool
 
 Parameters:
-  FirstUserEmail:
+  PantherHost:
     Type: String
-    Description: Email address for the initial Panther user account
-  FirstUserGivenName:
-    Type: String
-    Description: Given/first name for the initial Panther user account
-    Default: ''
-  FirstUserFamilyName:
-    Type: String
-    Description: Family/last name for the initial Panther user account
-    Default: ''
+    Description: Load balancer URL hosting the deployed Panther website
 
 Resources:
   UserPool:
@@ -20,7 +12,22 @@ Resources:
     Properties:
       AdminCreateUserConfig:
         AllowAdminCreateUserOnly: true
-        # TODO: InviteMessageTemplate
+        InviteMessageTemplate:
+          EmailSubject: Welcome to Panther!
+          EmailMessage: !Sub |
+            <br />Welcome to Panther! We're very excited to have you on board!
+            <br />
+            <br />To get started, sign in to your <a href="http://${PantherHost}/sign-in">Panther dashboard</a> with the following temporary credentials:
+            <br />
+            <br />* Username: {username}
+            <br />* Password: {####}
+            <br />
+            <br />Need help, or have questions? Just email us at support@runpanther.io, we'd love to help.
+            <br />
+            <br />Yours truly,
+            <br />Panther - runpanther.io
+            <br />
+            <br /><small>Copyright © 2020 Panther Labs Inc. All rights reserved.</small>
       MfaConfiguration: 'ON'
       AutoVerifiedAttributes:  # Attributes you want the user to verify (poor naming choice by AWS)
         - email
@@ -74,28 +81,6 @@ Resources:
       Description: Observer Group for Panther web application, only have access to Read Only operations
       GroupName: Observer
       Precedence: 2
-      UserPoolId: !Ref UserPool
-
-  FirstUser:
-    Type: AWS::Cognito::UserPoolUser
-    Properties:
-      DesiredDeliveryMediums:
-        - EMAIL
-      UserAttributes:
-        - Name: email
-          Value: !Ref FirstUserEmail
-        - Name: given_name
-          Value: !Ref FirstUserGivenName
-        - Name: family_name
-          Value: !Ref FirstUserFamilyName
-      Username: !Ref FirstUserEmail
-      UserPoolId: !Ref UserPool
-
-  FirstUserMembership:
-    Type: AWS::Cognito::UserPoolUserToGroupAttachment
-    Properties:
-      GroupName: !Ref AdminGroup
-      Username: !Ref FirstUser
       UserPoolId: !Ref UserPool
 
   AppClient:

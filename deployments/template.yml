@@ -2,18 +2,6 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: Master Panther template for both front-end and back-end resources
 
 Parameters:
-  UserEmail:
-    Type: String
-    Description: Email address for the initial Panther user account
-  UserGivenName:
-    Type: String
-    Description: Given/first name for the initial Panther user account
-    Default: ''
-  UserFamilyName:
-    Type: String
-    Description: Family/last name for the initial Panther user account
-    Default: ''
-
   CloudWatchLogRetentionDays:
     Type: Number
     Description: CloudWatch log retention period
@@ -119,6 +107,53 @@ Resources:
       LayerName: panther-analysis
 
   ##### Nested Stacks: Core Infra #####
+  WebApplicationCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: panther-web-cluster
+      Tags:
+        - Key: Application
+          Value: Panther
+
+  WebApplicationNetworking:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Tags:
+        - Key: Application
+          Value: Panther
+      TemplateURL: web/networking.yml
+
+  WebApplicationLoadBalancer:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        VpcId: !GetAtt WebApplicationNetworking.Outputs.VpcId
+        SubnetOneId: !GetAtt WebApplicationNetworking.Outputs.SubnetOneId
+        SubnetTwoId: !GetAtt WebApplicationNetworking.Outputs.SubnetTwoId
+        LoadBalancerName: web
+      Tags:
+        - Key: Application
+          Value: Panther
+      TemplateURL: web/alb.yml
+
+  FrontendApplicationServer:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        ClusterName: !Ref WebApplicationCluster
+        VpcId: !GetAtt WebApplicationNetworking.Outputs.VpcId
+        SubnetOneId: !GetAtt WebApplicationNetworking.Outputs.SubnetOneId
+        SubnetTwoId: !GetAtt WebApplicationNetworking.Outputs.SubnetTwoId
+        LoadBalancerListenerArn: !GetAtt WebApplicationLoadBalancer.Outputs.LoadBalancerListenerArn
+        LoadBalancerSecurityGroupId: !GetAtt WebApplicationLoadBalancer.Outputs.LoadBalancerSecurityGroupId
+        GraphQLApiEndpoint: !GetAtt Appsync.Outputs.GraphQLApiEndpoint
+        CognitoAppClientId: !GetAtt Cognito.Outputs.AppClientId
+        CognitoUserPoolId: !GetAtt Cognito.Outputs.UserPoolId
+      Tags:
+        - Key: Application
+          Value: Panther
+      TemplateURL: web/server.yml
+
   AnalysisAPI:
     Type: AWS::CloudFormation::Stack
     Properties:
@@ -146,7 +181,7 @@ Resources:
         LayerVersionArns: !Join [ ',', !Ref LayerVersionArns ]
         TracingMode: !Ref TracingMode
 
-        AppFqdn: app.runpanther.io  # TODO: placeholder
+        AppFqdn: !GetAtt WebApplicationLoadBalancer.Outputs.LoadBalancerUrl
         SQSKeyId: !Ref QueueEncryptionKey
       Tags:
         - Key: Application
@@ -170,9 +205,7 @@ Resources:
     Type: AWS::CloudFormation::Stack
     Properties:
       Parameters:
-        FirstUserEmail: !Ref UserEmail
-        FirstUserGivenName: !Ref UserGivenName
-        FirstUserFamilyName: !Ref UserFamilyName
+        PantherHost: !GetAtt WebApplicationLoadBalancer.Outputs.LoadBalancerUrl
       Tags:
         - Key: Application
           Value: Panther
@@ -344,8 +377,6 @@ Resources:
           Value: Panther
       TemplateURL: ../out/deployments/log_analysis/gluetables.json
 
-  ##### Nested Stacks: Shared Infra #####
-  # TODO: consolidate this with the "core infra" section
   Alerts:
     Type: AWS::CloudFormation::Stack
     Properties:
@@ -362,53 +393,6 @@ Resources:
           Value: Panther
       TemplateURL: log_analysis/alerts.yml
 
-  WebApplicationCluster:
-    Type: AWS::ECS::Cluster
-    Properties:
-      ClusterName: panther-web-cluster
-      Tags:
-        - Key: Application
-          Value: Panther
-
-  WebApplicationNetworking:
-    Type: AWS::CloudFormation::Stack
-    Properties:
-      Tags:
-        - Key: Application
-          Value: Panther
-      TemplateURL: web/networking.yml
-
-  WebApplicationLoadBalancer:
-    Type: AWS::CloudFormation::Stack
-    Properties:
-      Parameters:
-        VpcId: !GetAtt WebApplicationNetworking.Outputs.VpcId
-        SubnetOneId: !GetAtt WebApplicationNetworking.Outputs.SubnetOneId
-        SubnetTwoId: !GetAtt WebApplicationNetworking.Outputs.SubnetTwoId
-        LoadBalancerName: web
-      Tags:
-        - Key: Application
-          Value: Panther
-      TemplateURL: web/alb.yml
-
-  FrontendApplicationServer:
-    Type: AWS::CloudFormation::Stack
-    Properties:
-      Parameters:
-        ClusterName: !Ref WebApplicationCluster
-        VpcId: !GetAtt WebApplicationNetworking.Outputs.VpcId
-        SubnetOneId: !GetAtt WebApplicationNetworking.Outputs.SubnetOneId
-        SubnetTwoId: !GetAtt WebApplicationNetworking.Outputs.SubnetTwoId
-        LoadBalancerListenerArn: !GetAtt WebApplicationLoadBalancer.Outputs.LoadBalancerListenerArn
-        LoadBalancerSecurityGroupId: !GetAtt WebApplicationLoadBalancer.Outputs.LoadBalancerSecurityGroupId
-        GraphQLApiEndpoint: !GetAtt Appsync.Outputs.GraphQLApiEndpoint
-        CognitoAppClientId: !GetAtt Cognito.Outputs.AppClientId
-        CognitoUserPoolId: !GetAtt Cognito.Outputs.UserPoolId
-      Tags:
-        - Key: Application
-          Value: Panther
-      TemplateURL: web/server.yml
-
 Outputs:
   AnalysisApiEndpoint:
     Description: panther-analysis-api Gateway HTTPS endpoint
@@ -422,3 +406,6 @@ Outputs:
   LoadBalancerUrl:
     Description: Panther URL (application load balancer)
     Value: !GetAtt WebApplicationLoadBalancer.Outputs.LoadBalancerUrl
+  UserPoolId:
+    Description: Cognito user pool ID
+    Value: !GetAtt Cognito.Outputs.UserPoolId

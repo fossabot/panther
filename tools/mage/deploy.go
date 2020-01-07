@@ -1,7 +1,6 @@
 package mage
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -10,16 +9,21 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/cloudformation"
+	"github.com/aws/aws-sdk-go/service/cognitoidentityprovider"
+	"github.com/aws/aws-sdk-go/service/lambda"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	jsoniter "github.com/json-iterator/go"
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
 
+	"github.com/panther-labs/panther/api/lambda/users/models"
 	"github.com/panther-labs/panther/pkg/shutil"
 )
 
 const (
+	configFile = "deployments/panther_config.yml"
+
 	// CloudFormation templates + stacks
 	applicationStack    = "panther-app"
 	applicationTemplate = "deployments/template.yml"
@@ -64,10 +68,11 @@ func Deploy() error {
 		return err
 	}
 
-	bucket, err := getSourceBucket(awsSession)
+	outputs, err := getStackOutputs(awsSession, bucketStack)
 	if err != nil {
 		return err
 	}
+	bucket := outputs["SourceBucketName"]
 
 	template, err := cfnPackage(applicationTemplate, bucket, applicationStack)
 	if err != nil {
@@ -83,48 +88,31 @@ func Deploy() error {
 		return err
 	}
 
-	loadBalancer, err := getLoadBalancerURL(awsSession)
+	outputs, err = getStackOutputs(awsSession, applicationStack)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("deploy: Panther URL = http://%s\n", loadBalancer)
+	fmt.Printf("deploy: Panther URL = http://%s\n", outputs["LoadBalancerUrl"])
+
+	if err := enableTOTP(awsSession, outputs["UserPoolId"]); err != nil {
+		return err
+	}
+
+	if err := inviteFirstUser(awsSession, outputs["UserPoolId"]); err != nil {
+		return err
+	}
+
+	fmt.Println("deploy: Done!")
 	return nil
-
-	// TODO - install the initial rule sets here
+	// TODO - install initial rule sets
 }
 
-// Get the name of the source bucket from the buckets stack outputs.
-func getSourceBucket(awsSession *session.Session) (string, error) {
-	cfnClient := cloudformation.New(awsSession)
-	input := &cloudformation.DescribeStacksInput{StackName: aws.String(bucketStack)}
-	response, err := cfnClient.DescribeStacks(input)
-	if err != nil {
-		return "", err
-	}
-
-	for _, output := range response.Stacks[0].Outputs {
-		if aws.StringValue(output.OutputKey) == "SourceBucketName" {
-			return *output.OutputValue, nil
-		}
-	}
-
-	return "", errors.New("SourceBucketName output not found in stack " + bucketStack)
-}
-
-// Generate the set of deploy parameters.
+// Generate the set of deploy parameters for the main application stack.
 //
-// This will prompt the user for required parameters if they are not set and
-// also upload the layer zipfile unless a custom layer is specified.
+// This will first upload the layer zipfile unless a custom layer is specified.
 func getDeployParams(awsSession *session.Session, config map[string]interface{}, bucket string) ([]string, error) {
 	params := config["AppParameterValues"].(map[interface{}]interface{})
-
-	// If no email is specified in the config file, prompt the user.
-	if !validEmail(params["UserEmail"].(string)) {
-		if err := promptRequiredValues(params); err != nil {
-			return nil, err
-		}
-	}
 
 	// If no custom Python layer is defined, then we need to build the default one.
 	if params["PythonLayerVersionArn"].(string) == "" {
@@ -252,19 +240,71 @@ func cfnDeploy(templateFile, bucket, stack string, params []string) error {
 	return sh.Run("aws", args...)
 }
 
-func getLoadBalancerURL(awsSession *session.Session) (string, error) {
-	cfnClient := cloudformation.New(awsSession)
-	input := &cloudformation.DescribeStacksInput{StackName: aws.String(applicationStack)}
-	response, err := cfnClient.DescribeStacks(input)
+// Enable software 2FA for the Cognito user pool - this is not yet supported in CloudFormation.
+func enableTOTP(awsSession *session.Session, userPoolID string) error {
+	if mg.Verbose() {
+		fmt.Printf("deploy: enabling TOTP for user pool %s\n", userPoolID)
+	}
+
+	client := cognitoidentityprovider.New(awsSession)
+	_, err := client.SetUserPoolMfaConfig(&cognitoidentityprovider.SetUserPoolMfaConfigInput{
+		MfaConfiguration: aws.String("ON"),
+		SoftwareTokenMfaConfiguration: &cognitoidentityprovider.SoftwareTokenMfaConfigType{
+			Enabled: aws.Bool(true),
+		},
+		UserPoolId: &userPoolID,
+	})
+	return err
+}
+
+// If the Admin group is empty (e.g. on the initial deploy), create the initial admin user.
+func inviteFirstUser(awsSession *session.Session, userPoolID string) error {
+	cognitoClient := cognitoidentityprovider.New(awsSession)
+	group, err := cognitoClient.ListUsersInGroup(&cognitoidentityprovider.ListUsersInGroupInput{
+		GroupName:  aws.String("Admin"),
+		UserPoolId: &userPoolID,
+	})
 	if err != nil {
-		return "", err
+		return err
+	}
+	if len(group.Users) > 0 {
+		return nil // an admin already exists - nothing to do
 	}
 
-	for _, output := range response.Stacks[0].Outputs {
-		if aws.StringValue(output.OutputKey) == "LoadBalancerUrl" {
-			return *output.OutputValue, nil
-		}
+	// Prompt the user for email + first/last name
+	fmt.Println("\nSetting up initial Panther admin user...")
+	firstName := promptUser("First name: ", nonemptyValidator)
+	lastName := promptUser("Last name: ", nonemptyValidator)
+	email := promptUser("Email: ", emailValidator)
+
+	// Hit users-api.InviteUser to invite a new user to the admin group
+	input := &models.LambdaInput{
+		InviteUser: &models.InviteUserInput{
+			GivenName:  &firstName,
+			FamilyName: &lastName,
+			Email:      &email,
+			UserPoolID: &userPoolID,
+			Role:       aws.String("Admin"),
+		},
+	}
+	payload, err := jsoniter.Marshal(input)
+	if err != nil {
+		return err
 	}
 
-	return "", errors.New("LoadBalancerUrl output not found in stack " + applicationStack)
+	lambdaClient := lambda.New(awsSession)
+	response, err := lambdaClient.Invoke(&lambda.InvokeInput{
+		FunctionName: aws.String("panther-users-api"),
+		Payload:      payload,
+	})
+	if err != nil {
+		return err
+	}
+
+	if response.FunctionError != nil {
+		return fmt.Errorf("failed to invoke panther-users-api: %s error: %s",
+			*response.FunctionError, string(response.Payload))
+	}
+
+	return nil
 }

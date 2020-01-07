@@ -8,16 +8,6 @@ BucketsParameterValues:
 
 # CloudFormation parameter overrides for the template.yml main application stack.
 AppParameterValues:
-  # The email and first/last name for the initial Panther admin user.
-  #
-  # "mage deploy" will prompt for and overwrite these values if the email is left blank.
-  #
-  # Changing any of these values after the initial deploy will delete the existing user and create
-  # a new one in their place.
-  UserEmail: '' # REQUIRED
-  UserGivenName: ''
-  UserFamilyName: ''
-
   # Retention period for all Panther CloudWatch log groups.
   CloudWatchLogRetentionDays: 365
 
