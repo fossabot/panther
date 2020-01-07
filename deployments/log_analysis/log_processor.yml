@@ -44,6 +44,10 @@ Parameters:
     Type: String
     Description: KMS key ID for SQS encryption
 
+  PantherDatabase:
+    Type: String
+    Description: Glue database over Panther processed S3 data.
+
 Conditions:
   AttachLayers: !Not [!Equals [!Join ['', !Ref LayerVersionArns], '']]
   TracingEnabled: !Not [!Equals ['', !Ref TracingMode]]
@@ -155,4 +159,16 @@ Resources:
                 - kms:Encrypt
                 - kms:GenerateDataKey
               Resource: !Sub arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/${SQSKeyId}
+        - Id: WriteGluePartitions
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - glue:GetPartition
+                - glue:CreatePartition
+                - glue:GetTable
+              Resource:
+                - !Sub arn:aws:glue:${AWS::Region}:${AWS::AccountId}:catalog
+                - !Sub arn:aws:glue:${AWS::Region}:${AWS::AccountId}:database/${PantherDatabase}
+                - !Sub arn:aws:glue:${AWS::Region}:${AWS::AccountId}:table/${PantherDatabase}/*
 

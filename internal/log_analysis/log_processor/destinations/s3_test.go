@@ -9,6 +9,9 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/service/glue"
+	"github.com/aws/aws-sdk-go/service/glue/glueiface"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/aws/aws-sdk-go/service/sns"
@@ -66,6 +69,36 @@ func (m *mockSns) Publish(input *sns.PublishInput) (*sns.PublishOutput, error) {
 	return args.Get(0).(*sns.PublishOutput), args.Error(1)
 }
 
+type mockGlue struct {
+	glueiface.GlueAPI
+	mock.Mock
+}
+
+// fixed for our tests
+var testGetTableOutput = &glue.GetTableOutput{
+	Table: &glue.TableData{
+		StorageDescriptor: &glue.StorageDescriptor{
+			SerdeInfo: &glue.SerDeInfo{
+				SerializationLibrary: aws.String("org.openx.data.jsonserde.JsonSerDe"),
+				Parameters: map[string]*string{
+					"serialization.format": aws.String("1"),
+					"case.insensitive":     aws.String("TRUE"),
+				},
+			},
+		},
+	},
+}
+
+func (m *mockGlue) GetTable(input *glue.GetTableInput) (*glue.GetTableOutput, error) {
+	args := m.Called(input)
+	return args.Get(0).(*glue.GetTableOutput), args.Error(1)
+}
+
+func (m *mockGlue) CreatePartition(input *glue.CreatePartitionInput) (*glue.CreatePartitionOutput, error) {
+	args := m.Called(input)
+	return args.Get(0).(*glue.CreatePartitionOutput), args.Error(1)
+}
+
 func registerMockParser(logType string, testEvent *testEvent) (testParser *mockParser) {
 	testParser = &mockParser{}
 	testParser.On("Parse", mock.Anything).Return([]interface{}{testEvent})
@@ -96,22 +129,41 @@ func (r TestRegistry) LookupParser(logType string) (lpm *registry.LogParserMetad
 
 var testRegistry = NewTestRegistry()
 
-// rebind for testing
-func initRegistry() {
+func initTest() {
 	parserRegistry = testRegistry // re-bind as interface
 }
 
-func TestSendDataToS3BeforeTerminating(t *testing.T) {
-	initRegistry()
+type testS3Destination struct {
+	S3Destination
+	// back pointers to mocks
+	mockSns  *mockSns
+	mockS3   *mockS3
+	mockGlue *mockGlue
+}
 
+func newS3Destination() *testS3Destination {
 	mockSns := &mockSns{}
 	mockS3 := &mockS3{}
-	destination := &S3Destination{
-		snsTopicArn: "arn:aws:sns:us-west-2:123456789012:test",
-		s3Bucket:    "testbucket",
-		snsClient:   mockSns,
-		s3Client:    mockS3,
+	mockGlue := &mockGlue{}
+	return &testS3Destination{
+		S3Destination: S3Destination{
+			snsTopicArn:          "arn:aws:sns:us-west-2:123456789012:test",
+			s3Bucket:             "testbucket",
+			snsClient:            mockSns,
+			s3Client:             mockS3,
+			glueClient:           mockGlue,
+			partitionExistsCache: make(map[string]struct{}),
+		},
+		mockSns:  mockSns,
+		mockS3:   mockS3,
+		mockGlue: mockGlue,
 	}
+}
+
+func TestSendDataToS3BeforeTerminating(t *testing.T) {
+	initTest()
+
+	destination := newS3Destination()
 	eventChannel := make(chan *common.ParsedEvent, 1)
 
 	testEvent := testEvent{data: "test"}
@@ -130,8 +182,12 @@ func TestSendDataToS3BeforeTerminating(t *testing.T) {
 
 	marshalledEvent, _ := jsoniter.Marshal(parsedEvent.Event)
 
-	mockS3.On("PutObject", mock.Anything).Return(&s3.PutObjectOutput{}, nil)
-	mockSns.On("Publish", mock.Anything).Return(&sns.PublishOutput{}, nil)
+	destination.mockS3.On("PutObject", mock.Anything).Return(&s3.PutObjectOutput{}, nil)
+	destination.mockSns.On("Publish", mock.Anything).Return(&sns.PublishOutput{}, nil)
+	destination.mockGlue.On("GetTable", mock.Anything).Return(testGetTableOutput, nil)
+	// test error path in createGluePartition() where partition already exists
+	destination.mockGlue.On("CreatePartition", mock.Anything).Return(&glue.CreatePartitionOutput{},
+		awserr.New("AlreadyExistsException", "Partition already exists.", errors.New("test AlreadyExistsException"))).Once()
 
 	require.NoError(t, destination.SendEvents(eventChannel))
 
@@ -139,7 +195,7 @@ func TestSendDataToS3BeforeTerminating(t *testing.T) {
 	// I am fetching it from the actual request performed to S3 and:
 	//1. Verifying the S3 object key is of the correct format
 	//2. Verifying the rest of the fields are as expected
-	putObjectInput := mockS3.Calls[0].Arguments.Get(0).(*s3.PutObjectInput)
+	putObjectInput := destination.mockS3.Calls[0].Arguments.Get(0).(*s3.PutObjectInput)
 	// Gzipping the test event
 	var buffer bytes.Buffer
 	writer := gzip.NewWriter(&buffer)
@@ -152,8 +208,11 @@ func TestSendDataToS3BeforeTerminating(t *testing.T) {
 	require.Equal(t, aws.String("testbucket"), putObjectInput.Bucket)
 	require.Equal(t, buffer.Bytes(), bodyBytes)
 
+	// Verify partition existence cached
+	require.Equal(t, 1, len(destination.partitionExistsCache))
+
 	// Verifying Sns Publish payload
-	publishInput := mockSns.Calls[0].Arguments.Get(0).(*sns.PublishInput)
+	publishInput := destination.mockSns.Calls[0].Arguments.Get(0).(*sns.PublishInput)
 	expectedS3Notification := &common.S3Notification{
 		S3Bucket:    aws.String("testbucket"),
 		S3ObjectKey: putObjectInput.Key,
@@ -171,16 +230,9 @@ func TestSendDataToS3BeforeTerminating(t *testing.T) {
 }
 
 func TestSendDataIfSizeLimitHasBeenReached(t *testing.T) {
-	initRegistry()
+	initTest()
 
-	mockSns := &mockSns{}
-	mockS3 := &mockS3{}
-	destination := &S3Destination{
-		snsTopicArn: "arn:aws:sns:us-west-2:123456789012:test",
-		s3Bucket:    "testbucket",
-		snsClient:   mockSns,
-		s3Client:    mockS3,
-	}
+	destination := newS3Destination()
 	eventChannel := make(chan *common.ParsedEvent, 2)
 
 	testEvent := testEvent{data: "test"}
@@ -202,27 +254,27 @@ func TestSendDataIfSizeLimitHasBeenReached(t *testing.T) {
 	}
 	close(eventChannel)
 
-	mockS3.On("PutObject", mock.Anything).Return(&s3.PutObjectOutput{}, nil).Twice()
-	mockSns.On("Publish", mock.Anything).Return(&sns.PublishOutput{}, nil).Twice()
+	destination.mockS3.On("PutObject", mock.Anything).Return(&s3.PutObjectOutput{}, nil).Twice()
+	destination.mockSns.On("Publish", mock.Anything).Return(&sns.PublishOutput{}, nil).Twice()
+	destination.mockGlue.On("GetTable", mock.Anything).Return(testGetTableOutput, nil).Twice()
+	// test error path in createGluePartition() with failure to create partition
+	destination.mockGlue.On("CreatePartition", mock.Anything).Return(&glue.CreatePartitionOutput{},
+		errors.New("test error on CreatePartition()")).Twice()
 
 	// This is the size of a single event
 	// We expect this to cause the S3Destination to create two objects in S3
 	maxFileSize = 3
 
 	require.NoError(t, destination.SendEvents(eventChannel))
+
+	// Verify partition NOT created because we are testing failure in CreatePartition()
+	require.Equal(t, 0, len(destination.partitionExistsCache))
 }
 
 func TestSendDataIfTimeLimitHasBeenReached(t *testing.T) {
-	initRegistry()
+	initTest()
 
-	mockSns := &mockSns{}
-	mockS3 := &mockS3{}
-	destination := &S3Destination{
-		snsTopicArn: "arn:aws:sns:us-west-2:123456789012:test",
-		s3Bucket:    "testbucket",
-		snsClient:   mockSns,
-		s3Client:    mockS3,
-	}
+	destination := newS3Destination()
 	eventChannel := make(chan *common.ParsedEvent, 2)
 
 	testEvent := testEvent{data: "test"}
@@ -244,26 +296,24 @@ func TestSendDataIfTimeLimitHasBeenReached(t *testing.T) {
 	}
 	close(eventChannel)
 
-	mockS3.On("PutObject", mock.Anything).Return(&s3.PutObjectOutput{}, nil).Twice()
-	mockSns.On("Publish", mock.Anything).Return(&sns.PublishOutput{}, nil).Twice()
+	destination.mockS3.On("PutObject", mock.Anything).Return(&s3.PutObjectOutput{}, nil).Twice()
+	destination.mockSns.On("Publish", mock.Anything).Return(&sns.PublishOutput{}, nil).Twice()
+	destination.mockGlue.On("GetTable", mock.Anything).Return(testGetTableOutput, nil).Twice()
+	destination.mockGlue.On("CreatePartition", mock.Anything).Return(&glue.CreatePartitionOutput{}, nil).Twice()
 
 	// We expect this to cause the S3Destination to create two objects in S3
 	maxDuration = 1 * time.Nanosecond
 
 	require.NoError(t, destination.SendEvents(eventChannel))
+
+	// Verify partition created
+	require.Equal(t, 1, len(destination.partitionExistsCache))
 }
 
 func TestSendDataToS3FromMultipleLogTypesBeforeTerminating(t *testing.T) {
-	initRegistry()
+	initTest()
 
-	mockSns := &mockSns{}
-	mockS3 := &mockS3{}
-	destination := &S3Destination{
-		snsTopicArn: "arn:aws:sns:us-west-2:123456789012:test",
-		s3Bucket:    "testbucket",
-		snsClient:   mockSns,
-		s3Client:    mockS3,
-	}
+	destination := newS3Destination()
 	eventChannel := make(chan *common.ParsedEvent, 2)
 
 	testEvent := testEvent{data: "test"}
@@ -284,23 +334,21 @@ func TestSendDataToS3FromMultipleLogTypesBeforeTerminating(t *testing.T) {
 	}
 	close(eventChannel)
 
-	mockS3.On("PutObject", mock.Anything).Return(&s3.PutObjectOutput{}, nil).Twice()
-	mockSns.On("Publish", mock.Anything).Return(&sns.PublishOutput{}, nil).Twice()
+	destination.mockS3.On("PutObject", mock.Anything).Return(&s3.PutObjectOutput{}, nil).Twice()
+	destination.mockSns.On("Publish", mock.Anything).Return(&sns.PublishOutput{}, nil).Twice()
+	destination.mockGlue.On("GetTable", mock.Anything).Return(testGetTableOutput, nil).Twice()
+	destination.mockGlue.On("CreatePartition", mock.Anything).Return(&glue.CreatePartitionOutput{}, nil).Twice()
 
 	require.NoError(t, destination.SendEvents(eventChannel))
+
+	// Verify partition(s) created, 1 per type
+	require.Equal(t, 2, len(destination.partitionExistsCache))
 }
 
 func TestSendDataFailsIfS3Fails(t *testing.T) {
-	initRegistry()
+	initTest()
 
-	mockSns := &mockSns{}
-	mockS3 := &mockS3{}
-	destination := &S3Destination{
-		snsTopicArn: "arn:aws:sns:us-west-2:123456789012:test",
-		s3Bucket:    "testbucket",
-		snsClient:   mockSns,
-		s3Client:    mockS3,
-	}
+	destination := newS3Destination()
 	eventChannel := make(chan *common.ParsedEvent, 1)
 
 	testEvent := testEvent{data: "test"}
@@ -315,22 +363,18 @@ func TestSendDataFailsIfS3Fails(t *testing.T) {
 	}
 	close(eventChannel)
 
-	mockS3.On("PutObject", mock.Anything).Return(&s3.PutObjectOutput{}, errors.New("")).Twice()
+	destination.mockS3.On("PutObject", mock.Anything).Return(&s3.PutObjectOutput{}, errors.New("")).Twice()
 
 	require.Error(t, destination.SendEvents(eventChannel))
+
+	// Verify NO partition created
+	require.Equal(t, 0, len(destination.partitionExistsCache))
 }
 
 func TestSendDataFailsIfSnsFails(t *testing.T) {
-	initRegistry()
+	initTest()
 
-	mockSns := &mockSns{}
-	mockS3 := &mockS3{}
-	destination := &S3Destination{
-		snsTopicArn: "arn:aws:sns:us-west-2:123456789012:test",
-		s3Bucket:    "testbucket",
-		snsClient:   mockSns,
-		s3Client:    mockS3,
-	}
+	destination := newS3Destination()
 	eventChannel := make(chan *common.ParsedEvent, 1)
 
 	testEvent := testEvent{data: "test"}
@@ -345,8 +389,13 @@ func TestSendDataFailsIfSnsFails(t *testing.T) {
 	}
 	close(eventChannel)
 
-	mockS3.On("PutObject", mock.Anything).Return(&s3.PutObjectOutput{}, nil)
-	mockSns.On("Publish", mock.Anything).Return(&sns.PublishOutput{}, errors.New("test"))
+	destination.mockS3.On("PutObject", mock.Anything).Return(&s3.PutObjectOutput{}, nil)
+	destination.mockSns.On("Publish", mock.Anything).Return(&sns.PublishOutput{}, errors.New("test"))
+	destination.mockGlue.On("GetTable", mock.Anything).Return(testGetTableOutput, nil).Once()
+	destination.mockGlue.On("CreatePartition", mock.Anything).Return(&glue.CreatePartitionOutput{}, nil).Once()
 
 	require.Error(t, destination.SendEvents(eventChannel))
+
+	// Verify partition created
+	require.Equal(t, 1, len(destination.partitionExistsCache))
 }

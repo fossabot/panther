@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/service/glue/glueiface"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/aws/aws-sdk-go/service/sns"
@@ -21,8 +22,7 @@ import (
 )
 
 // s3ObjectKeyFormat represents the format of the S3 object key
-// NOTE: currently same for all log types, if some become daily or minutely refactor to registry
-const s3ObjectKeyFormat = "%s/year=%d/month=%02d/day=%02d/hour=%02d/%s-%s.gz"
+const s3ObjectKeyFormat = "%s/%s-%s.gz"
 
 var (
 	maxFileSize = 100 * 1000 * 1000 // 100MB uncompressed file size, should result in ~10MB output file size
@@ -35,13 +35,16 @@ var (
 
 // S3Destination sends normalized events to S3
 type S3Destination struct {
-	s3Client  s3iface.S3API
-	snsClient snsiface.SNSAPI
+	s3Client   s3iface.S3API
+	snsClient  snsiface.SNSAPI
+	glueClient glueiface.GlueAPI
 	// s3Bucket is the s3Bucket where the data will be stored
 	s3Bucket string
 	// snsTopic is the SNS Topic ARN where we will send the notification
 	// when we store new data in S3
 	snsTopicArn string
+	// used to track existing glue partitions, avoids excessive Glue API calls
+	partitionExistsCache map[string]struct{}
 }
 
 // SendEvents stores events in S3.
@@ -107,7 +110,7 @@ func (destination *S3Destination) SendEvents(parsedEventChannel chan *common.Par
 }
 
 func (destination *S3Destination) sendExpiredData(logTypeToEvents map[string]*s3EventBuffer) error {
-	currentTime := time.Now()
+	currentTime := time.Now().UTC()
 	for logType, buffer := range logTypeToEvents {
 		if currentTime.Sub(buffer.firstEventProcessedTime) > maxDuration {
 			err := destination.sendData(logType, buffer)
@@ -158,6 +161,8 @@ func (destination *S3Destination) sendData(logType string, buffer *s3EventBuffer
 		return err
 	}
 
+	destination.createGluePartition(logType, buffer)
+
 	marshalledNotification, marshallingError := jsoniter.MarshalToString(s3Notification)
 	if marshallingError != nil {
 		zap.L().Warn("failed to marshal notification", zap.Error(err))
@@ -176,18 +181,35 @@ func (destination *S3Destination) sendData(logType string, buffer *s3EventBuffer
 	return nil
 }
 
+// create glue partition (best effort and log)
+func (destination *S3Destination) createGluePartition(logType string, buffer *s3EventBuffer) {
+	glueMetadata := parserRegistry.LookupParser(logType).Glue
+	partitionPath := glueMetadata.PartitionPrefix(buffer.firstEventProcessedTime)
+	if _, exists := destination.partitionExistsCache[partitionPath]; !exists {
+		partitionErr := glueMetadata.CreateJSONPartition(destination.glueClient, destination.s3Bucket, buffer.firstEventProcessedTime)
+		if partitionErr != nil {
+			if awsErr, ok := partitionErr.(awserr.Error); ok {
+				if awsErr.Code() == "AlreadyExistsException" {
+					destination.partitionExistsCache[partitionPath] = struct{}{} // remember
+					return
+				}
+			}
+			zap.L().Error("failed to create glue partition",
+				zap.String("bucket", destination.s3Bucket),
+				zap.String("partition", partitionPath),
+				zap.Error(partitionErr))
+		} else {
+			destination.partitionExistsCache[partitionPath] = struct{}{} // remember
+			zap.L().Info("created glue partition",
+				zap.String("bucket", destination.s3Bucket),
+				zap.String("partition", partitionPath))
+		}
+	}
+}
+
 func getS3ObjectKey(logType string, timestamp time.Time) string {
-	s3prefix := parserRegistry.LookupParser(logType).Glue.S3Prefix() // get the path used in Glue table
-	canonicalLogType := strings.Replace(strings.ToLower(s3prefix), ".", "_", -1)
-
-	timestamp = timestamp.UTC() // ensure UTC
-
 	return fmt.Sprintf(s3ObjectKeyFormat,
-		canonicalLogType,
-		timestamp.Year(),
-		timestamp.Month(),
-		timestamp.Day(),
-		timestamp.Hour(),
+		parserRegistry.LookupParser(logType).Glue.PartitionPrefix(timestamp.UTC()), // get the path used in Glue table
 		timestamp.Format("20060102T150405Z"),
 		uuid.New().String())
 }
@@ -209,7 +231,7 @@ func (b *s3EventBuffer) addEvent(event []byte) (bool, error) {
 	if b.buffer == nil {
 		b.buffer = &bytes.Buffer{}
 		b.writer = gzip.NewWriter(b.buffer)
-		b.firstEventProcessedTime = time.Now()
+		b.firstEventProcessedTime = time.Now().UTC()
 	}
 
 	// The size of the batch in bytes if the event is added

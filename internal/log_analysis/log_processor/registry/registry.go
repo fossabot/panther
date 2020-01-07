@@ -4,6 +4,7 @@ import (
 	"github.com/panther-labs/panther/internal/log_analysis/log_processor/parsers"
 	"github.com/panther-labs/panther/internal/log_analysis/log_processor/parsers/awslogs"
 	"github.com/panther-labs/panther/internal/log_analysis/log_processor/parsers/osquerylogs"
+	"github.com/panther-labs/panther/pkg/awsglue"
 )
 
 type Interface interface {
@@ -42,8 +43,8 @@ type Registry map[string]*LogParserMetadata
 func DefaultHourlyLogParser(p parsers.LogParser, eventStruct interface{}, description string) *LogParserMetadata {
 	tableName := p.LogType() // default to LogType()
 
-	// describes Glue table
-	gm, err := NewGlueMetadata(InternalDatabaseName, tableName, GlueTableHourly, eventStruct)
+	// describes Glue table over processed data in S3
+	gm, err := awsglue.NewGlueMetadata(awsglue.InternalDatabaseName, tableName, description, awsglue.GlueTableHourly, false, eventStruct)
 	if err != nil {
 		panic(err) // panic is justified because this means configuration is WRONG
 	}
@@ -58,15 +59,23 @@ func DefaultHourlyLogParser(p parsers.LogParser, eventStruct interface{}, descri
 
 // Describes each parser
 type LogParserMetadata struct {
-	Parser      parsers.LogParser // does the work
-	EventStruct interface{}       // should be a struct that defines a log event
-	Description string            // describes the  data for documentation and will be added into Glue table
-	Glue        *GlueMetadata     // describes associated AWS Glue table (used to generate CF)
+	Parser      parsers.LogParser     // does the work
+	EventStruct interface{}           // should be a struct that defines a log event
+	Description string                // describes the  data for documentation and will be added into Glue table
+	Glue        *awsglue.GlueMetadata // describes associated AWS Glue table (used to generate CF)
 }
 
-// A return a map containing all the available parsers
+// Return a map containing all the available parsers
 func AvailableParsers() Registry {
 	return parsersRegistry
+}
+
+// Return a slice containing just the Glue tables
+func AvailableTables() (tables []*awsglue.GlueMetadata) {
+	for _, lpm := range parsersRegistry {
+		tables = append(tables, lpm.Glue)
+	}
+	return
 }
 
 // Provides access to underlying type so 'range' will work

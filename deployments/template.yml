@@ -362,6 +362,7 @@ Resources:
         SnsTopicArn: !Ref ProcessedDataNotifications
         ProcessedDataBucket: !Ref ProcessedDataBucket
         SQSKeyId: !Ref QueueEncryptionKey
+        PantherDatabase: !GetAtt GlueTables.Outputs.PantherDatabase
       Tags:
         - Key: Application
           Value: Panther

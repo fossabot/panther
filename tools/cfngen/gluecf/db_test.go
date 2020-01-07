@@ -24,7 +24,7 @@ func TestDatabase(t *testing.T) {
 
 	resources[dbName] = db
 
-	cfTemplate := cfngen.NewTemplate("Test template", nil, resources)
+	cfTemplate := cfngen.NewTemplate("Test template", nil, resources, nil)
 
 	cf := &bytes.Buffer{}
 

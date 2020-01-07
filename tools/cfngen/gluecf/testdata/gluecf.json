@@ -37,7 +37,7 @@
     "InputFormat": "org.apache.hadoop.mapred.TextInputFormat",
     "OutputFormat": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
     "Location": {
-     "Fn::Sub": "s3://${ProcessedDataBucket}/logs/dummy"
+     "Fn::Sub": "s3://${ProcessedDataBucket}/logs/dummy/"
     },
     "SerdeInfo": {
      "SerializationLibrary": "org.openx.data.jsonserde.JsonSerDe",
@@ -88,6 +88,14 @@
     }
    ]
   }
+ }
+}
+ },
+ "Outputs": {
+  "PantherDatabase": {
+ "Description": "Database over Panther S3 data",
+ "Value": {
+  "Ref": "pantherinternal"
  }
 }
  }

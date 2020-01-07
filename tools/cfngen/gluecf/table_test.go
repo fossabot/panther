@@ -72,7 +72,7 @@ func TestTables(t *testing.T) {
 	table.DependsOn = []string{dbName} // table depends on db resource
 	resources[tableName] = table
 
-	cfTemplate := cfngen.NewTemplate("Test template", parameters, resources)
+	cfTemplate := cfngen.NewTemplate("Test template", parameters, resources, nil)
 
 	cf := &bytes.Buffer{}
 

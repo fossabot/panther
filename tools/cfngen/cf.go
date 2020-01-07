@@ -7,7 +7,7 @@ import (
 	jsoniter "github.com/json-iterator/go"
 )
 
-// NOTE: consider replacing this with CDK when a Go version is available.
+// FIXME: consider replacing this with CDK when a Go version is available.
 
 // enable compatibility with encoding/json
 var json = jsoniter.ConfigCompatibleWithStandardLibrary
@@ -32,12 +32,18 @@ type Parameter struct {
 	MaxValue      interface{}   `json:",omitempty"`
 }
 
+type Output struct {
+	Description string
+	Value       interface{}
+}
+
 // Represents a CF template
 type Template struct {
 	AWSTemplateFormatVersion string
 	Description              string                 `json:",omitempty"`
 	Parameters               map[string]interface{} `json:",omitempty"`
 	Resources                map[string]interface{} `json:",omitempty"`
+	Outputs                  map[string]interface{} `json:",omitempty"`
 }
 
 // Emit CF as JSON
@@ -51,12 +57,15 @@ func (t *Template) WriteCloudFormation(w io.Writer) (err error) {
 }
 
 // Create a CF template , use WriteCloudFormation() to emit.
-func NewTemplate(description string, parameters map[string]interface{}, resources map[string]interface{}) (t *Template) {
+func NewTemplate(description string, parameters map[string]interface{}, resources map[string]interface{},
+	outputs map[string]interface{}) (t *Template) {
+
 	t = &Template{
 		AWSTemplateFormatVersion: "2010-09-09",
 		Description:              description,
 		Parameters:               parameters,
 		Resources:                resources,
+		Outputs:                  outputs,
 	}
 	return
 }
