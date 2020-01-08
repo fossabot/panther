@@ -17,7 +17,7 @@ type CloudTrailRecords struct {
 
 // CloudTrailRecord is an AWS CloudTrail API log.
 type CloudTrail struct {
-	AdditionalEventData map[string]interface{}  `json:"additionalEventData,omitempty"`
+	AdditionalEventData interface{}             `json:"additionalEventData,omitempty"`
 	APIVersion          *string                 `json:"apiVersion,omitempty" validate:"required"`
 	AWSRegion           *string                 `json:"awsRegion,omitempty" validate:"required"`
 	ErrorCode           *string                 `json:"errorCode,omitempty"`
@@ -32,10 +32,10 @@ type CloudTrail struct {
 	ReadOnly            *bool                   `json:"readOnly,omitempty"`
 	RecipientAccountID  *string                 `json:"recipientAccountId,omitempty" validate:"required,len=12,numeric"`
 	RequestID           *string                 `json:"requestId,omitempty"`
-	RequestParameters   map[string]interface{}  `json:"requestParameters,omitempty"`
+	RequestParameters   interface{}             `json:"requestParameters,omitempty"`
 	Resources           []CloudTrailResources   `json:"resources,omitempty"`
-	ResponseElements    map[string]interface{}  `json:"responseElements,omitempty"`
-	ServiceEventDetails map[string]interface{}  `json:"serviceEventDetails,omitempty"`
+	ResponseElements    interface{}             `json:"responseElements,omitempty"`
+	ServiceEventDetails interface{}             `json:"serviceEventDetails,omitempty"`
 	SharedEventID       *string                 `json:"sharedEventId,omitempty"`
 	SourceIPAddress     *string                 `json:"sourceIpAddress,omitempty"`
 	UserAgent           *string                 `json:"userAgent,omitempty"`
@@ -46,49 +46,49 @@ type CloudTrail struct {
 // CloudTrailResources are the AWS resources used in the API call.
 type CloudTrailResources struct {
 	ARN       *string `json:"arn"`
-	AccountID *string `json:"accountid"`
+	AccountID *string `json:"accountId"`
 	Type      *string `json:"type"`
 }
 
 // CloudTrailUserIdentity contains details about the type of IAM identity that made the request.
 type CloudTrailUserIdentity struct {
 	Type             *string                   `json:"type,omitempty"`
-	PrincipalID      *string                   `json:"principalid,omitempty"`
+	PrincipalID      *string                   `json:"principalId,omitempty"`
 	ARN              *string                   `json:"arn,omitempty"`
-	AccountID        *string                   `json:"accountid,omitempty"`
-	AccessKeyID      *string                   `json:"accesskeyid,omitempty"`
-	Username         *string                   `json:"username,omitempty"`
-	SessionContext   *CloudTrailSessionContext `json:"sessioncontext,omitempty"`
-	InvokedBy        *string                   `json:"invokedby,omitempty"`
-	IdentityProvider *string                   `json:"identityprovider,omitempty"`
+	AccountID        *string                   `json:"accountId,omitempty"`
+	AccessKeyID      *string                   `json:"accessKeyId,omitempty"`
+	Username         *string                   `json:"userName,omitempty"`
+	SessionContext   *CloudTrailSessionContext `json:"sessionContext,omitempty"`
+	InvokedBy        *string                   `json:"invokedBy,omitempty"`
+	IdentityProvider *string                   `json:"identityProvider,omitempty"`
 }
 
 // CloudTrailSessionContext provides information about a session created for temporary credentials.
 type CloudTrailSessionContext struct {
 	Attributes          *CloudTrailSessionContextAttributes          `json:"attributes,omitempty"`
-	SessionIssuer       *CloudTrailSessionContextSessionIssuer       `json:"sessionissuer,omitempty"`
-	WebIDFederationData *CloudTrailSessionContextWebIDFederationData `json:"webidfederationdata,omitempty"`
+	SessionIssuer       *CloudTrailSessionContextSessionIssuer       `json:"sessionIssuer,omitempty"`
+	WebIDFederationData *CloudTrailSessionContextWebIDFederationData `json:"webIdFederationData,omitempty"`
 }
 
 // CloudTrailSessionContextAttributes  contains the attributes of the Session context object
 type CloudTrailSessionContextAttributes struct {
-	MfaAuthenticated *string `json:"mfaauthenticated,omitempty"`
-	CreationDate     *string `json:"creationdate,omitempty"`
+	MfaAuthenticated *string `json:"mfaAuthenticated,omitempty"`
+	CreationDate     *string `json:"creationDate,omitempty"`
 }
 
 // CloudTrailSessionContextSessionIssuer contains information for the SessionContextSessionIssuer
 type CloudTrailSessionContextSessionIssuer struct {
 	Type        *string `json:"type,omitempty"`
-	PrincipalID *string `json:"principalid,omitempty"`
+	PrincipalID *string `json:"principalId,omitempty"`
 	Arn         *string `json:"arn,omitempty"`
-	AccountID   *string `json:"accountid,omitempty"`
-	Username    *string `json:"username,omitempty"`
+	AccountID   *string `json:"accountId,omitempty"`
+	Username    *string `json:"userName,omitempty"`
 }
 
 // CloudTrailSessionContextWebIDFederationData contains Web ID federation data
 type CloudTrailSessionContextWebIDFederationData struct {
-	FederatedProvider *string           `json:"federatedprovider,omitempty"`
-	Attributes        map[string]string `json:"attributes,omitempty"`
+	FederatedProvider *string     `json:"federatedProvider,omitempty"`
+	Attributes        interface{} `json:"attributes,omitempty"`
 }
 
 // CloudTrailParser parses CloudTrail logs
