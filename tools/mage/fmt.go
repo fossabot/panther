@@ -1,6 +1,23 @@
 package mage
 
+/**
+ * Copyright 2020 Panther Labs Inc
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -18,10 +35,14 @@ var (
 
 // Fmt Format source files
 func Fmt() error {
+	fmt.Println("fmt: license")
+	if err := addSourceLicenses(); err != nil {
+		return err
+	}
+
 	fmt.Println("fmt: gofmt", strings.Join(goTargets, " "))
 
 	// 1) gofmt to standardize the syntax formatting with code simplification (-s) flag
-	args := append([]string{"-l", "-w", "-local=github.com/panther-labs/panther"}, goTargets...)
 	if err := sh.Run("gofmt", append([]string{"-l", "-s", "-w"}, goTargets...)...); err != nil {
 		return err
 	}
@@ -32,6 +53,7 @@ func Fmt() error {
 	}
 
 	// 3) Goimports to group imports into 3 sections
+	args := append([]string{"-w", "-local=github.com/panther-labs/panther"}, goTargets...)
 	if err := sh.Run("goimports", args...); err != nil {
 		return err
 	}
@@ -64,9 +86,9 @@ func removeImportNewlines(path string) error {
 		return err
 	}
 
-	var newLines []string
+	var newLines [][]byte
 	inImport := false
-	for _, line := range strings.Split(string(contents), "\n") {
+	for _, line := range bytes.Split(contents, []byte("\n")) {
 		if inImport {
 			if len(line) == 0 {
 				continue // skip empty newlines in import groups
@@ -74,12 +96,12 @@ func removeImportNewlines(path string) error {
 			if line[0] == ')' { // gofmt always puts the ending paren on its own line
 				inImport = false
 			}
-		} else if strings.HasPrefix(line, "import (") {
+		} else if bytes.HasPrefix(line, []byte("import (")) {
 			inImport = true
 		}
 
 		newLines = append(newLines, line)
 	}
 
-	return ioutil.WriteFile(path, []byte(strings.Join(newLines, "\n")), 0644)
+	return ioutil.WriteFile(path, bytes.Join(newLines, []byte("\n")), 0644)
 }
