@@ -8,10 +8,11 @@ import {
   PolicySummary,
   ResourceSummary,
   OrganizationStatsResponse,
-  IntegrationsByOrganizationResponse,
+  Integration,
 } from 'Generated/schema';
 import ErrorBoundary from 'Components/error-boundary';
 import { extractErrorMessage } from 'Helpers/utils';
+import { INTEGRATION_TYPES } from 'Source/constants';
 import { topFailingPoliciesColumns, topFailingResourcesColumns } from './columns';
 import PoliciesBySeverityChart from './subcomponents/policies-by-severity-chart';
 import PoliciesByStatusChart from './subcomponents/policies-by-status-chart';
@@ -69,10 +70,8 @@ const GET_ORGANIZATION_STATS = gql`
         id
       }
     }
-    integrations {
-      integrations {
-        integrationId
-      }
+    integrations(input: { integrationType: "${INTEGRATION_TYPES.AWS_INFRA}" }) {
+      integrationId
     }
   }
 `;
@@ -82,7 +81,7 @@ export type TopFailingResource = Pick<ResourceSummary, 'id'>;
 
 interface ApolloQueryData {
   organizationStats: OrganizationStatsResponse;
-  integrations: IntegrationsByOrganizationResponse;
+  integrations: Integration[];
 }
 
 const Overview: React.FC = () => {
@@ -105,7 +104,7 @@ const Overview: React.FC = () => {
     );
   }
 
-  if (!data.integrations.integrations.length) {
+  if (!data.integrations.length) {
     return <OverviewPageEmptyDataFallback />;
   }
 

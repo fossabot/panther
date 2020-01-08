@@ -135,10 +135,7 @@ const AddDestinationSidesheet: React.FC<AddDestinationSidesheetProps> = ({ desti
             query: LIST_DESTINATIONS,
             data: {
               ...existingData,
-              destinations: {
-                ...existingData.destinations,
-                outputs: [data.addDestination, ...existingData.destinations.outputs],
-              },
+              destinations: [data.addDestination, ...existingData.destinations],
             },
           });
         },

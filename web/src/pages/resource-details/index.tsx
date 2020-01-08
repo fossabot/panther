@@ -4,7 +4,7 @@ import { useQuery, gql } from '@apollo/client';
 import {
   ComplianceStatusEnum,
   GetResourceInput,
-  IntegrationsByOrganizationResponse,
+  Integration,
   ListComplianceItemsResponse,
   PoliciesForResourceInput,
   ResourceDetails,
@@ -71,17 +71,15 @@ export const RESOURCE_DETAILS = gql`
       }
     }
     integrations(input: { integrationType: "${INTEGRATION_TYPES.AWS_INFRA}" }) {
-      integrations {
         integrationLabel
         integrationId
-      }
     }
   }
 `;
 
 interface ApolloQueryData {
   resource: ResourceDetails;
-  integrations: IntegrationsByOrganizationResponse;
+  integrations: Integration[];
   policiesForResource: ListComplianceItemsResponse;
 }
 
@@ -139,10 +137,7 @@ const ResourceDetailsPage = () => {
   const pagingData = data.policiesForResource.paging;
 
   // Extend the resource by adding its integrationLabel fetched from another internal API
-  const enhancedResource = extendResourceWithIntegrationLabel(
-    data.resource,
-    data.integrations.integrations
-  );
+  const enhancedResource = extendResourceWithIntegrationLabel(data.resource, data.integrations);
 
   return (
     <article>

@@ -4,7 +4,7 @@ import { useQuery, gql } from '@apollo/client';
 import {
   ComplianceStatusEnum,
   GetPolicyInput,
-  IntegrationsByOrganizationResponse,
+  Integration,
   PolicyDetails,
   ResourcesForPolicyInput,
   ListComplianceItemsResponse,
@@ -79,10 +79,8 @@ export const POLICY_DETAILS = gql`
       }
     }
     integrations(input: { integrationType: "${INTEGRATION_TYPES.AWS_INFRA}" }) {
-      integrations {
         integrationId
         integrationLabel
-      }
     }
   }
 `;
@@ -90,7 +88,7 @@ export const POLICY_DETAILS = gql`
 interface ApolloQueryData {
   policy: PolicyDetails;
   resourcesForPolicy: ListComplianceItemsResponse;
-  integrations: IntegrationsByOrganizationResponse;
+  integrations: Integration[];
 }
 
 interface ApolloQueryInput {
@@ -148,7 +146,7 @@ const PolicyDetailsPage = () => {
 
   // add an `integrationLabel` field to each resource based on its matching integrationId
   const enhancedResources = resources.map(r =>
-    extendResourceWithIntegrationLabel(r, data.integrations.integrations)
+    extendResourceWithIntegrationLabel(r, data.integrations)
   );
 
   return (

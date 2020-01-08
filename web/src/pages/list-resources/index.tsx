@@ -2,7 +2,7 @@ import React from 'react';
 import { Alert, Box, Card } from 'pouncejs';
 import { DEFAULT_LARGE_PAGE_SIZE, INTEGRATION_TYPES } from 'Source/constants';
 import {
-  IntegrationsByOrganizationResponse,
+  Integration,
   ListResourcesInput,
   ListResourcesResponse,
   ListResourcesSortFieldsEnum,
@@ -40,17 +40,15 @@ const LIST_RESOURCES = gql`
       }
     }
     integrations(input: { integrationType: "${INTEGRATION_TYPES.AWS_INFRA}" }) {
-      integrations {
         integrationLabel
         integrationId
-      }
     }
   }
 `;
 
 interface ApolloData {
   resources: ListResourcesResponse;
-  integrations: IntegrationsByOrganizationResponse;
+  integrations: Integration[];
 }
 
 interface ApolloVariables {
@@ -90,7 +88,7 @@ const ListResources = () => {
   }
 
   const resourceItems = data.resources.resources;
-  const integrationData = data.integrations.integrations;
+  const integrationItems = data.integrations;
   const pagingData = data.resources.paging;
 
   if (!resourceItems.length && isEmpty(requestParams)) {
@@ -99,7 +97,7 @@ const ListResources = () => {
 
   // The items are enhanced with the key `integrationsLabel`
   const enhancedResourceItems = resourceItems.map(resource =>
-    extendResourceWithIntegrationLabel(resource, integrationData)
+    extendResourceWithIntegrationLabel(resource, integrationItems)
   );
 
   return (

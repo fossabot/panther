@@ -4,7 +4,7 @@ import { READONLY_ROLES_ARRAY } from 'Source/constants';
 import RoleRestrictedAccess from 'Components/role-restricted-access';
 import ErrorBoundary from 'Components/error-boundary';
 import { gql, useQuery } from '@apollo/client';
-import { Destination, ListDestinationsResponse } from 'Generated/schema';
+import { Destination } from 'Generated/schema';
 import { extractErrorMessage } from 'Helpers/utils';
 import columns from './columns';
 import DestinationsPageSkeleton from './skeleton';
@@ -14,54 +14,52 @@ import DestinationCreateButton from './subcomponents/create-button';
 export const LIST_DESTINATIONS = gql`
   query ListDestinationsAndDefaults {
     destinations {
-      outputs {
-        createdBy
-        creationTime
-        displayName
-        lastModifiedBy
-        lastModifiedTime
-        outputId
-        outputType
-        outputConfig {
-          slack {
-            webhookURL
-          }
-          sns {
-            topicArn
-          }
-          email {
-            destinationAddress
-          }
-          pagerDuty {
-            integrationKey
-          }
-          github {
-            repoName
-            token
-          }
-          jira {
-            orgDomain
-            projectKey
-            userName
-            apiKey
-            assigneeID
-          }
-          opsgenie {
-            apiKey
-          }
-          msTeams {
-            webhookURL
-          }
+      createdBy
+      creationTime
+      displayName
+      lastModifiedBy
+      lastModifiedTime
+      outputId
+      outputType
+      outputConfig {
+        slack {
+          webhookURL
         }
-        verificationStatus
-        defaultForSeverity
+        sns {
+          topicArn
+        }
+        email {
+          destinationAddress
+        }
+        pagerDuty {
+          integrationKey
+        }
+        github {
+          repoName
+          token
+        }
+        jira {
+          orgDomain
+          projectKey
+          userName
+          apiKey
+          assigneeID
+        }
+        opsgenie {
+          apiKey
+        }
+        msTeams {
+          webhookURL
+        }
       }
+      verificationStatus
+      defaultForSeverity
     }
   }
 `;
 
 export interface ListDestinationsQueryData {
-  destinations: ListDestinationsResponse;
+  destinations: Destination[];
 }
 
 const ListDestinations = () => {
@@ -86,8 +84,7 @@ const ListDestinations = () => {
     );
   }
 
-  const { outputs } = data.destinations;
-  if (!outputs.length) {
+  if (!data.destinations.length) {
     return <DestinationsPageEmptyDataFallback />;
   }
 
@@ -101,7 +98,7 @@ const ListDestinations = () => {
       <Card>
         <ErrorBoundary>
           <Table<Destination>
-            items={outputs}
+            items={data.destinations}
             getItemKey={item => item.outputId}
             columns={columns}
           />

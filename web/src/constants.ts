@@ -76,7 +76,7 @@ export const DEFAULT_LARGE_PAGE_SIZE = 25;
 export const USER_INFO_STORAGE_KEY = 'panther.user.info';
 
 export const READONLY_ROLES_ARRAY = [RoleNameEnum.ReadOnly];
-export const ADMIN_ROLES_ARRAY = [RoleNameEnum.Admins];
+export const ADMIN_ROLES_ARRAY = [RoleNameEnum.Admin];
 
 export enum INTEGRATION_TYPES {
   AWS_LOGS = 'aws-s3',

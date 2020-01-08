@@ -258,11 +258,6 @@ export type IntegrationConfigInput = {
   awsRoleArn?: Maybe<Scalars['String']>;
 };
 
-export type IntegrationsByOrganizationResponse = {
-  __typename?: 'IntegrationsByOrganizationResponse';
-  integrations?: Maybe<Array<Integration>>;
-};
-
 export type InviteUserInput = {
   givenName?: Maybe<Scalars['String']>;
   familyName?: Maybe<Scalars['String']>;
@@ -311,11 +306,6 @@ export type ListComplianceItemsResponse = {
   paging?: Maybe<PagingData>;
   status?: Maybe<ComplianceStatusEnum>;
   totals?: Maybe<ActiveSuppressCount>;
-};
-
-export type ListDestinationsResponse = {
-  __typename?: 'ListDestinationsResponse';
-  outputs?: Maybe<Array<Destination>>;
 };
 
 export type ListIntegrationsInput = {
@@ -655,7 +645,7 @@ export type Query = {
   users?: Maybe<ListUsersOutput>;
   organization?: Maybe<GetOrganizationResponse>;
   destination?: Maybe<Destination>;
-  destinations?: Maybe<ListDestinationsResponse>;
+  destinations?: Maybe<Array<Maybe<Destination>>>;
   remediations?: Maybe<Scalars['AWSJSON']>;
   resource?: Maybe<ResourceDetails>;
   resources?: Maybe<ListResourcesResponse>;
@@ -663,7 +653,7 @@ export type Query = {
   policy?: Maybe<PolicyDetails>;
   policies?: Maybe<ListPoliciesResponse>;
   policiesForResource?: Maybe<ListComplianceItemsResponse>;
-  integrations?: Maybe<IntegrationsByOrganizationResponse>;
+  integrations?: Maybe<Array<Integration>>;
   organizationStats?: Maybe<OrganizationStatsResponse>;
   rule?: Maybe<RuleDetails>;
   rules?: Maybe<ListRulesResponse>;
@@ -773,8 +763,8 @@ export type ResourceSummary = {
 };
 
 export enum RoleNameEnum {
-  Admins = 'Admins',
-  Analysts = 'Analysts',
+  Admin = 'Admin',
+  Analyst = 'Analyst',
   ReadOnly = 'ReadOnly',
 }
 

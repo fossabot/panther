@@ -4,12 +4,7 @@ import { INTEGRATION_TYPES, RESOURCE_TYPES } from 'Source/constants';
 import GenerateFiltersGroup from 'Components/utils/generate-filters-group';
 
 import { useQuery, gql } from '@apollo/client';
-import {
-  IntegrationsByOrganizationResponse,
-  ComplianceStatusEnum,
-  ListResourcesInput,
-  Integration,
-} from 'Generated/schema';
+import { ComplianceStatusEnum, ListResourcesInput, Integration } from 'Generated/schema';
 import { capitalize } from 'Helpers/utils';
 import FormikTextInput from 'Components/fields/text-input';
 import FormikCombobox from 'Components/fields/combobox';
@@ -68,10 +63,8 @@ export const filters = {
 const LIST_ACCOUNT_IDS = gql`
   query ListAccountIds {
     integrations(input: { integrationType: "${INTEGRATION_TYPES.AWS_INFRA}"}) {
-      integrations {
         integrationLabel
         integrationId
-      }
     }
   }
 `;
@@ -100,15 +93,12 @@ const ListResourcesActions: React.FC = () => {
     ListResourcesInput
   >();
 
-  const { error, data } = useQuery<{ integrations: IntegrationsByOrganizationResponse }>(
-    LIST_ACCOUNT_IDS,
-    {
-      fetchPolicy: 'cache-first',
-    }
-  );
+  const { error, data } = useQuery<{ integrations: Integration[] }>(LIST_ACCOUNT_IDS, {
+    fetchPolicy: 'cache-first',
+  });
 
   if (data) {
-    filters.integrationId.props.items = data.integrations.integrations;
+    filters.integrationId.props.items = data.integrations;
   }
 
   // Just because the `integrationId` field has objects as items, when a value is selected we have
@@ -133,9 +123,7 @@ const ListResourcesActions: React.FC = () => {
     () => ({
       ...(pick(requestParams, filterKeys) as ListResourcesFiltersValues),
       integrationId:
-        data?.integrations.integrations.find(
-          i => i.integrationId === requestParams.integrationId
-        ) || null,
+        data?.integrations.find(i => i.integrationId === requestParams.integrationId) || null,
     }),
     [requestParams, data]
   );

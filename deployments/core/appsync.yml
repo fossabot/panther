@@ -27,7 +27,7 @@ Resources:
       UserPoolConfig:
         AwsRegion: !Ref AWS::Region
         UserPoolId: !Ref UserPoolId
-        DefaultAction: DENY
+        DefaultAction: ALLOW
       LogConfig:
         CloudWatchLogsRoleArn: !GetAtt AppsyncServiceRole.Arn
         FieldLogLevel: ALL
@@ -198,7 +198,7 @@ Resources:
           })
         }
       ResponseMappingTemplate: |
-        #if( $context.error )
+        #if($context.error)
           $util.error($context.error.errorMessage, $context.error.errorType, $context.stash)
         #else
           $util.toJson($context.result)
@@ -223,7 +223,7 @@ Resources:
           })
         }
       ResponseMappingTemplate: |
-        #if( $context.error )
+        #if($context.error)
           $util.error($context.error.errorMessage, $context.error.errorType, $input)
         #else
           true
@@ -246,7 +246,7 @@ Resources:
           })
         }
       ResponseMappingTemplate: |
-        #if( $context.error )
+        #if($context.error)
           $util.error($context.error.errorMessage, $context.error.errorType, $context.stash)
         #else
           $util.qr($context.stash.put("alert", $context.result))
@@ -343,7 +343,7 @@ Resources:
           })
         }
       ResponseMappingTemplate: |
-        #if( $context.error )
+        #if($context.error)
           $util.error($context.error.errorMessage, $context.error.errorType, $ctx.args)
         #else
           $util.toJson($context.result)
@@ -369,7 +369,7 @@ Resources:
           })
         }
       ResponseMappingTemplate: |
-        #if( $context.error )
+        #if($context.error)
           $util.error($context.error.errorMessage, $context.error.errorType, $ctx.args)
         #else
           $util.toJson($context.result)
@@ -399,7 +399,7 @@ Resources:
           })
         }
       ResponseMappingTemplate: |
-        #if( $context.error )
+        #if($context.error)
           $util.error($context.error.errorMessage, $context.error.errorType, $ctx.args)
         #else
           $util.toJson($context.result)
@@ -424,7 +424,7 @@ Resources:
           })
         }
       ResponseMappingTemplate: |
-        #if( $context.error )
+        #if($context.error)
           $util.error($context.error.errorMessage, $context.error.errorType, {})
         #else
           $util.toJson($context.result)
@@ -449,7 +449,7 @@ Resources:
           })
         }
       ResponseMappingTemplate: |
-        #if( $context.error )
+        #if($context.error)
           $util.error($context.error.errorMessage, $context.error.errorType, $ctx.args)
         #else
           $util.toJson($context.result)
@@ -472,12 +472,10 @@ Resources:
           })
         }
       ResponseMappingTemplate: |
-        #if( $context.error )
+        #if($context.error)
           $util.error($context.error.errorMessage, $context.error.errorType, {})
         #else
-          $util.toJson({
-            "outputs": $ctx.result
-          })
+          $util.toJson($ctx.result)
         #end
 
   AddDestinationResolver:
@@ -499,7 +497,7 @@ Resources:
           })
         }
       ResponseMappingTemplate: |
-        #if( $context.error )
+        #if($context.error)
             $util.error($context.error.errorMessage, $context.error.errorType, $input)
         #else
           $util.toJson($context.result)
@@ -525,7 +523,7 @@ Resources:
           })
         }
       ResponseMappingTemplate: |
-        #if( $context.error )
+        #if($context.error)
           $util.error($context.error.errorMessage, $context.error.errorType, $ctx.args)
         #else
           $util.toJson($context.result)
@@ -550,7 +548,7 @@ Resources:
           })
         }
       ResponseMappingTemplate: |
-        #if( $context.error )
+        #if($context.error)
           $util.error($context.error.errorMessage, $context.error.errorType, $input)
         #else
           $util.toJson($context.result)
@@ -569,16 +567,16 @@ Resources:
           "version" : "2017-02-28",
           "operation": "Invoke",
           "payload": $util.toJson({
-            "listIntegrationsByOrganization": {}
+            "getEnabledIntegrations": {
+              "integrationType": $ctx.args.input.integrationType
+            }
           })
         }
       ResponseMappingTemplate: |
-        #if( $context.error )
+        #if($context.error)
           $util.error($context.error.errorMessage, $context.error.errorType, {})
         #else
-          $util.toJson({
-            "integrations": $ctx.result
-          })
+          $util.toJson($ctx.result)
         #end
 
   AddIntegrationResolver:
@@ -611,10 +609,10 @@ Resources:
           })
         }
       ResponseMappingTemplate: |
-        #if( $context.error )
+        #if($context.error)
           $util.error($context.error.errorMessage, $context.error.errorType, $sourcesInput)
         #else
-          $util.toJson(true)
+          true
         #end
 
   UpdateIntegrationResolver:
@@ -640,7 +638,7 @@ Resources:
           })
         }
       ResponseMappingTemplate: |
-        #if( $context.error )
+        #if($context.error)
           $util.error($context.error.errorMessage, $context.error.errorType, $ctx.args)
         #else
           $util.toJson($context.result)
@@ -665,7 +663,7 @@ Resources:
           })
         }
       ResponseMappingTemplate: |
-        #if( $context.error )
+        #if($context.error)
           $util.error($context.error.errorMessage, $context.error.errorType, $ctx.args)
         #else
           $util.toJson($context.result)
@@ -730,7 +728,7 @@ Resources:
       ResponseMappingTemplate: |
         #set ($statusCode = $ctx.result.statusCode)
         #if($statusCode == 200)
-            $util.toJson($ctx.result.body)
+            $ctx.result.body
         #elseif($statusCode >= 400 && $statusCode < 500)
             $util.error($util.parseJson($ctx.result.body).message, "$statusCode", $input)
         #else
@@ -760,7 +758,7 @@ Resources:
       ResponseMappingTemplate: |
         #set ($statusCode = $ctx.result.statusCode)
         #if($statusCode == 200)
-            $util.toJson($ctx.result.body)
+            $ctx.result.body
         #elseif($statusCode >= 400 && $statusCode < 500)
             $util.error($util.parseJson($ctx.result.body).message, "$statusCode", $input)
         #else
@@ -792,7 +790,7 @@ Resources:
       ResponseMappingTemplate: |
         #set ($statusCode = $ctx.result.statusCode)
         #if($statusCode == 200)
-            $util.toJson($ctx.result.body)
+            $ctx.result.body
         #elseif($statusCode >= 400 && $statusCode < 500)
             $util.error($util.parseJson($ctx.result.body).message, "$statusCode", $input)
         #else
@@ -824,7 +822,7 @@ Resources:
       ResponseMappingTemplate: |
         #set ($statusCode = $ctx.result.statusCode)
         #if($statusCode == 201)
-            $util.toJson($ctx.result.body)
+            $ctx.result.body
         #elseif($statusCode >= 400 && $statusCode < 500)
             $util.error($util.parseJson($ctx.result.body).message, "$statusCode", $input)
         #else
@@ -894,7 +892,7 @@ Resources:
       ResponseMappingTemplate: |
         #set ($statusCode = $ctx.result.statusCode)
         #if($statusCode == 200)
-            $util.toJson($ctx.result.body)
+            $ctx.result.body
         #elseif($statusCode >= 400 && $statusCode < 500)
             $util.error($util.parseJson($ctx.result.body).message, "$statusCode", $input)
         #else
@@ -925,7 +923,7 @@ Resources:
       ResponseMappingTemplate: |
         #set ($statusCode = $ctx.result.statusCode)
         #if($statusCode == 200)
-            $util.toJson($ctx.result.body)
+            $ctx.result.body
         #elseif($statusCode >= 400 && $statusCode < 500)
             $util.error($util.parseJson($ctx.result.body).message, "$statusCode", $input)
         #else
@@ -955,7 +953,7 @@ Resources:
       ResponseMappingTemplate: |
         #set ($statusCode = $ctx.result.statusCode)
         #if($statusCode == 200)
-            $util.toJson($ctx.result.body)
+            $ctx.result.body
         #elseif($statusCode >= 400 && $statusCode < 500)
             $util.error($util.parseJson($ctx.result.body).message, "$statusCode", $input)
         #else
@@ -1017,7 +1015,7 @@ Resources:
       ResponseMappingTemplate: |
         #set ($statusCode = $ctx.result.statusCode)
         #if($statusCode == 200)
-            $util.toJson($ctx.result.body)
+            $ctx.result.body
         #elseif($statusCode >= 400 && $statusCode < 500)
             $util.error($util.parseJson($ctx.result.body).message, "$statusCode", $input)
         #else
@@ -1047,7 +1045,7 @@ Resources:
       ResponseMappingTemplate: |
         #set ($statusCode = $ctx.result.statusCode)
         #if($statusCode == 200)
-            $util.toJson($ctx.result.body)
+            $ctx.result.body
         #elseif($statusCode >= 400 && $statusCode < 500)
             $util.error($util.parseJson($ctx.result.body).message, "$statusCode", $input)
         #else
@@ -1077,7 +1075,7 @@ Resources:
       ResponseMappingTemplate: |
         #set ($statusCode = $ctx.result.statusCode)
         #if($statusCode == 200)
-            $util.toJson($ctx.result.body)
+            $ctx.result.body
         #elseif($statusCode >= 400 && $statusCode < 500)
             $util.error($util.parseJson($ctx.result.body).message, "$statusCode", $input)
         #else
@@ -1107,7 +1105,7 @@ Resources:
       ResponseMappingTemplate: |
         #set ($statusCode = $ctx.result.statusCode)
         #if($statusCode == 200)
-            $util.toJson($ctx.result.body)
+            $ctx.result.body
         #elseif($statusCode >= 400 && $statusCode < 500)
             $util.error($util.parseJson($ctx.result.body).message, "$statusCode", $input)
         #else
@@ -1168,7 +1166,7 @@ Resources:
       ResponseMappingTemplate: |
         #set ($statusCode = $ctx.result.statusCode)
         #if($statusCode == 200)
-            $util.toJson($ctx.result.body)
+            $ctx.result.body
         #elseif($statusCode >= 400 && $statusCode < 500)
             $util.error($util.parseJson($ctx.result.body).message, "$statusCode", $input)
         #else
@@ -1198,7 +1196,7 @@ Resources:
       ResponseMappingTemplate: |
         #set ($statusCode = $ctx.result.statusCode)
         #if($statusCode == 200)
-            $util.toJson($ctx.result.body)
+            $ctx.result.body
         #elseif($statusCode >= 400 && $statusCode < 500)
             $util.error($util.parseJson($ctx.result.body).message, "$statusCode", $input)
         #else
@@ -1230,7 +1228,7 @@ Resources:
       ResponseMappingTemplate: |
         #set ($statusCode = $ctx.result.statusCode)
         #if($statusCode == 200)
-            $util.toJson($ctx.result.body)
+            $ctx.result.body
         #elseif($statusCode >= 400 && $statusCode < 500)
             $util.error($util.parseJson($ctx.result.body).message, "$statusCode", $input)
         #else
@@ -1286,7 +1284,7 @@ Resources:
           })
         }
       ResponseMappingTemplate: |
-        #if( $context.error )
+        #if($context.error)
           $util.error($context.error.errorMessage, $context.error.errorType, $ctx.args)
         #else
           $util.toJson($context.result)
@@ -1333,7 +1331,7 @@ Resources:
       ResponseMappingTemplate: |
         #set ($statusCode = $ctx.result.statusCode)
         #if($statusCode == 200)
-            $util.toJson($ctx.result.body)
+            $ctx.result.body
         #elseif($statusCode >= 400 && $statusCode < 500)
             $util.error($util.parseJson($ctx.result.body).message, "$statusCode", $input)
         #else

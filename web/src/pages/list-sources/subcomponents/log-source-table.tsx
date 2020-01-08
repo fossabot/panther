@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery, gql } from '@apollo/client';
-import { IntegrationsByOrganizationResponse } from 'Generated/schema';
+import { Integration } from 'Generated/schema';
 import columns from 'Pages/list-sources/log-source-columns';
 import { INTEGRATION_TYPES } from 'Source/constants';
 import BaseSourceTable from 'Pages/list-sources/subcomponents/base-source-table';
@@ -8,7 +8,6 @@ import BaseSourceTable from 'Pages/list-sources/subcomponents/base-source-table'
 export const LIST_LOG_SOURCES = gql`
   query ListLogSources {
     integrations(input: { integrationType: "${INTEGRATION_TYPES.AWS_LOGS}" }) {
-      integrations {
           awsAccountId
           createdAtTime
           integrationId
@@ -16,19 +15,16 @@ export const LIST_LOG_SOURCES = gql`
           integrationType
           sourceSnsTopicArn
           logProcessingRoleArn
-      }
     }
   }
 `;
 
 const LogSourceTable = () => {
-  const query = useQuery<{ integrations: IntegrationsByOrganizationResponse }>(LIST_LOG_SOURCES, {
+  const query = useQuery<{ integrations: Integration[] }>(LIST_LOG_SOURCES, {
     fetchPolicy: 'cache-and-network',
   });
 
-  return (
-    <BaseSourceTable query={query} columns={columns} integrationType={INTEGRATION_TYPES.AWS_LOGS} />
-  );
+  return <BaseSourceTable query={query} columns={columns} />;
 };
 
 export default React.memo(LogSourceTable);

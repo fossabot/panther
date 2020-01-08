@@ -38,7 +38,7 @@ type Query {
   users(limit: Int, paginationToken: String): ListUsersOutput
   organization: GetOrganizationResponse
   destination(id: ID!): Destination
-  destinations: ListDestinationsResponse
+  destinations: [Destination]
   remediations: AWSJSON
   resource(input: GetResourceInput!): ResourceDetails
   resources(input: ListResourcesInput): ListResourcesResponse
@@ -46,7 +46,7 @@ type Query {
   policy(input: GetPolicyInput!): PolicyDetails
   policies(input: ListPoliciesInput): ListPoliciesResponse
   policiesForResource(input: PoliciesForResourceInput): ListComplianceItemsResponse
-  integrations(input: ListIntegrationsInput): IntegrationsByOrganizationResponse
+  integrations(input: ListIntegrationsInput): [Integration!]
   organizationStats(input: OrganizationStatsInput): OrganizationStatsResponse
   rule(input: GetRuleInput!): RuleDetails
   rules(input: ListRulesInput): ListRulesResponse
@@ -285,10 +285,6 @@ input IntegrationConfigInput {
   awsRoleArn: String
 }
 
-type IntegrationsByOrganizationResponse {
-  integrations: [Integration!]
-}
-
 type Integration {
   awsAccountId: String
   createdAtTime: AWSDateTime
@@ -325,10 +321,6 @@ input UpdateIntegrationInput {
   integrationLabel: String!
   sourceSnsTopicArn: String
   logProcessingRoleArn: String
-}
-
-type ListDestinationsResponse {
-  outputs: [Destination!]
 }
 
 type ListPoliciesResponse {
@@ -731,8 +723,8 @@ enum AccountTypeEnum {
 }
 
 enum RoleNameEnum {
-  Admins
-  Analysts
+  Admin
+  Analyst
   ReadOnly
 }
 

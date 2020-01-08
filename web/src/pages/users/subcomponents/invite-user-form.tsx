@@ -39,7 +39,7 @@ const initialValues = {
   email: '',
   familyName: '',
   givenName: '',
-  role: RoleNameEnum.Analysts,
+  role: RoleNameEnum.Analyst,
 };
 
 const validationSchema = Yup.object().shape({
