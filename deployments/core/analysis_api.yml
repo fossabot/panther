@@ -34,25 +34,10 @@ Parameters:
     Default: 120
     MinValue: 5
     MaxValue: 900
-  EngineMemorySizeMB:
-    Type: Number
-    Description: Memory (MB) available for the Python analysis engine
-    Default: 512
-    MinValue: 128
-    MaxValue: 3008
-  EngineTimeoutSec:
-    Type: Number
-    Description: Timeout (seconds) for the Python analysis engine
-    Default: 120
-    MinValue: 5
-    MaxValue: 900
 
   ComplianceApiId:
     Type: String
     Description: API Gateway for compliance-api
-  PythonLayerArn:
-    Type: String
-    Description: Python Lambda layer with pip libraries for analysis
   S3BucketAccessLogs:
     Type: String
     Description: S3 bucket for storing S3 access logs
@@ -95,7 +80,7 @@ Resources:
           COMPLIANCE_API_HOST: !Sub '${ComplianceApiId}.execute-api.${AWS::Region}.amazonaws.com'
           COMPLIANCE_API_PATH: v1
           DEBUG: !Ref Debug
-          ENGINE: panther-analysis-engine
+          ENGINE: panther-policy-engine
           RESOURCE_QUEUE_URL: !Sub https://sqs.${AWS::Region}.amazonaws.com/${AWS::AccountId}/panther-resources
           TABLE: !Ref Table
       FunctionName: panther-analysis-api
@@ -123,7 +108,7 @@ Resources:
             -
               Effect: Allow
               Action: lambda:InvokeFunction
-              Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:panther-analysis-engine
+              Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:panther-policy-engine
         -
           Id: ManageDataStores
           Version: 2012-10-17
@@ -171,37 +156,7 @@ Resources:
       LogGroupName: /aws/lambda/panther-analysis-api
       RetentionInDays: !Ref CloudWatchLogRetentionDays
 
-  ##### Python Engine #####
-  EngineFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: ../../../internal/core/analysis_engine
-      Description: Python Analysis Engine
-      FunctionName: panther-analysis-engine
-      Handler: src.main.lambda_handler
-      MemorySize: !Ref EngineMemorySizeMB
-      Layers: !If
-        - AttachBaseLayers
-        - !Split
-          # CFN doesn't have list append, so convert to/from CSV string to prepend base layers
-          - ","
-          - !Sub
-            - "${base},${pip}"
-            - {base: !Join [",", !Ref LayerVersionArns], pip: !Ref PythonLayerArn}
-        - [!Ref PythonLayerArn]
-      Runtime: python3.7
-      Tags:
-        Application: Panther
-      Timeout: !Ref EngineTimeoutSec
-      Tracing: !If [TracingEnabled, !Ref TracingMode, !Ref 'AWS::NoValue']
-      Policies:
-        - !If [TracingEnabled, 'arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess', !Ref 'AWS::NoValue']
 
-  EngineLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: /aws/lambda/panther-analysis-engine
-      RetentionInDays: !Ref CloudWatchLogRetentionDays
 
   ##### Data Stores #####
   Table:

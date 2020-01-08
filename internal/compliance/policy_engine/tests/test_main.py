@@ -57,60 +57,6 @@ class TestMain(unittest.TestCase):
         self.assertEqual(1, mock_logger.info.call_count)
         mock_logger.exception.assert_not_called()
 
-    def test_rule(self, mock_logger: mock.MagicMock) -> None:
-        """Test the execution of rules."""
-        lambda_event = {
-            'rules':
-                [
-                    {
-                        'body': 'def rule(event): return True',
-                        'id': 'panther-true'
-                    },
-                    {
-                        'body': 'def rule(event): return False',
-                        'id': 'panther-false',
-                        'logTypes': ['AWS.CloudTrail', 'osquery.snapshot']
-                    },
-                ],
-            'events':
-                [
-                    {
-                        'data': {
-                            'key': 'value'
-                        },
-                        'id': 'my-trail',
-                        'type': 'AWS.CloudTrail'
-                    }, {
-                        'data': {
-                            'key': 'value'
-                        },
-                        'id': 'my-trail-2',
-                        'type': 'AWS.CloudTrail'
-                    }
-                ]
-        }
-        result = main.lambda_handler(lambda_event, None)
-
-        expected = {
-            'events':
-                [
-                    {
-                        'id': 'my-trail',
-                        'errored': [],
-                        'matched': ['panther-true'],
-                        'notMatched': ['panther-false']
-                    }, {
-                        'id': 'my-trail-2',
-                        'errored': [],
-                        'matched': ['panther-true'],
-                        'notMatched': ['panther-false']
-                    }
-                ]
-        }
-        self.assertEqual(expected, result)
-        self.assertEqual(1, mock_logger.info.call_count)
-        mock_logger.exception.assert_not_called()
-
     def test_duplicate_id(self, mock_logger: mock.MagicMock) -> None:
         """Policies with duplicate sanitized ids raise an error."""
         lambda_event = {

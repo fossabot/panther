@@ -23,7 +23,7 @@ type envConfig struct {
 	AlertQueueURL     string `required:"true" split_words:"true"`
 	AnalysisAPIHost   string `required:"true" split_words:"true"`
 	AnalysisAPIPath   string `required:"true" split_words:"true"`
-	AnalysisEngine    string `required:"true" split_words:"true"`
+	PolicyEngine      string `required:"true" split_words:"true"`
 	ComplianceAPIHost string `required:"true" split_words:"true"`
 	ComplianceAPIPath string `required:"true" split_words:"true"`
 	ResourceAPIHost   string `required:"true" split_words:"true"`

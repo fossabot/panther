@@ -3,7 +3,7 @@ import json
 import unittest
 import boto3
 
-_FUNCTION = 'panther-analysis-engine'
+_FUNCTION = 'panther-policy-engine'
 _INPUT = {
     'policies':
         [
@@ -72,19 +72,6 @@ _INPUT = {
             },
         ]
 }
-_RULE_INPUT = {
-    'rules': [{
-        'body': 'def rule(event): return len(event) > 0',
-        'id': 'NonEmptyEvent',
-    }],
-    'events': [{
-        'data': {
-            'key': 'value'
-        },
-        'id': 'only-event',
-        'type': 'AWS.CloudTrail'
-    }]
-}
 
 
 class IntegrationTest(unittest.TestCase):
@@ -135,14 +122,6 @@ class IntegrationTest(unittest.TestCase):
                     },
                 ]
         }
-        self.assertEqual(expected, output)
-
-    def test_rules(self) -> None:
-        """Invoke with rules (instead of policies)"""
-        response = self._client.invoke(FunctionName=_FUNCTION, Payload=json.dumps(_RULE_INPUT).encode('utf-8'))
-        self.assertIsNone(response.get('FunctionError'))
-        output = json.loads(response['Payload'].read())
-        expected = {'events': [{'id': 'only-event', 'errored': [], 'matched': ['NonEmptyEvent'], 'notMatched': []}]}
         self.assertEqual(expected, output)
 
 

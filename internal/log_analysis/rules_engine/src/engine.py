@@ -25,7 +25,7 @@ class Engine:
         start = default_timer()
         rules = self.get_rules()
         end = default_timer()
-        self.logger.info('Retrieved rules in {} seconds'.format(end-start))
+        self.logger.info('Retrieved rules in {} seconds'.format(end - start))
         start = default_timer()
 
         # Importing COMMON module
@@ -39,7 +39,7 @@ class Engine:
             for log_type in raw_rule['resourceTypes']:
                 self._log_type_to_rules[log_type].append(rule)
         end = default_timer()
-        self.logger.info('Imported rules in {} seconds'.format(end-start))
+        self.logger.info('Imported rules in {} seconds'.format(end - start))
         self._last_update = datetime.utcnow()
 
     def get_rules(self) -> List[Dict[str, str]]:

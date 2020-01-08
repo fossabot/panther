@@ -5,7 +5,6 @@ from typing import List, Dict
 
 import boto3
 
-
 # Max number of SQS messages inside an SQS batch
 _MAX_MESSAGES = 10
 # Max size of an SQS batch request
@@ -23,10 +22,7 @@ def send_to_sqs(matches: List) -> None:
     current_byte_size = 0
 
     for i in range(len(messages)):
-        entry = {
-            'Id': str(i),
-            'MessageBody': messages[i]
-        }
+        entry = {'Id': str(i), 'MessageBody': messages[i]}
         projected_size = current_byte_size + len(messages[i])
         projected_num_entries = len(current_entries) + 1
         if projected_num_entries > _MAX_MESSAGES or projected_size > _MAX_MESSAGE_SIZE:
@@ -44,9 +40,5 @@ def send_to_sqs(matches: List) -> None:
 
 
 def match_to_sqs_entry_message(match: (str, str)) -> str:
-    notification = {
-        'ruleId': match[0],
-        'event': match[1],
-        'timestamp': datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
-    }
+    notification = {'ruleId': match[0], 'event': match[1], 'timestamp': datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')}
     return json.dumps(notification)

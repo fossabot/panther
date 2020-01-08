@@ -40,11 +40,8 @@ class Policy:
             return self._import_error
 
         try:
-            # Python source should have a method called "policy" or "rule"
-            if hasattr(self._module, 'policy'):
-                matched = self._module.policy(resource_attributes)
-            else:
-                matched = self._module.rule(resource_attributes)
+            # Python source should have a method called "policy"
+            matched = self._module.policy(resource_attributes)
         except Exception as err:  # pylint: disable=broad-except
             return err
 

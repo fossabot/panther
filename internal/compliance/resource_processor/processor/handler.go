@@ -241,11 +241,11 @@ func evaluatePolicies(policies policyMap, resources resourceMap) (*enginemodels.
 	}
 
 	zap.L().Info("invoking policy engine",
-		zap.String("policyEngine", env.AnalysisEngine),
+		zap.String("policyEngine", env.PolicyEngine),
 		zap.Int("policyCount", len(input.Policies)),
 		zap.Int("resourceCount", len(input.Resources)),
 	)
-	response, err := lambdaClient.Invoke(&lambda.InvokeInput{FunctionName: &env.AnalysisEngine, Payload: body})
+	response, err := lambdaClient.Invoke(&lambda.InvokeInput{FunctionName: &env.PolicyEngine, Payload: body})
 	if err != nil {
 		zap.L().Error("failed to invoke policy engine", zap.Error(err))
 		return nil, err

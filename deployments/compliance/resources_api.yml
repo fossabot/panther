@@ -46,6 +46,18 @@ Parameters:
     Default: 180
     MinValue: 5
     MaxValue: 900
+  EngineMemorySizeMB:
+    Type: Number
+    Description: Memory (MB) available for the Python analysis engine
+    Default: 512
+    MinValue: 128
+    MaxValue: 3008
+  EngineTimeoutSec:
+    Type: Number
+    Description: Timeout (seconds) for the Python analysis engine
+    Default: 120
+    MinValue: 5
+    MaxValue: 900
 
   AnalysisApiId:
     Type: String
@@ -53,12 +65,15 @@ Parameters:
   ComplianceApiId:
     Type: String
     Description: API Gateway for compliance-api
+  PythonLayerArn:
+    Type: String
+    Description: Python Lambda layer with pip libraries for analysis
   SQSKeyId:
     Type: String
     Description: KMS key ID for SQS encryption
 
 Conditions:
-  AttachLayers: !Not [!Equals [!Join ['', !Ref LayerVersionArns], '']]
+  AttachBaseLayers: !Not [!Equals [!Join ['', !Ref LayerVersionArns], '']]
   TracingEnabled: !Not [!Equals ['', !Ref TracingMode]]
 
 Resources:
@@ -95,7 +110,7 @@ Resources:
           RESOURCES_TABLE: !Ref ResourcesTable
       FunctionName: panther-resources-api
       Handler: main
-      Layers: !If [AttachLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
+      Layers: !If [AttachBaseLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
       MemorySize: !Ref HandlerMemorySizeMB
       Runtime: go1.x
       Tags:
@@ -209,7 +224,7 @@ Resources:
           DEBUG: !Ref Debug
           ANALYSIS_API_HOST: !Sub '${AnalysisApiId}.execute-api.${AWS::Region}.amazonaws.com'
           ANALYSIS_API_PATH: v1
-          ANALYSIS_ENGINE: panther-analysis-engine
+          POLICY_ENGINE: panther-policy-engine
           COMPLIANCE_API_HOST: !Sub '${ComplianceApiId}.execute-api.${AWS::Region}.amazonaws.com'
           COMPLIANCE_API_PATH: v1
           RESOURCE_API_HOST: !Sub '${GatewayApi}.execute-api.${AWS::Region}.amazonaws.com'
@@ -222,7 +237,7 @@ Resources:
             Queue: !GetAtt InputQueue.Arn
       FunctionName: panther-resource-processor
       Handler: main
-      Layers: !If [AttachLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
+      Layers: !If [AttachBaseLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
       MemorySize: !Ref QueueProcessorMemorySizeMB
       Runtime: go1.x
       Tags:
@@ -261,7 +276,7 @@ Resources:
             -
               Effect: Allow
               Action: lambda:InvokeFunction
-              Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:panther-analysis-engine
+              Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:panther-policy-engine
             -
               Effect: Allow
               Action: execute-api:Invoke
@@ -276,6 +291,38 @@ Resources:
               Resource:
                 - !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${ComplianceApiId}/v1/GET/status
                 - !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${ComplianceApiId}/v1/POST/status
+
+  ##### Python Engine #####
+  EngineFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../../../internal/compliance/policy_engine
+      Description: Python Policy Engine
+      FunctionName: panther-policy-engine
+      Handler: src.main.lambda_handler
+      MemorySize: !Ref EngineMemorySizeMB
+      Layers: !If
+        - AttachBaseLayers
+        - !Split
+          # CFN doesn't have list append, so convert to/from CSV string to prepend base layers
+          - ","
+          - !Sub
+            - "${base},${pip}"
+            - {base: !Join [",", !Ref LayerVersionArns], pip: !Ref PythonLayerArn}
+        - [!Ref PythonLayerArn]
+      Runtime: python3.7
+      Tags:
+        Application: Panther
+      Timeout: !Ref EngineTimeoutSec
+      Tracing: !If [TracingEnabled, !Ref TracingMode, !Ref 'AWS::NoValue']
+      Policies:
+        - !If [TracingEnabled, 'arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess', !Ref 'AWS::NoValue']
+
+  EngineLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/panther-policy-engine
+      RetentionInDays: !Ref CloudWatchLogRetentionDays
 
 Outputs:
   GatewayId:

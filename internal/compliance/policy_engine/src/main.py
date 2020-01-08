@@ -30,23 +30,7 @@ def lambda_handler(lambda_event: Dict[str, Any], unused_context: Any) -> Dict[st
                     'id': 'arn:aws:s3:::my-bucket',
                     'type': 'AWS.S3.Bucket'
                 }
-            ],
-
-            ###### Log Analysis ######
-            'rules': [
-                {
-                    'body': 'def rule(log): ...',
-                    'id': 'UnauthorizedAccess',
-                    'logTypes': ['AWS.CloudTrail']  # can be empty for all resource types
-                }
-            ],
-            'events': [
-                {
-                    'data': { ... log data ... },
-                    'id': 'abc-123',  # any ID unique for each event in the request
-                    'type': 'AWS.CloudTrail'
-                }
-            ],
+            ]
         }
 
     Returns:
@@ -65,47 +49,12 @@ def lambda_handler(lambda_event: Dict[str, Any], unused_context: Any) -> Dict[st
                     'passed': ['policy-id-3', 'policy-id-4'],  # policies which returned True
                 }
             ]
-
-            ###### Log Analysis ######
-            'events': [
-                {
-                    'id': 'abc-123',
-                    'errored': [  # policies which raised a runtime error
-                        {
-                            'id': 'policy-id-1',
-                            'message': 'ZeroDivisionError'
-                        }
-                    ],
-                    'matched': ['policy-id-2', 'policy-id-3'],  # policies which returned True
-                    'notMatched': ['policy-id-3', 'policy-id-4'],  # policies which returned False
-                }
-            ]
         }
     """
-    compliance = True
     if lambda_event.get('resources') is not None and lambda_event.get('policies') is not None:
         _LOGGER.info('Scanning %d resources with %d compliance policies', len(lambda_event['resources']), len(lambda_event['policies']))
-    elif lambda_event.get('rules') is not None and lambda_event.get('events') is not None:
-        _LOGGER.info('Scanning %d events with %d log analysis rules', len(lambda_event['events']), len(lambda_event['rules']))
-        compliance = False
-
-        # Convert to the compliance format so we can use the exact same analysis.
-        lambda_event['policies'] = [
-            {
-                'body': rule['body'],
-                'id': rule['id'],
-                'resourceTypes': rule.get('logTypes')
-            } for rule in lambda_event['rules']
-        ]
-        lambda_event['resources'] = [
-            {
-                'attributes': event['data'],
-                'id': event['id'],
-                'type': event['type']
-            } for event in lambda_event['events']
-        ]
     else:
-        raise ValueError('either resources/policies or rules/events must be specified')
+        raise ValueError('resources and policies much be specified')
 
     # Erase /tmp at the beginning of every invocation.
     if not os.path.exists(_TMP):
@@ -129,23 +78,7 @@ def lambda_handler(lambda_event: Dict[str, Any], unused_context: Any) -> Dict[st
             py_file.write(policy['body'])
         policy['body'] = path  # Replace policy body with file path.
 
-    response = engine.analyze(lambda_event)
-
-    if not compliance:
-        # Convert to log analysis response
-        response = {
-            'events':
-                [
-                    {
-                        'id': result['id'],
-                        'errored': result['errored'],
-                        'matched': result['passed'],  # returned True
-                        'notMatched': result['failed'],  # returned False
-                    } for result in response['resources']
-                ]
-        }
-
-    return response
+    return engine.analyze(lambda_event)
 
 
 def _allowed_char(char: str) -> bool:

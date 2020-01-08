@@ -164,7 +164,6 @@ Resources:
         TracingMode: !Ref TracingMode
 
         ComplianceApiId: !GetAtt ComplianceAPI.Outputs.GatewayId
-        PythonLayerArn: !If [CreatePythonLayer, !Ref PythonLayer, !Ref PythonLayerVersionArn]
         S3BucketAccessLogs: !ImportValue Panther-LogBucket
         SQSKeyId: !Ref QueueEncryptionKey
       Tags:
@@ -250,6 +249,7 @@ Resources:
 
         AnalysisApiId: !GetAtt AnalysisAPI.Outputs.GatewayId
         ComplianceApiId: !GetAtt ComplianceAPI.Outputs.GatewayId
+        PythonLayerArn: !If [CreatePythonLayer, !Ref PythonLayer, !Ref PythonLayerVersionArn]
         SQSKeyId: !Ref QueueEncryptionKey
       Tags:
         - Key: Application

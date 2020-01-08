@@ -210,7 +210,7 @@ func (t Test) Integration() error {
 	// Run Python integration tests unless a Go pkg is specified
 	if os.Getenv("PKG") == "" {
 		fmt.Println("test:integration: python engine")
-		return sh.RunV("venv/bin/python3", "internal/core/analysis_engine/tests/integration.py")
+		return sh.RunV("venv/bin/python3", "internal/compliance/policy_engine/tests/integration.py")
 	}
 	return nil
 }
