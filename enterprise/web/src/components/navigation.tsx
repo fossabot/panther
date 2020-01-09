@@ -181,6 +181,9 @@ const Navigation = () => {
               </Flex>
             </RoleRestrictedAccess>
             <Flex is="li">
+              <NavLink icon="organization" to={urls.account.settings.users()} label="Users" />
+            </Flex>
+            <Flex is="li">
               <NavLink
                 icon="infra-source"
                 to={urls.account.settings.sources.list()}
