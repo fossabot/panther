@@ -225,8 +225,6 @@ Resources:
                 - !Sub arn:aws:iam::${AWS::AccountId}:role/CognitoSNSRole
                 - !Sub arn:aws:iam::${AWS::AccountId}:role/DefaultIdentityPoolAuthenticatedRol
                 - !Sub arn:aws:iam::${AWS::AccountId}:role/IdentityPoolAuthenticatedAdminsRole
-                - !Sub arn:aws:iam::${AWS::AccountId}:role/IdentityPoolAuthenticatedAnalystsRole
-                - !Sub arn:aws:iam::${AWS::AccountId}:role/IdentityPoolAuthenticatedReadOnlyRole
         -
           Id: AppsyncManagement
           Version: 2012-10-17

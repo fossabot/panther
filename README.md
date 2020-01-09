@@ -82,7 +82,7 @@ mage test:ci    # run all required checks
 If you haven't already, [configure](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html) your AWS region and credentials.
 
 Then deploying is as simple as `mage deploy`! You will be prompted to enter a name and email for
-the initial admin user. Once the deploy is complete, that email will receive a link to sign in.
+the default admin user. Once the deploy is complete, that email will receive a link to sign in.
 
 > NOTE: The initial deploy will take 10-15 minutes, and the `deploy` command may timeout before the stack is
 > actually finished. Check the AWS CloudFormation console for the status of your deployment.

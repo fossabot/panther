@@ -34,10 +34,6 @@ import (
 const (
 	// IdentityPoolAuthenticatedAdminsRole is the role the identity pool assumed when the admin users is authenticated
 	IdentityPoolAuthenticatedAdminsRole = "IdentityPoolAuthenticatedAdminsRole"
-	// IdentityPoolAuthenticatedAnalystsRole is the role the identity pool assumed when the analyst users is authenticated
-	IdentityPoolAuthenticatedAnalystsRole = "IdentityPoolAuthenticatedAnalystsRole"
-	// IdentityPoolAuthenticatedReadOnlyRole is the role the identity pool assumed when the read only users is authenticated
-	IdentityPoolAuthenticatedReadOnlyRole = "IdentityPoolAuthenticatedReadOnlyRole"
 )
 
 // UserPool contains user pool metadata
@@ -262,14 +258,6 @@ func createIdentityPool(g *UsersGateway, userPoolID *string, appID *string, disp
 	}
 	if err := updatePolicyCondition(g, aws.String(IdentityPoolAuthenticatedAdminsRole), identityPool.IdentityPoolId); err != nil {
 		zap.L().Error("error setting trusted relationship for admin role", zap.Error(err))
-		return nil, err
-	}
-	if err := updatePolicyCondition(g, aws.String(IdentityPoolAuthenticatedAnalystsRole), identityPool.IdentityPoolId); err != nil {
-		zap.L().Error("error setting trusted relationship for analyst role", zap.Error(err))
-		return nil, err
-	}
-	if err := updatePolicyCondition(g, aws.String(IdentityPoolAuthenticatedReadOnlyRole), identityPool.IdentityPoolId); err != nil {
-		zap.L().Error("error setting trusted relationship for read only role", zap.Error(err))
 		return nil, err
 	}
 	return identityPool, nil
