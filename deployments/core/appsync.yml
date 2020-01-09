@@ -283,7 +283,7 @@ Resources:
           "resourcePath": "/v1/rule",
           "params": {
             "query": $util.toJson({
-              "ruleId": $context.stash.alert.ruleId,
+              "ruleId": $context.stash.alert.ruleId
             }),
             "headers": {
               "Content-Type": "application/json"
@@ -647,7 +647,7 @@ Resources:
               "integrationId": $ctx.args.input.integrationId,
               "integrationLabel": $ctx.args.input.integrationLabel,
               "scanIntervalMins": 1440,
-              "scanEnabled": true,
+              "scanEnabled": true
             }
           })
         }
@@ -672,7 +672,7 @@ Resources:
           "operation": "Invoke",
           "payload": $util.toJson({
             "deleteIntegration": {
-              "integrationId": $ctx.args.id,
+              "integrationId": $ctx.args.id
             }
           })
         }
