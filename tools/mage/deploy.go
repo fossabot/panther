@@ -109,7 +109,7 @@ func Deploy() error {
 		return err
 	}
 
-	fmt.Printf("deploy: Panther URL = http://%s\n", outputs["LoadBalancerUrl"])
+	fmt.Printf("deploy: Panther URL = https://%s\n", outputs["LoadBalancerUrl"])
 
 	if err := enableTOTP(awsSession, outputs["UserPoolId"]); err != nil {
 		return err
@@ -146,7 +146,13 @@ func getDeployParams(awsSession *session.Session, config map[string]interface{},
 		params["PythonLayerKey"] = layerS3ObjectKey
 		params["PythonLayerObjectVersion"] = version
 	}
-
+	if params["WebApplicationCertificateArn"].(string) == "" {
+		certificateArn, err := uploadLocalCertificate(awsSession)
+		if err != nil {
+			return nil, err
+		}
+		params["WebApplicationCertificateArn"] = certificateArn
+	}
 	return flattenParameterValues(params), nil
 }
 

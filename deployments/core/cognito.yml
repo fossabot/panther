@@ -31,7 +31,7 @@ Resources:
           EmailMessage: !Sub |
             <br />Welcome to Panther! We're very excited to have you on board!
             <br />
-            <br />To get started, sign in to your <a href="http://${PantherHost}/sign-in">Panther dashboard</a> with the following temporary credentials:
+            <br />To get started, sign in to your <a href="https://${PantherHost}/sign-in">Panther dashboard</a> with the following temporary credentials:
             <br />
             <br />* Username: {username}
             <br />* Password: {####}

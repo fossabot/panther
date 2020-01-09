@@ -28,6 +28,9 @@ Parameters:
   LoadBalancerName:
     Type: String
     Description: The name of the load balancer that will sit in front of the web stack and accept traffic
+  CertificateArn:
+    Type: String
+    Description: The ARN of the TLS certificate that is going to be used by the ALB listener
 
 Resources:
   # Public load balancer, hosted in public subnets that is accessible
@@ -71,19 +74,21 @@ Resources:
   DummyTargetGroupPublic:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Port: 80
-      Protocol: HTTP
+      Port: 443
+      Protocol: HTTPS
       VpcId: !Ref VpcId
 
   PublicLoadBalancerListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
+      Certificates:
+        - CertificateArn: !Ref CertificateArn
       DefaultActions:
         - TargetGroupArn: !Ref DummyTargetGroupPublic
           Type: forward
       LoadBalancerArn: !Ref PublicLoadBalancer
-      Port: 80
-      Protocol: HTTP
+      Port: 443
+      Protocol: HTTPS
 
 Outputs:
   LoadBalancerListenerArn:

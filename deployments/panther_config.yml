@@ -38,6 +38,13 @@ AppParameterValues:
   # If not specified, a layer is created for you based on the PipLayer setting below.
   PythonLayerVersionArn: ''
 
+  # ARN of an AWS ACM certificate used on the loadbalancer presenting the panther web app
+  #
+  # If not specified, a self signed certificate is created automatically.
+  # WARNING: SELF SIGNED CERTIFICATES ARE NOT SAFE TO USE IN PRODUCTION, PLEASE
+  # PROVIDE A CERTIFICATE FOR PRODUCTION USE
+  WebApplicationCertificateArn: ''
+
   # XRay tracing mode for API Gateway and Lambda: '', 'Active', or 'PassThrough'
   TracingMode: ''
 
