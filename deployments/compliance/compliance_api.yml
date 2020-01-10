@@ -78,8 +78,6 @@ Resources:
       MemorySize: !Ref MemorySizeMB
       Runtime: go1.x
       Layers: !If [AttachLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
-      Tags:
-        Application: Panther
       Timeout: !Ref TimeoutSec
       Tracing: !If [TracingEnabled, !Ref TracingMode, !Ref 'AWS::NoValue']
       Policies:
@@ -140,9 +138,6 @@ Resources:
         PointInTimeRecoveryEnabled: True
       SSESpecification:
         SSEEnabled: True
-      Tags:
-        - Key: Application
-          Value: Panther
       TimeToLiveSpecification:
         AttributeName: expiresAt
         Enabled: True

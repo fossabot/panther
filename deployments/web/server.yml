@@ -134,11 +134,6 @@ Resources:
       PlatformVersion: LATEST
       SchedulingStrategy: REPLICA
       ServiceName: !Ref ServiceName
-      Tags:
-        - Key: Application
-          Value: Panther
-        - Key: Service
-          Value: !Ref ServiceName
       TaskDefinition: !Ref WebApplicationServerDefinition
       LoadBalancers:
         - ContainerName: !Ref ServiceName
@@ -226,8 +221,3 @@ Resources:
       NetworkMode: awsvpc
       RequiresCompatibilities:
         - FARGATE
-      Tags:
-        - Key: Application
-          Value: Panther
-        - Key: Task
-          Value: server

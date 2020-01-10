@@ -102,8 +102,6 @@ Resources:
       MemorySize: !Ref HandlerMemorySizeMB
       Layers: !If [AttachBaseLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
       Runtime: go1.x
-      Tags:
-        Application: Panther
       Timeout: !Ref HandlerTimeoutSec
       Tracing: !If [TracingEnabled, !Ref TracingMode, !Ref 'AWS::NoValue']
       Policies:
@@ -188,9 +186,6 @@ Resources:
       SSESpecification:
         SSEEnabled: True
       TableName: panther-analysis
-      Tags:
-        - Key: Application
-          Value: Panther
 
   Bucket:
     Type: AWS::S3::Bucket
@@ -212,9 +207,6 @@ Resources:
         BlockPublicPolicy: true
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
-      Tags:
-        - Key: Application
-          Value: Panther
       VersioningConfiguration:
         Status: Enabled
 

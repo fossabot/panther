@@ -72,9 +72,6 @@ Resources:
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt DeadLetterQueue.Arn
         maxReceiveCount: 10
-      Tags:
-        - Key: Application
-          Value: Panther
       VisibilityTimeout: !Ref TimeoutSec
 
   EventQueuePolicy:
@@ -100,9 +97,6 @@ Resources:
     Properties:
       MessageRetentionPeriod: 1209600 # Max duration - 14 days
       QueueName: panther-aws-events-dlq
-      Tags:
-        - Key: Application
-          Value: Panther
       VisibilityTimeout: 60
 
   LogGroup:
@@ -133,8 +127,6 @@ Resources:
       Layers: !If [AttachLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
       MemorySize: !Ref MemorySizeMB
       Runtime: go1.x
-      Tags:
-        Application: Panther
       Timeout: !Ref TimeoutSec
       Tracing: !If [TracingEnabled, !Ref TracingMode, !Ref 'AWS::NoValue']
       Policies:

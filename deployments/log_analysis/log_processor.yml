@@ -80,9 +80,6 @@ Resources:
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt DeadLetterQueue.Arn
         maxReceiveCount: 10
-      Tags:
-        - Key: Application
-          Value: Panther
 
   DeadLetterQueue:
     Type: AWS::SQS::Queue
@@ -90,9 +87,6 @@ Resources:
       QueueName: panther-input-data-notifications-dlq
       MessageRetentionPeriod: 1209600 # Max duration - 14 days
       VisibilityTimeout: !Ref TimeoutSec
-      Tags:
-        - Key: Application
-          Value: Panther
 
   FunctionLogGroup:
     Type: AWS::Logs::LogGroup
@@ -116,8 +110,6 @@ Resources:
           DEBUG: !Ref Debug
           S3_BUCKET: !Ref ProcessedDataBucket
           SNS_TOPIC_ARN: !Ref SnsTopicArn
-      Tags:
-        Application: Panther
       Events:
         Queue:
           Type: SQS

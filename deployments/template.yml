@@ -72,9 +72,6 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs
-      Tags:
-        - Key: Application
-          Value: Panther
 
   GatewayAccount:
     Type: AWS::ApiGateway::Account
@@ -101,9 +98,6 @@ Resources:
               - kms:GenerateDataKey
               - kms:Decrypt
             Resource: '*'
-      Tags:
-        - Key: Application
-          Value: Panther
 
   QueueEncryptionKeyAlias:
     Type: AWS::KMS::Alias
@@ -130,16 +124,10 @@ Resources:
     Type: AWS::ECS::Cluster
     Properties:
       ClusterName: panther-web-cluster
-      Tags:
-        - Key: Application
-          Value: Panther
 
   WebApplicationNetworking:
     Type: AWS::CloudFormation::Stack
     Properties:
-      Tags:
-        - Key: Application
-          Value: Panther
       TemplateURL: web/networking.yml
 
   WebApplicationLoadBalancer:
@@ -151,9 +139,6 @@ Resources:
         SubnetTwoId: !GetAtt WebApplicationNetworking.Outputs.SubnetTwoId
         LoadBalancerName: web
         CertificateArn: !Ref WebApplicationCertificateArn
-      Tags:
-        - Key: Application
-          Value: Panther
       TemplateURL: web/alb.yml
 
   FrontendApplicationServer:
@@ -169,9 +154,6 @@ Resources:
         GraphQLApiEndpoint: !GetAtt Appsync.Outputs.GraphQLApiEndpoint
         CognitoAppClientId: !GetAtt Cognito.Outputs.AppClientId
         CognitoUserPoolId: !GetAtt Cognito.Outputs.UserPoolId
-      Tags:
-        - Key: Application
-          Value: Panther
       TemplateURL: web/server.yml
 
   AnalysisAPI:
@@ -186,9 +168,6 @@ Resources:
         ComplianceApiId: !GetAtt ComplianceAPI.Outputs.GatewayId
         S3BucketAccessLogs: !ImportValue Panther-LogBucket
         SQSKeyId: !Ref QueueEncryptionKey
-      Tags:
-        - Key: Application
-          Value: Panther
       TemplateURL: ../out/deployments/core/embedded.analysis_api.yml
 
   AlertDelivery:
@@ -202,9 +181,6 @@ Resources:
 
         AppFqdn: !GetAtt WebApplicationLoadBalancer.Outputs.LoadBalancerUrl
         SQSKeyId: !Ref QueueEncryptionKey
-      Tags:
-        - Key: Application
-          Value: Panther
       TemplateURL: core/outputs.yml
 
   AdminAPI:
@@ -215,9 +191,6 @@ Resources:
         Debug: !Ref Debug
         LayerVersionArns: !Join [ ",", !Ref LayerVersionArns ]
         TracingMode: !Ref TracingMode
-      Tags:
-        - Key: Application
-          Value: Panther
       TemplateURL: core/admin_api.yml
 
   Cognito:
@@ -225,9 +198,6 @@ Resources:
     Properties:
       Parameters:
         PantherHost: !GetAtt WebApplicationLoadBalancer.Outputs.LoadBalancerUrl
-      Tags:
-        - Key: Application
-          Value: Panther
       TemplateURL: core/cognito.yml
 
   Appsync:
@@ -239,9 +209,6 @@ Resources:
         RemediationApi: !Sub 'https://${RemediationAPI.Outputs.GatewayId}.execute-api.${AWS::Region}.amazonaws.com'
         ResourcesApi: !Sub 'https://${ResourcesAPI.Outputs.GatewayId}.execute-api.${AWS::Region}.amazonaws.com'
         UserPoolId: !GetAtt Cognito.Outputs.UserPoolId
-      Tags:
-        - Key: Application
-          Value: Panther
       TemplateURL: ../out/deployments/core/embedded.appsync.yml
 
   ##### Nested Stacks: Compliance #####
@@ -253,9 +220,6 @@ Resources:
         Debug: !Ref Debug
         LayerVersionArns: !Join [ ',', !Ref LayerVersionArns ]
         TracingMode: !Ref TracingMode
-      Tags:
-        - Key: Application
-          Value: Panther
       TemplateURL: ../out/deployments/compliance/embedded.compliance_api.yml
 
   ResourcesAPI:
@@ -271,9 +235,6 @@ Resources:
         ComplianceApiId: !GetAtt ComplianceAPI.Outputs.GatewayId
         PythonLayerArn: !If [CreatePythonLayer, !Ref PythonLayer, !Ref PythonLayerVersionArn]
         SQSKeyId: !Ref QueueEncryptionKey
-      Tags:
-        - Key: Application
-          Value: Panther
       TemplateURL: ../out/deployments/compliance/embedded.resources_api.yml
 
   AwsEventProcessor:
@@ -287,9 +248,6 @@ Resources:
 
         ResourcesApiId: !GetAtt ResourcesAPI.Outputs.GatewayId
         SQSKeyId: !Ref QueueEncryptionKey
-      Tags:
-        - Key: Application
-          Value: Panther
       TemplateURL: compliance/aws_event_processor.yml
 
   SnapshotInfra:
@@ -303,9 +261,6 @@ Resources:
 
         ResourcesApiId: !GetAtt ResourcesAPI.Outputs.GatewayId
         SQSKeyId: !Ref QueueEncryptionKey
-      Tags:
-        - Key: Application
-          Value: Panther
       TemplateURL: compliance/snapshot.yml
 
   AlertProcessing:
@@ -321,9 +276,6 @@ Resources:
         ComplianceApiId: !GetAtt ComplianceAPI.Outputs.GatewayId
         RemediationApiId: !GetAtt RemediationAPI.Outputs.GatewayId
         SQSKeyId: !Ref QueueEncryptionKey
-      Tags:
-        - Key: Application
-          Value: Panther
       TemplateURL: compliance/alert_processing.yml
 
   RemediationAPI:
@@ -339,9 +291,6 @@ Resources:
         PythonLayerArn: !If [CreatePythonLayer, !Ref PythonLayer, !Ref PythonLayerVersionArn]
         ResourcesApiId: !GetAtt ResourcesAPI.Outputs.GatewayId
         SQSKeyId: !Ref QueueEncryptionKey
-      Tags:
-        - Key: Application
-          Value: Panther
       TemplateURL: ../out/deployments/compliance/embedded.remediation.yml
 
   ##### Nested Stacks: Log Analysis #####
@@ -383,9 +332,6 @@ Resources:
         ProcessedDataBucket: !Ref ProcessedDataBucket
         SQSKeyId: !Ref QueueEncryptionKey
         PantherDatabase: !GetAtt GlueTables.Outputs.PantherDatabase
-      Tags:
-        - Key: Application
-          Value: Panther
       TemplateURL: log_analysis/log_processor.yml
 
   Alerts:
@@ -399,9 +345,6 @@ Resources:
 
         SQSKeyId: !Ref QueueEncryptionKey
         AnalysisApiId: !GetAtt AnalysisAPI.Outputs.GatewayId
-      Tags:
-        - Key: Application
-          Value: Panther
       TemplateURL: log_analysis/alerts.yml
 
   RulesEngine:
@@ -417,9 +360,6 @@ Resources:
         SQSKeyId: !Ref QueueEncryptionKey
         ProcessedDataBucket: !Ref ProcessedDataBucket
         PythonLayerArn: !If [CreatePythonLayer, !Ref PythonLayer, !Ref PythonLayerVersionArn]
-      Tags:
-        - Key: Application
-          Value: Panther
       TemplateURL: log_analysis/rules_engine.yml
 
   GlueTables:
@@ -427,9 +367,6 @@ Resources:
     Properties:
       Parameters:
         ProcessedDataBucket: !Ref ProcessedDataBucket
-      Tags:
-        - Key: Application
-          Value: Panther
       TemplateURL: ../out/deployments/log_analysis/gluetables.json
 
 Outputs:

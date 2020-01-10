@@ -96,9 +96,6 @@ Resources:
       QueueName: panther-snapshot-queue
       KmsMasterKeyId: !Ref SQSKeyId
       VisibilityTimeout: !Ref PollerTimeoutSec
-      Tags:
-        - Key: Application
-          Value: Panther
 
   PollerFunction:
     Type: AWS::Serverless::Function
@@ -123,8 +120,6 @@ Resources:
       Layers: !If [AttachLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
       MemorySize: !Ref PollerMemorySizeMB
       Runtime: go1.x
-      Tags:
-        Application: Panther
       Timeout: !Ref PollerTimeoutSec
       Tracing: !If [TracingEnabled, !Ref TracingMode, !Ref 'AWS::NoValue']
       Policies:
@@ -185,9 +180,6 @@ Resources:
         PointInTimeRecoveryEnabled: True
       SSESpecification:  # Enable server-side encryption
         SSEEnabled: True
-      Tags:
-        - Key: Application
-          Value: Panther
 
   ApiLambdaFunction:
     Type: AWS::Serverless::Function
@@ -203,8 +195,6 @@ Resources:
       Handler: main
       Layers: !If [AttachLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
       MemorySize: !Ref ApiMemorySizeMB
-      Tags:
-        Application: Panther
       Runtime: go1.x
       Timeout: !Ref ApiTimeoutSec
       Tracing: !If [TracingEnabled, !Ref TracingMode, !Ref 'AWS::NoValue']
@@ -262,8 +252,6 @@ Resources:
       Layers: !If [AttachLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
       MemorySize: !Ref SchedulerMemorySizeMB
       Runtime: go1.x
-      Tags:
-        Application: Panther
       Timeout: !Ref SchedulerTimeoutSec
       Tracing: !If [TracingEnabled, !Ref TracingMode, !Ref 'AWS::NoValue']
       Policies:

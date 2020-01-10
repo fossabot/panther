@@ -98,6 +98,7 @@ func (b Build) Lambda() error {
 	}
 
 	results := make(chan error)
+	fmt.Printf("build:lambda: go build internal/*/main (%d binaries)\n", len(packages))
 	for _, pkg := range packages {
 		go func(pkg string) {
 			results <- buildPackage(pkg)
@@ -119,9 +120,6 @@ func buildPackage(pkg string) error {
 	oldInfo, statErr := os.Stat(binary)
 	oldHash, hashErr := shutil.SHA256(binary)
 
-	if !mg.Verbose() {
-		fmt.Println("build:lambda: go build " + targetDir)
-	}
 	if err := os.MkdirAll(targetDir, 0755); err != nil {
 		return err
 	}

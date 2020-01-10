@@ -86,9 +86,6 @@ Resources:
       QueueName: panther-alert-processor-queue
       MessageRetentionPeriod: 1209600 # Max duration - 14 days
       KmsMasterKeyId: !Ref SQSKeyId
-      Tags:
-        - Key: Application
-          Value: Panther
       VisibilityTimeout: !Ref ProcessorTimeoutSec
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt [DeadLetterQueue, Arn]
@@ -99,9 +96,6 @@ Resources:
     Properties:
       QueueName: panther-alert-processor-dlq
       MessageRetentionPeriod: 1209600 # Max duration - 14 days
-      Tags:
-        - Key: Application
-          Value: Panther
       VisibilityTimeout: 60
 
   AlertProcessorLogGroup:
@@ -136,8 +130,6 @@ Resources:
       Layers: !If [AttachLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
       MemorySize: !Ref ProcessorMemorySizeMB
       Runtime: go1.x
-      Tags:
-        Application: Panther
       Timeout: !Ref ProcessorTimeoutSec
       Policies:
         - !If [TracingEnabled, 'arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess', !Ref 'AWS::NoValue']
@@ -195,9 +187,6 @@ Resources:
       TimeToLiveSpecification:
         AttributeName: expiresAt
         Enabled: true
-      Tags:
-        - Key: Application
-          Value: Panther
 
   AlertForwarderLogGroup:
     Type: AWS::Logs::LogGroup
@@ -226,8 +215,6 @@ Resources:
       MemorySize: !Ref ForwarderMemorySizeMB
       Runtime: go1.x
       Layers: !If [AttachLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
-      Tags:
-        Application: Panther
       Timeout: !Ref ForwarderTimeoutSec
       Policies:
         - !If [TracingEnabled, 'arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess', !Ref 'AWS::NoValue']

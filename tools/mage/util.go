@@ -20,11 +20,13 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudformation"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"gopkg.in/yaml.v2"
 )
 
@@ -43,13 +45,11 @@ func loadYamlFile(path string) (map[string]interface{}, error) {
 	return result, nil
 }
 
-// Flatten a map of parameter values from the config file into "key=val" strings.
-func flattenParameterValues(params interface{}) []string {
-	var result []string
-	for key, val := range params.(map[interface{}]interface{}) {
-		if val != nil {
-			result = append(result, fmt.Sprintf("%s=%v", key, val))
-		}
+// Convert a parsed yaml map into a string map.
+func stringMap(input map[interface{}]interface{}) map[string]string {
+	result := make(map[string]string, len(input))
+	for key, val := range input {
+		result[key.(string)] = fmt.Sprintf("%v", val)
 	}
 	return result
 }
@@ -69,6 +69,26 @@ func getStackOutputs(awsSession *session.Session, name string) (map[string]strin
 	}
 
 	return result, nil
+}
+
+// Upload a local file to S3.
+func uploadFileToS3(
+	awsSession *session.Session, path, bucket, key string, meta map[string]*string) (*s3manager.UploadOutput, error) {
+
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	uploader := s3manager.NewUploader(awsSession)
+	fmt.Printf("deploy: uploading %s to s3://%s/%s\n", path, bucket, key)
+	return uploader.Upload(&s3manager.UploadInput{
+		Body:     file,
+		Bucket:   &bucket,
+		Key:      &key,
+		Metadata: meta,
+	})
 }
 
 // Prompt the user for a string input.
@@ -92,7 +112,7 @@ func promptUser(prompt string, validator func(string) error) string {
 	}
 }
 
-// Ensure non-empty strings
+// Ensure non-empty strings.
 func nonemptyValidator(input string) error {
 	if len(input) == 0 {
 		return errors.New("error: input is blank, please try again")

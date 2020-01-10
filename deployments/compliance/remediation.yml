@@ -125,9 +125,6 @@ Resources:
       QueueName: panther-remediation-queue
       MessageRetentionPeriod: 1209600 # Max duration - 14 days
       KmsMasterKeyId: !Ref SQSKeyId
-      Tags:
-        - Key: Application
-          Value: Panther
       VisibilityTimeout: !Ref ProcessorTimeoutSec
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt [DeadLetterQueue, Arn]
@@ -138,9 +135,6 @@ Resources:
     Properties:
       QueueName: panther-remediation-dlq
       MessageRetentionPeriod: 1209600 # Max duration - 14 days
-      Tags:
-        - Key: Application
-          Value: Panther
       VisibilityTimeout: 60
 
   ApiFunction:
@@ -164,8 +158,6 @@ Resources:
       Layers: !If [AttachLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
       MemorySize: !Ref ApiMemorySizeMB
       Runtime: go1.x
-      Tags:
-        Application: Panther
       Timeout: !Ref ApiTimeoutSec
       Tracing: !If [TracingEnabled, !Ref TracingMode, !Ref 'AWS::NoValue']
       Policies:
@@ -250,8 +242,6 @@ Resources:
       Layers: !If [AttachLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
       MemorySize: !Ref ProcessorMemorySizeMB
       Runtime: go1.x
-      Tags:
-        Application: Panther
       Timeout: !Ref ProcessorTimeoutSec
       Policies:
         - !If [TracingEnabled, 'arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess', !Ref 'AWS::NoValue']
@@ -324,8 +314,6 @@ Resources:
         - [!Ref PythonLayerArn]
       MemorySize: !Ref RemediationMemorySizeMB
       Runtime: python3.7
-      Tags:
-        Application: Panther
       Timeout: !Ref RemediationTimeoutSec
       Tracing: !If [TracingEnabled, !Ref TracingMode, !Ref 'AWS::NoValue']
       Policies:
