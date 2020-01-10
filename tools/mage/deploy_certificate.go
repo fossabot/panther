@@ -37,10 +37,11 @@ import (
 )
 
 const (
-	certificateFile      = "keys/panther-tls-public.crt"
-	privateKeyFile       = "keys/panther-tls-private.key"
+	keysDirectory        = "keys"
+	certificateFile      = keysDirectory + "/panther-tls-public.crt"
+	privateKeyFile       = keysDirectory + "/panther-tls-private.key"
 	keyLength            = 2048
-	filePermissions      = 0660
+	certFilePermissions  = 0700
 	certificateOutputKey = "WebApplicationCertificateArn"
 )
 
@@ -154,6 +155,12 @@ func generateKeys() error {
 		return err
 	}
 
+	// Create the keys directory if it does not already exist
+	err = os.MkdirAll(keysDirectory, certFilePermissions)
+	if err != nil {
+		return err
+	}
+
 	// PEM encode the certificate and write it to disk
 	certBuffer := &bytes.Buffer{}
 	err = pem.Encode(
@@ -165,7 +172,7 @@ func generateKeys() error {
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(certificateFile, certBuffer.Bytes(), filePermissions)
+	err = ioutil.WriteFile(certificateFile, certBuffer.Bytes(), certFilePermissions)
 	if err != nil {
 		return err
 	}
@@ -181,5 +188,5 @@ func generateKeys() error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(privateKeyFile, keyBuffer.Bytes(), filePermissions)
+	return ioutil.WriteFile(privateKeyFile, keyBuffer.Bytes(), certFilePermissions)
 }
