@@ -89,6 +89,11 @@ func Deploy() error {
 	}
 	bucket := outputs["SourceBucketName"]
 
+	// If you need to run some stuff BEFORE the cloudformation deploy, here would work
+	if err := sh.Run("docker", "pull", "--flag", "https://url"); err != nil {
+		return err
+	}
+
 	template, err := cfnPackage(applicationTemplate, bucket, applicationStack)
 	if err != nil {
 		return err
@@ -153,6 +158,9 @@ func getDeployParams(awsSession *session.Session, config map[string]interface{},
 		}
 		result["WebApplicationCertificateArn"] = certificateArn
 	}
+
+	// If you need to dynamically add some CloudFormation parameters before deploying, you would do
+	// that here
 
 	return result, nil
 }
