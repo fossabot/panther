@@ -21,11 +21,14 @@ RUN mkdir /code
 # To a different folder so we don't pollute the root of our container
 WORKDIR /code
 
-# Mount the code
-ADD web .
+# Mount the package.json
+ADD package.json .
 
 # Install the dependencies
 RUN npm --production=false install
+
+# Mount the code
+ADD web .
 
 # Build the project with the ENV vars present in the system & run the node server
 CMD node scripts/build-assets.js && node scripts/serve-assets.js
