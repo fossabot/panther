@@ -1,11 +1,5 @@
 version: 2.1
 
-# Global template params
-parameters:
-  web-dir:
-    type: string
-    default: "web"
-
 # The images that jobs can have
 executors:
   panther-buildpack:
@@ -26,7 +20,7 @@ commands:
       - checkout
       - run:
           name: Install JS dependencies
-          command: npm --prefix << pipeline.parameters.web-dir >> i
+          command: npm i
 
 # The pool of jobs that that our CI will be able to run
 jobs:
@@ -36,10 +30,10 @@ jobs:
       - setup_frontend
       - run:
           name: Validate the project dependencies do not have any known vulnerabilities
-          command: npm --prefix << pipeline.parameters.web-dir >> audit
+          command: npm audit
       - run:
           name: Lint project and run TS checks
-          command: npm --prefix << pipeline.parameters.web-dir >> run lint
+          command: npm run lint
 
   validate_backend:
     executor: panther-buildpack
