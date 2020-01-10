@@ -1,28 +1,27 @@
 {
-  "name": "panther-ui",
+  "name": "panther",
   "version": "1.0.0",
-  "description": "Enterprise User Dashboard UI ",
-  "main": "dist/main.js",
+  "description": "Panther is a powerful cloud-native security platform for continuous monitoring and log analysis at scale",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/panther-lab/panther-ui.git"
+    "url": "git+https://github.com/panther-labs/panther.git"
   },
   "keywords": [
     "ui",
     "front-end",
     "javascript"
   ],
-  "author": "Quan Pham",
-  "license": "UNLICENSED",
+  "author": "panther-labs",
+  "license": "Apache v2.0",
   "bugs": {
-    "url": "https://github.com/panther-lab/panther-ui/issues"
+    "url": "https://github.com/panther-labs/panther/issues"
   },
-  "homepage": "https://github.com/panther-lab/panther-ui#readme",
+  "homepage": "https://github.com/panther-labs/panther#readme",
   "peerDependencies": {
     "@emotion/core": "^10.0.21"
   },
   "sideEffects": [
-    "./src/config.ts"
+    "./web/src/config.ts"
   ],
   "devDependencies": {
     "@babel/cli": "^7.0.0",
@@ -131,12 +130,12 @@
     "yup": "^0.26.6"
   },
   "scripts": {
-    "setup-dotenv": "node scripts/setup-dotenv.js",
-    "prebuild-enterprise": "node scripts/prebuild-enterprise.js",
-    "build-assets": "node --max_old_space_size=8192 scripts/build-assets.js",
-    "build-codegen": "node scripts/build-codegen.js",
-    "dev": "npm run setup-dotenv -- --environment=local webpack-dev-server",
+    "build-assets": "webpack --config=web/webpack.config.js",
+    "serve-assets": "node web/scripts/serve-assets.js",
+    "setup-dotenv": "node web/scripts/setup-dotenv.js",
     "generate-gql": "graphql-codegen",
-    "lint": "eslint \"src/**/*.{ts,js,tsx,jsx}\" && prettier --list-different  \"src/**/*.{ts,js,tsx,jsx,md,scss,css,json}\" && tsc -p ."
+    "dev": "npm run setup-dotenv -- --environment=local webpack-dev-server --config=web/webpack.config.js",
+    "prebuild-enterprise": "node web/scripts/prebuild-enterprise.js",
+    "lint": "eslint \"(web|enterprise)/src/**/*.{ts,js,tsx,jsx}\" && prettier --list-different  \"(web|enterprise)/src/**/*.{ts,js,tsx,jsx,md,scss,css,json}\" && tsc -p ."
   }
 }

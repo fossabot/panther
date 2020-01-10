@@ -31,7 +31,7 @@ RUN npm --production=false install
 ADD web .
 
 # Build the project with the ENV vars present in the system & run the node server
-CMD node scripts/build-assets.js && node scripts/serve-assets.js
+CMD npm run build-assets && npm run serve-assets
 
 # through the port chosen during build time (defaults to 8080)
 EXPOSE ${SERVER_PORT}

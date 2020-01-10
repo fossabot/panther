@@ -2,6 +2,7 @@
 .idea
 .github
 .circleci
+codegen.json
 
 # Build
 build

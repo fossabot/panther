@@ -139,7 +139,7 @@ module.exports = {
       {
         enforce: 'pre',
         test: /\.js$/,
-        include: path.join(__dirname, 'src'),
+        include: path.resolve(__dirname, 'src'),
         loader: 'eslint-loader',
         options: {
           emitWarning: true,
@@ -177,9 +177,6 @@ module.exports = {
       Components: path.resolve(__dirname, 'src/components/'),
       Generated: path.resolve(__dirname, '__generated__'),
       Helpers: path.resolve(__dirname, 'src/helpers/'),
-      Mutations: path.resolve(__dirname, '__generated__/mutations'),
-      Queries: path.resolve(__dirname, '__generated__/queries'),
-      Shared: path.resolve(__dirname, 'src/shared-components'),
       Pages: path.resolve(__dirname, 'src/pages'),
       Hooks: path.resolve(__dirname, 'src/hooks'),
       Hoc: path.resolve(__dirname, 'src/hoc'),
@@ -188,12 +185,9 @@ module.exports = {
       // make sure that all the packages that attempt to resolve the following packages utilise the
       // same version, so we don't end up bundling multiple versions of it.
       // the same version
-      'aws-sdk': path.resolve(__dirname, 'node_modules/aws-sdk'),
-      'apollo-link': path.resolve(__dirname, 'node_modules/@apollo/client'),
+      'aws-sdk': path.resolve(__dirname, '../node_modules/aws-sdk'),
+      'apollo-link': path.resolve(__dirname, '../node_modules/@apollo/client'),
     },
-  },
-  resolveLoader: {
-    modules: ['node_modules', path.resolve(__dirname, 'webpack-loaders')],
   },
   plugins: [
     // Expose all environment variables to the front-end code. This seems like a security flaw,
@@ -267,15 +261,6 @@ module.exports = {
         };
       },
     }),
-    // Make sure not to bundle the huge icons that blueprint comes with. Currently, Palantir and the
-    // blueprint team do not provide any way of tree-shaking the svg icons so the only thing we can
-    // do is alias the import of the icons to a file that has only the icons that we use. This saves
-    // us a crap ton of un-needed KB from the outputted bundle
-    // https://github.com/palantir/blueprint/issues/2193#issuecomment-453326234
-    new webpack.NormalModuleReplacementPlugin(
-      /.*\/generated\/iconSvgPaths.*/,
-      path.resolve(__dirname, 'src/helpers/lib/blueprint/icons.ts')
-    ),
 
     // Generate a service worker script that will precache, and keep up to date,
     // the HTML & assets that are part of the Webpack build. Since we are deploying to Cloudfront
@@ -302,14 +287,15 @@ module.exports = {
     // the checks without compiling anything
     new ForkTsCheckerWebpackPlugin({
       typescript: resolve.sync('typescript', {
-        basedir: path.resolve(__dirname, 'node_modules'),
+        basedir: path.resolve(__dirname, '../node_modules'),
       }),
       async: isEnvDevelopment,
       useTypescriptIncrementalApi: true,
       checkSyntacticErrors: true,
-      tsconfig: path.resolve(__dirname, './tsconfig.json'),
+      tsconfig: path.resolve(__dirname, '../tsconfig.json'),
       reportFiles: [
         '**',
+        '!**/enterprise/**',
         '!**/__tests__/**',
         '!**/?(*.)(spec|test).*',
         '!**/src/setupProxy.*',
