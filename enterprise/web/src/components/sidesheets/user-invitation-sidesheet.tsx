@@ -15,9 +15,9 @@
  */
 
 import { Box, Heading, Text, SideSheet } from 'pouncejs';
-import InviteUserForm from 'Pages/users/subcomponents/invite-user-form';
 import React from 'react';
 import useSidesheet from 'Hooks/useSidesheet';
+import InviteUserForm from '../../pages/users/subcomponents/invite-user-form';
 
 const UserInvitationSidesheet: React.FC = () => {
   const { hideSidesheet } = useSidesheet();

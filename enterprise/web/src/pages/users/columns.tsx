@@ -3,9 +3,9 @@
 import React from 'react';
 import { Text, TableProps, Box } from 'pouncejs';
 import { User } from 'Generated/schema';
-import ListUsersTableRowOptions from 'Pages/users/subcomponents/list-users-table-row-options';
 import dayjs from 'dayjs';
 import { generateEnumerationColumn } from 'Helpers/utils';
+import ListUsersTableRowOptions from './subcomponents/list-users-table-row-options';
 
 // The columns that the associated table will show
 const columns = [

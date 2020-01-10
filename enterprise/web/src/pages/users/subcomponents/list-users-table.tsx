@@ -2,10 +2,9 @@ import React from 'react';
 import { useQuery, gql } from '@apollo/client';
 import { ListUsersOutput, User } from 'Generated/schema';
 import { Alert, Card, Table } from 'pouncejs';
-import columns from 'Pages/users/columns';
-
 import TablePlaceholder from 'Components/table-placeholder';
 import { extractErrorMessage } from 'Helpers/utils';
+import columns from '../columns';
 
 // This is done so we can benefit from React.memo
 const getUserItemKey = (item: User) => item.id;
