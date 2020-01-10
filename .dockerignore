@@ -9,7 +9,7 @@ web/dist
 web/README.md
 
 # Deps
-web/node_modules
+node_modules
 venv
 
 # Generated

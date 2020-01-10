@@ -114,6 +114,7 @@
     "formik": "^2.0.1-rc.12",
     "graphql": "^14.4.2",
     "history": "^4.7.2",
+    "klaw-sync": "^6.0.0",
     "linkifyjs": "^2.1.7",
     "lodash-es": "^4.17.15",
     "pouncejs": "^0.10.0",
@@ -131,6 +132,7 @@
   },
   "scripts": {
     "setup-dotenv": "node scripts/setup-dotenv.js",
+    "prebuild-enterprise": "node scripts/prebuild-enterprise.js",
     "build-assets": "node --max_old_space_size=8192 scripts/build-assets.js",
     "build-codegen": "node scripts/build-codegen.js",
     "dev": "npm run setup-dotenv -- --environment=local webpack-dev-server",
