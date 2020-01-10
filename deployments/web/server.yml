@@ -66,9 +66,10 @@ Resources:
       HealthCheckProtocol: HTTP
       HealthCheckEnabled: true
       HealthCheckIntervalSeconds: 60
-      HealthCheckPath: /
+      HealthCheckPath: /healthcheck
       HealthCheckTimeoutSeconds: 6
-      HealthyThresholdCount: 3
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
       TargetType: ip
       Port: !Ref Port
       Protocol: HTTP
@@ -134,11 +135,6 @@ Resources:
       PlatformVersion: LATEST
       SchedulingStrategy: REPLICA
       ServiceName: !Ref ServiceName
-      Tags:
-        - Key: Application
-          Value: Panther
-        - Key: Service
-          Value: !Ref ServiceName
       TaskDefinition: !Ref WebApplicationServerDefinition
       LoadBalancers:
         - ContainerName: !Ref ServiceName
@@ -226,8 +222,3 @@ Resources:
       NetworkMode: awsvpc
       RequiresCompatibilities:
         - FARGATE
-      Tags:
-        - Key: Application
-          Value: Panther
-        - Key: Task
-          Value: server

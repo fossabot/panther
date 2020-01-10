@@ -134,9 +134,6 @@ Resources:
       SSESpecification:  # Enable server-side encryption
         SSEEnabled: True
       TableName: panther-outputs
-      Tags:
-        - Key: Application
-          Value: Panther
 
   DefaultOutputsTable:
     Type: AWS::DynamoDB::Table
@@ -153,9 +150,6 @@ Resources:
       SSESpecification:  # Enable server-side encryption
         SSEEnabled: True
       TableName: panther-default-outputs
-      Tags:
-        - Key: Application
-          Value: Panther
 
   EncryptionKeyAlias:
     Type: AWS::KMS::Alias
@@ -175,9 +169,6 @@ Resources:
               AWS: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:root
             Action: kms:*
             Resource: '*'
-      Tags:
-        - Key: Application
-          Value: Panther
 
   ApiFunction:
     Type: AWS::Serverless::Function
@@ -199,8 +190,6 @@ Resources:
       Layers: !If [AttachLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
       MemorySize: !Ref ApiFunctionMemorySizeMB
       Runtime: go1.x
-      Tags:
-        Application: Panther
       Timeout: !Ref ApiFunctionTimeoutSec
       Tracing: !If [TracingEnabled, !Ref TracingMode, !Ref 'AWS::NoValue']
       Policies:
@@ -266,9 +255,6 @@ Resources:
       QueueName: panther-alerts
       MessageRetentionPeriod: !Ref AlertSqsRetentionSec
       KmsMasterKeyId: !Ref SQSKeyId
-      Tags:
-        - Key: Application
-          Value: Panther
       VisibilityTimeout: !Ref DeliveryFunctionTimeoutSec
 
   AlertDeliveryFunction:
@@ -299,8 +285,6 @@ Resources:
       Handler: main
       MemorySize: !Ref DeliveryFunctionMemorySizeMB
       Runtime: go1.x
-      Tags:
-        Application: Panther
       Timeout: !Ref DeliveryFunctionTimeoutSec
       Tracing: !If [TracingEnabled, !Ref TracingMode, !Ref 'AWS::NoValue']
       Policies:

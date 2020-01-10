@@ -83,9 +83,6 @@ Resources:
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt DeadLetterQueue.Arn
         maxReceiveCount: 10
-      Tags:
-        - Key: Application
-          Value: Panther
 
   DeadLetterQueue:
     Type: AWS::SQS::Queue
@@ -93,10 +90,6 @@ Resources:
       QueueName: panther-log-alert-notifications-dlq
       MessageRetentionPeriod: 1209600 # Max duration - 14 days
       VisibilityTimeout: !Ref AlertsAPITimeoutSec
-      Tags:
-        - Key: Application
-          Value: Panther
-
 
   ##### Dynamo alerts table #####
   AlertsTable:
@@ -128,9 +121,6 @@ Resources:
         PointInTimeRecoveryEnabled: True
       SSESpecification:  # Enable server-side encryption
         SSEEnabled: True
-      Tags:
-        - Key: Application
-          Value: Panther
 
   ##### Dynamo recent alerts table #####
   RecentAlertsTable:
@@ -148,9 +138,6 @@ Resources:
         PointInTimeRecoveryEnabled: True
       SSESpecification:  # Enable server-side encryption
         SSEEnabled: True
-      Tags:
-        - Key: Application
-          Value: Panther
 
   ##### Dynamo events table #####
   EventsTable:
@@ -168,9 +155,6 @@ Resources:
         PointInTimeRecoveryEnabled: True
       SSESpecification:  # Enable server-side encryption
         SSEEnabled: True
-      Tags:
-        - Key: Application
-          Value: Panther
 
   ###### Lambda API function #####
   LogGroup:
@@ -197,8 +181,6 @@ Resources:
       Layers: !If [AttachLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
       MemorySize: !Ref AlertsAPIMemorySizeMB
       Runtime: go1.x
-      Tags:
-        Application: Panther
       Timeout: !Ref AlertsAPITimeoutSec
       Tracing: !If [TracingEnabled, !Ref TracingMode, !Ref 'AWS::NoValue']
       Policies:
@@ -269,8 +251,6 @@ Resources:
       Layers: !If [AttachLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
       MemorySize: !Ref MergerMemorySizeMB
       Runtime: go1.x
-      Tags:
-        Application: Panther
       Timeout: !Ref MergerTimeoutSec
       Tracing: !If [TracingEnabled, !Ref TracingMode, !Ref 'AWS::NoValue']
       Policies:

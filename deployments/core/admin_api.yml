@@ -137,9 +137,6 @@ Resources:
                 Action: sns:publish
                 # Must be '*' because the topic is Amazon controlled and not in our account
                 Resource: '*'
-      Tags:
-        - Key: Application
-          Value: Panther
 
   UsersTable:
     Type: AWS::DynamoDB::Table
@@ -156,9 +153,6 @@ Resources:
       SSESpecification:  # Enable server-side encryption
         SSEEnabled: True
       TableName: panther-users
-      Tags:
-        - Key: Application
-          Value: Panther
 
   UsersAPIFunction:
     Type: AWS::Serverless::Function
@@ -178,8 +172,6 @@ Resources:
       Layers: !If [AttachLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
       MemorySize: !Ref UsersMemorySizeMB
       Runtime: go1.x
-      Tags:
-        Application: Panther
       Timeout: !Ref UsersTimeoutSec
       Tracing: !If [TracingEnabled, !Ref TracingMode, !Ref 'AWS::NoValue']
       Policies:
@@ -277,8 +269,6 @@ Resources:
       Layers: !If [AttachLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
       MemorySize: !Ref UsersMemorySizeMB
       Runtime: go1.x
-      Tags:
-        Application: Panther
       Timeout: !Ref UsersTimeoutSec
       Tracing: !If [TracingEnabled, !Ref TracingMode, !Ref 'AWS::NoValue']
       Policies:
@@ -315,9 +305,6 @@ Resources:
       SSESpecification:  # Enable server-side encryption
         SSEEnabled: True
       TableName: panther-organization
-      Tags:
-        - Key: Application
-          Value: Panther
 
   OrganizationAPILogGroup:
     Type: AWS::Logs::LogGroup
@@ -339,8 +326,6 @@ Resources:
       Layers: !If [AttachLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
       MemorySize: !Ref OrganizationMemorySizeMB
       Runtime: go1.x
-      Tags:
-        Application: Panther
       Timeout: !Ref OrganizationTimeoutSec
       Tracing: !If [TracingEnabled, !Ref TracingMode, !Ref 'AWS::NoValue']
       Policies:
@@ -592,9 +577,6 @@ Resources:
         DataTraceEnabled: true
         LoggingLevel: !Ref ApiGatewayLoggingLevel
         MetricsEnabled: true
-        Tags:
-          - Key: Application
-            Value: Panther
         TracingEnabled: !If [TracingEnabled, true, false]
       StageName: !Ref ApiGatewayStageName
 
@@ -696,9 +678,6 @@ Resources:
         }
       RoleArn: !GetAtt StepFunctionInvokeLambdaRole.Arn
       StateMachineName: panther-onboard-organization
-      Tags:
-        - Key: Application
-          Value: Panther
 
   ### Panther Onboarding Lambda Role, Function, and Log Group
   OnboardingAPIFunction:
@@ -713,8 +692,6 @@ Resources:
       Timeout: !Ref OnboardingTimeoutSec
       Tracing: !If [TracingEnabled, !Ref TracingMode, !Ref 'AWS::NoValue']
       Runtime: go1.x
-      Tags:
-        Application: Panther
       Policies:
         - !If [TracingEnabled, 'arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess', !Ref 'AWS::NoValue']
         -

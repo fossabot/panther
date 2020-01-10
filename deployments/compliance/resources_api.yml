@@ -127,8 +127,6 @@ Resources:
       Layers: !If [AttachBaseLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
       MemorySize: !Ref HandlerMemorySizeMB
       Runtime: go1.x
-      Tags:
-        Application: Panther
       Timeout: !Ref HandlerTimeoutSec
       Tracing: !If [TracingEnabled, !Ref TracingMode, !Ref 'AWS::NoValue']
       Policies:
@@ -188,9 +186,6 @@ Resources:
         PointInTimeRecoveryEnabled: True
       SSESpecification:
         SSEEnabled: True
-      Tags:
-        - Key: Application
-          Value: Panther
       TimeToLiveSpecification:  # Deleted resources are expired after 30 days
         AttributeName: expiresAt
         Enabled: true
@@ -205,9 +200,6 @@ Resources:
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt DeadLetterQueue.Arn
         maxReceiveCount: 10
-      Tags:
-        - Key: Application
-          Value: Panther
       VisibilityTimeout: !Ref QueueProcessorTimeoutSec
 
   DeadLetterQueue:
@@ -215,9 +207,6 @@ Resources:
     Properties:
       MessageRetentionPeriod: 1209600 # Max duration - 14 days
       QueueName: panther-resources-dlq
-      Tags:
-        - Key: Application
-          Value: Panther
       VisibilityTimeout: 60
 
   ##### Resource Processor #####
@@ -254,8 +243,6 @@ Resources:
       Layers: !If [AttachBaseLayers, !Ref LayerVersionArns, !Ref 'AWS::NoValue']
       MemorySize: !Ref QueueProcessorMemorySizeMB
       Runtime: go1.x
-      Tags:
-        Application: Panther
       Timeout: !Ref QueueProcessorTimeoutSec
       Tracing: !If [TracingEnabled, !Ref TracingMode, !Ref 'AWS::NoValue']
       Policies:
@@ -325,8 +312,6 @@ Resources:
             - {base: !Join [",", !Ref LayerVersionArns], pip: !Ref PythonLayerArn}
         - [!Ref PythonLayerArn]
       Runtime: python3.7
-      Tags:
-        Application: Panther
       Timeout: !Ref EngineTimeoutSec
       Tracing: !If [TracingEnabled, !Ref TracingMode, !Ref 'AWS::NoValue']
       Policies:

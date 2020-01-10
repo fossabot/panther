@@ -28,7 +28,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/cognitoidentityprovider"
 	"github.com/aws/aws-sdk-go/service/lambda"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
@@ -62,8 +61,13 @@ func Deploy() error {
 		return err
 	}
 
-	bucketParams := flattenParameterValues(config["BucketsParameterValues"])
-	if err = cfnDeploy(bucketTemplate, "", bucketStack, bucketParams); err != nil {
+	awsSession, err := session.NewSession()
+	if err != nil {
+		return err
+	}
+
+	bucketParams := config["BucketsParameterValues"].(map[interface{}]interface{})
+	if err = deployTemplate(awsSession, bucketTemplate, bucketStack, stringMap(bucketParams)); err != nil {
 		return err
 	}
 
@@ -76,11 +80,6 @@ func Deploy() error {
 	}
 
 	if err = embedAPISpecs(); err != nil {
-		return err
-	}
-
-	awsSession, err := session.NewSession()
-	if err != nil {
 		return err
 	}
 
@@ -100,7 +99,7 @@ func Deploy() error {
 		return err
 	}
 
-	if err := cfnDeploy(template, bucket, applicationStack, deployParams); err != nil {
+	if err = deployTemplate(awsSession, template, applicationStack, deployParams); err != nil {
 		return err
 	}
 
@@ -108,8 +107,6 @@ func Deploy() error {
 	if err != nil {
 		return err
 	}
-
-	fmt.Printf("deploy: Panther URL = http://%s\n", outputs["LoadBalancerUrl"])
 
 	if err := enableTOTP(awsSession, outputs["UserPoolId"]); err != nil {
 		return err
@@ -119,19 +116,21 @@ func Deploy() error {
 		return err
 	}
 
-	fmt.Println("deploy: Done!")
+	// TODO - underline link
+	fmt.Printf("\nPanther URL = https://%s\n", outputs["LoadBalancerUrl"])
 	return nil
+
 	// TODO - install initial rule sets
 }
 
 // Generate the set of deploy parameters for the main application stack.
 //
 // This will first upload the layer zipfile unless a custom layer is specified.
-func getDeployParams(awsSession *session.Session, config map[string]interface{}, bucket string) ([]string, error) {
-	params := config["AppParameterValues"].(map[interface{}]interface{})
+func getDeployParams(awsSession *session.Session, config map[string]interface{}, bucket string) (map[string]string, error) {
+	result := stringMap(config["AppParameterValues"].(map[interface{}]interface{}))
 
 	// If no custom Python layer is defined, then we need to build the default one.
-	if params["PythonLayerVersionArn"].(string) == "" {
+	if result["PythonLayerVersionArn"] == "" {
 		// Convert libs from []interface{} to []string
 		rawLibs := config["PipLayer"].([]interface{})
 		libs := make([]string, len(rawLibs))
@@ -143,11 +142,19 @@ func getDeployParams(awsSession *session.Session, config map[string]interface{},
 		if err != nil {
 			return nil, err
 		}
-		params["PythonLayerKey"] = layerS3ObjectKey
-		params["PythonLayerObjectVersion"] = version
+		result["PythonLayerKey"] = layerS3ObjectKey
+		result["PythonLayerObjectVersion"] = version
 	}
 
-	return flattenParameterValues(params), nil
+	if result["WebApplicationCertificateArn"] == "" {
+		certificateArn, err := uploadLocalCertificate(awsSession)
+		if err != nil {
+			return nil, err
+		}
+		result["WebApplicationCertificateArn"] = certificateArn
+	}
+
+	return result, nil
 }
 
 // Upload custom Python analysis layer to S3 (if it isn't already), returning version ID
@@ -187,19 +194,7 @@ func uploadLayer(awsSession *session.Session, libs []string, bucket, key string)
 	}
 
 	// Upload to S3
-	fmt.Printf("deploy: uploading %s to s3://%s/%s\n", layerZipfile, bucket, key)
-	uploader := s3manager.NewUploader(awsSession)
-	zipFile, err := os.Open(layerZipfile)
-	if err != nil {
-		return "", err
-	}
-
-	result, err := uploader.Upload(&s3manager.UploadInput{
-		Body:     zipFile,
-		Bucket:   &bucket,
-		Key:      &key,
-		Metadata: map[string]*string{"Libs": &libString},
-	})
+	result, err := uploadFileToS3(awsSession, layerZipfile, bucket, key, map[string]*string{"Libs": &libString})
 	if err != nil {
 		return "", err
 	}
@@ -207,6 +202,7 @@ func uploadLayer(awsSession *session.Session, libs []string, bucket, key string)
 }
 
 // Upload resources to S3 and return the path to the modified CloudFormation template.
+// TODO - replace this with our own to avoid relying on the aws cli
 func cfnPackage(templateFile, bucket, stack string) (string, error) {
 	outputDir := path.Join("out", path.Dir(templateFile))
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
@@ -230,30 +226,6 @@ func cfnPackage(templateFile, bucket, stack string) (string, error) {
 	fmt.Printf("deploy: cloudformation package %s => %s\n", templateFile, pkgOut)
 	_, err := sh.Output("aws", args...)
 	return pkgOut, err
-}
-
-// Deploy the final CloudFormation template.
-func cfnDeploy(templateFile, bucket, stack string, params []string) error {
-	args := []string{
-		"cloudformation", "deploy",
-		"--capabilities", "CAPABILITY_AUTO_EXPAND", "CAPABILITY_IAM", "CAPABILITY_NAMED_IAM",
-		"--no-fail-on-empty-changeset",
-		"--stack-name", stack,
-		"--template-file", templateFile,
-	}
-	if bucket != "" {
-		args = append(args, "--s3-bucket", bucket, "--s3-prefix", stack)
-	}
-	if len(params) > 0 {
-		args = append(args, "--parameter-overrides")
-		args = append(args, params...)
-	}
-
-	if !mg.Verbose() {
-		// Give some indication of progress for long-running commands if not in verbose mode
-		fmt.Printf("deploy: cloudformation deploy %s => %s\n", templateFile, stack)
-	}
-	return sh.Run("aws", args...)
 }
 
 // Enable software 2FA for the Cognito user pool - this is not yet supported in CloudFormation.

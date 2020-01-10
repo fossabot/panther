@@ -13,3 +13,5 @@ web/scripts/deploy-sourcemap.js
 web/node_modules/
 web/npm-debug.log*
 
+# Private keys
+keys/
