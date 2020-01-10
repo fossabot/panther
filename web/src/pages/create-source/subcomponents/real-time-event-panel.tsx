@@ -24,7 +24,7 @@ https://s3-us-west-2.amazonaws.com/panther-public-cloudformation-templates/panth
 
 export const getAdminRealTimeCloudformationLink = () => {
   return `https://${process.env.AWS_REGION}.console.aws.amazon.com/cloudformation/home?\
-region=${process.env.AWS_REGION}#/stacks/create/review?templateURL=https://s3-${process.env.AWS_REGION}.amazonaws.com/\
+region=${process.env.AWS_REGION}#/stacks/create/review?templateURL=https://s3-us-west-2.amazonaws.com/\
 panther-public-cloudformation-templates/${PANTHER_REAL_TIME}/latest/\
 template.yml&stackName=${PANTHER_REAL_TIME}`;
 };

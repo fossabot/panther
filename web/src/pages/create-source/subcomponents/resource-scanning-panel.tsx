@@ -21,7 +21,7 @@ import React from 'react';
 // Super important for all these links to have no space or indents in each new line
 // The params for the cloudformation are passed in via query parameters using param_<Param_Name>
 export const scanningCloudformationLink = `https://${process.env.AWS_REGION}.console.aws.amazon.com/cloudformation/home?\
-region=${process.env.AWS_REGION}#/stacks/create/review?templateURL=https://s3-${process.env.AWS_REGION}.amazonaws.com/\
+region=${process.env.AWS_REGION}#/stacks/create/review?templateURL=https://s3-us-west-2.amazonaws.com/\
 panther-public-cloudformation-templates/${PANTHER_AUDIT_ROLE}/latest/template.yml&\
 stackName=${PANTHER_AUDIT_ROLE}`;
 
