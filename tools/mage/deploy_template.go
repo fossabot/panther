@@ -19,7 +19,6 @@ package mage
 import (
 	"fmt"
 	"io/ioutil"
-	"os/user"
 	"strings"
 	"time"
 
@@ -53,11 +52,7 @@ func deployTemplate(awsSession *session.Session, templateFile, stack string, par
 // If there are no pending changes, the change set is deleted and a blank name is returned.
 func createChangeSet(awsSession *session.Session, templateFile, stack string, params map[string]string) (string, error) {
 	// Change set name - username + unix time (must be unique)
-	u, err := user.Current()
-	if err != nil {
-		return "", err
-	}
-	changeSetName := fmt.Sprintf("%s-%d", u.Name, time.Now().UnixNano())
+	changeSetName := fmt.Sprintf("panther-%d", time.Now().UnixNano())
 
 	// Change set type - CREATE if a new stack otherwise UPDATE
 	client := cloudformation.New(awsSession)
