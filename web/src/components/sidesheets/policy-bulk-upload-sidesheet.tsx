@@ -123,14 +123,14 @@ const PolicyBulkUploadSideSheet: React.FC<PolicyBulkUploadSideSheetProps> = ({ t
           Upload {isPolicy ? 'Policies' : 'Rules'}
         </Heading>
         <Text size="large" color="grey300" mb={8} is="p">
-          Sometimes you don{"'"}t have the luxury of creating a {isPolicy ? 'policy' : 'rule'}{' '}
+          Sometimes you don{"'"}t have the luxury of creating {isPolicy ? 'policies' : 'rules'}{' '}
           one-by-one through our lovely editor page. Not to worry, as a way to speed things up, we
           also accept a single Base64-encoded zipfile containing all of your policies.
           <br />
           <br />
           Supposing you have a collection of {isPolicy ? 'policy' : 'rule'} files, simply zip them
-          together using any zip method you prefer and then Base64-encode the zipfile. You can find
-          a detailed description of the process in our{' '}
+          together using any zip method you prefer. You can find a detailed description of the
+          process in our{' '}
           <a
             href={`${PANTHER_SCHEMA_DOCS_LINK}/policies/uploading`}
             target="_blank"
@@ -141,7 +141,7 @@ const PolicyBulkUploadSideSheet: React.FC<PolicyBulkUploadSideSheetProps> = ({ t
           .
           <br />
           <br />
-          Ready to use this feature? Click on the button below to select a file to upload...
+          Ready to use this feature? Click on the button below to select a zipfile to upload...
         </Text>
         <input
           type="file"

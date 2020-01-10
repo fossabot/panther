@@ -66,9 +66,10 @@ Resources:
       HealthCheckProtocol: HTTP
       HealthCheckEnabled: true
       HealthCheckIntervalSeconds: 60
-      HealthCheckPath: /
+      HealthCheckPath: /healthcheck
       HealthCheckTimeoutSeconds: 6
-      HealthyThresholdCount: 3
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
       TargetType: ip
       Port: !Ref Port
       Protocol: HTTP

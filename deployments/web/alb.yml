@@ -71,11 +71,14 @@ Resources:
 
   # A dummy target group is used to setup the ALB to just drop traffic
   # initially, before any real service target groups have been added.
+  #
+  # THIS TARGET GROUP IS NOT USED AT ALL. IT'S JUST THERE FOR INITIAL ALB SETUP PURPOSES
+  #
   DummyTargetGroupPublic:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Port: 443
-      Protocol: HTTPS
+      Port: 80
+      Protocol: HTTP
       VpcId: !Ref VpcId
 
   PublicLoadBalancerListener:

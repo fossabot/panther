@@ -24,7 +24,12 @@ const app = express();
 // allow static assets to be served from the /dist folder
 app.use(express.static(path.join(path.resolve(), 'dist')));
 
-// resolve all requests to the index.html file
+// Instantly reply to health checks from our ALB
+app.get('/healthcheck', (req, res) => {
+  res.sendStatus(200);
+});
+
+// Resolve all other requests to the index.html file
 app.get('*', (req, res) => {
   res.sendFile(path.join(path.resolve(), 'dist/index.html'));
 });
