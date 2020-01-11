@@ -1,11 +1,11 @@
 import React from 'react';
 import { Box, Button, Flex, Icon } from 'pouncejs';
 import { ADMIN_ROLES_ARRAY } from 'Source/constants';
-import ListUsersTable from 'Pages/users/subcomponents/list-users-table';
 import useSidesheet from 'Hooks/useSidesheet';
 import { SIDESHEETS } from 'Components/utils/sidesheet-context';
 import RoleRestrictedAccess from 'Components/role-restricted-access';
 import ErrorBoundary from 'Components/error-boundary';
+import ListUsersTable from './subcomponents/list-users-table';
 
 // Parent container for the users management
 const UsersContainer: React.FC = () => {
