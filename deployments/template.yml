@@ -141,10 +141,16 @@ Resources:
         CertificateArn: !Ref WebApplicationCertificateArn
       TemplateURL: web/alb.yml
 
+  WebApplicationImageRepository:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: web/ecr.yml
+
   FrontendApplicationServer:
     Type: AWS::CloudFormation::Stack
     Properties:
       Parameters:
+        Image: WebApplicationImageRepository.Outputs.ImageUrl
         ClusterName: !Ref WebApplicationCluster
         VpcId: !GetAtt WebApplicationNetworking.Outputs.VpcId
         SubnetOneId: !GetAtt WebApplicationNetworking.Outputs.SubnetOneId

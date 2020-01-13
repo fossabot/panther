@@ -34,6 +34,9 @@ Parameters:
   ClusterName:
     Type: String
     Description: The name of the cluster that the server should be attached to
+  Image:
+    Type: String
+    Description: The docker image that the server service will use
   ServiceName:
     Type: String
     Default: panther-web-frontend
@@ -45,7 +48,7 @@ Parameters:
   ImageVersion:
     Type: String
     Default: latest
-    Description: The version of the public panther docker image to install
+    Description: The version of the docker image that the server service will use
   GraphQLApiEndpoint:
     Type: String
     Description: The URL to the GraphQL server that the front-end will use
@@ -202,7 +205,7 @@ Resources:
             - Name: AWS_COGNITO_USER_POOL_ID
               Value: !Ref CognitoUserPoolId
           Essential: true
-          Image: !Sub pantherlabs/panther-web:${ImageVersion}
+          Image: !Sub ${Image}:${ImageVersion}
           Interactive: false
           LogConfiguration:
             LogDriver: awslogs
