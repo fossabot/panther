@@ -6,6 +6,7 @@
     "type": "git",
     "url": "git+https://github.com/panther-labs/panther.git"
   },
+  "private": false,
   "keywords": [
     "ui",
     "front-end",
@@ -80,6 +81,7 @@
     "husky": "^1.1.1",
     "image-webpack-loader": "^4.6.0",
     "js-yaml": "^3.13.1",
+    "klaw-sync": "^6.0.0",
     "lint-staged": "^9.0.2",
     "minimist": "^1.2.0",
     "prettier": "^1.19.1",
@@ -112,7 +114,6 @@
     "formik": "^2.0.1-rc.12",
     "graphql": "^14.4.2",
     "history": "^4.7.2",
-    "klaw-sync": "^6.0.0",
     "linkifyjs": "^2.1.7",
     "lodash-es": "^4.17.15",
     "pouncejs": "^0.10.0",
@@ -134,7 +135,6 @@
     "setup-dotenv": "node web/scripts/setup-dotenv.js",
     "generate-gql": "graphql-codegen",
     "dev": "npm run setup-dotenv -- --environment=local webpack-dev-server --config=web/webpack.config.js",
-    "prebuild-enterprise": "node web/scripts/prebuild-enterprise.js",
-    "lint": "eslint \"(web|enterprise)/src/**/*.{ts,js,tsx,jsx}\" && prettier --list-different  \"(web|enterprise)/src/**/*.{ts,js,tsx,jsx,md,scss,css,json}\" && tsc -p ."
+    "lint": "eslint \"{web,enterprise}/**/*.{ts,js,tsx,jsx}\" && prettier --list-different  \"{web,enterprise}/**/*.{ts,js,tsx,jsx,md,scss,css,json}\" && tsc -p ."
   }
 }
