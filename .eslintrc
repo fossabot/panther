@@ -10,6 +10,7 @@
     "browser": true,
     "node": true
   },
+  "ignorePatterns": ["npm-debug.log*", "node_modules", "web/dist", "web/__generated__"],
   "rules": {
     "import/prefer-default-export": 0,
     "max-len": 0,
