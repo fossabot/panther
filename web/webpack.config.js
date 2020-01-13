@@ -286,7 +286,6 @@ module.exports = {
       tsconfig: path.resolve(__dirname, '../tsconfig.json'),
       reportFiles: [
         '**',
-        '!**/enterprise/**',
         '!**/__tests__/**',
         '!**/?(*.)(spec|test).*',
         '!**/src/setupProxy.*',
