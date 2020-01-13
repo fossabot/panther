@@ -38,7 +38,7 @@ import (
 )
 
 // s3ObjectKeyFormat represents the format of the S3 object key
-const s3ObjectKeyFormat = "%s/%s-%s.gz"
+const s3ObjectKeyFormat = "%s%s-%s.gz"
 
 var (
 	maxFileSize = 100 * 1000 * 1000 // 100MB uncompressed file size, should result in ~10MB output file size
