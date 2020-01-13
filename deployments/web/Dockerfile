@@ -28,7 +28,7 @@ ADD package.json .
 RUN npm --production=false install
 
 # Mount the code
-ADD web .
+ADD web web
 
 # Build the project with the ENV vars present in the system & run the node server
 CMD npm run build-assets && npm run serve-assets
