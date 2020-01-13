@@ -31,7 +31,7 @@ if (!environment) {
 }
 
 dotenv.config({
-  path: path.resolve(`../config/.env.${environment}`),
+  path: path.resolve(`web/config/.env.${environment}`),
 });
 
 if (otherArgs.length) {
