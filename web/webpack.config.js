@@ -137,15 +137,6 @@ module.exports = {
     // lint all the files before passing them through the appropriate loaders
     rules: [
       {
-        enforce: 'pre',
-        test: /\.js$/,
-        include: path.resolve(__dirname, 'src'),
-        loader: 'eslint-loader',
-        options: {
-          emitWarning: true,
-        },
-      },
-      {
         test: /\.(js|mjs|jsx|ts|tsx)$/,
         exclude: /node_modules/,
         loader: require.resolve('babel-loader'),
