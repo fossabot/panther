@@ -1,3 +1,19 @@
+/**
+ * Copyright 2020 Panther Labs Inc
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 const path = require('path');
 const resolve = require('resolve');
 const webpack = require('webpack');
@@ -10,6 +26,10 @@ const WorkboxWebpackPlugin = require('workbox-webpack-plugin');
 const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
 const ReactRefreshPlugin = require('react-refresh-webpack-plugin');
 const CopyPlugin = require('copy-webpack-plugin');
+const DirContentReplacementPlugin = require('./dev-utils/dir-content-replacement-plugin');
+
+// Treating root project dir as CWD since this scripts is called through npm
+const ENTERPRISE_DIR_NAME = 'enterprise';
 
 const isEnvDevelopment = process.env.NODE_ENV === 'development';
 const isEnvProduction = process.env.NODE_ENV === 'production';
@@ -293,6 +313,10 @@ module.exports = {
       ],
       watch: path.resolve(__dirname, 'src'),
       silent: true,
+    }),
+    new DirContentReplacementPlugin({
+      dir: path.resolve(__dirname, `../${ENTERPRISE_DIR_NAME}/web`),
+      mapper: filePath => filePath.replace(`/${ENTERPRISE_DIR_NAME}/`, `/`),
     }),
   ].filter(Boolean),
 };
