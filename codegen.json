@@ -1,5 +1,5 @@
 {
-  "schema": "/Users/aggelos/projects/panther/api/graphql/schema.graphql",
+  "schema": "api/graphql/schema.graphql",
   "overwrite": true,
   "generates": {
     "web/__generated__/schema.tsx": {
