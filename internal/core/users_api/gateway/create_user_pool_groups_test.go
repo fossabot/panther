@@ -44,7 +44,7 @@ func TestCreateGroups(t *testing.T) {
 
 	assert.NoError(t, gw.CreateUserPoolGroups(aws.String("us-west-2_ZlG7Ldp1K")))
 	mockCognitoClient.AssertExpectations(t)
-	mockCognitoClient.AssertNumberOfCalls(t, "CreateGroup", 3)
+	mockCognitoClient.AssertNumberOfCalls(t, "CreateGroup", 1)
 }
 
 func TestCreateGroupsFailure(t *testing.T) {
