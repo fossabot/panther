@@ -194,16 +194,6 @@ Resources:
           Environment:
             - Name: SERVER_PORT
               Value: !Ref Port
-            - Name: AWS_REGION
-              Value: !Ref AWS::Region
-            - Name: AWS_ACCOUNT_ID
-              Value: !Ref AWS::AccountId
-            - Name: GRAPHQL_ENDPOINT
-              Value: !Ref GraphQLApiEndpoint
-            - Name: AWS_COGNITO_APP_CLIENT_ID
-              Value: !Ref CognitoAppClientId
-            - Name: AWS_COGNITO_USER_POOL_ID
-              Value: !Ref CognitoUserPoolId
           Essential: true
           Image: !Sub ${ImageRepo}:${ImageVersion}
           Interactive: false

@@ -7,11 +7,23 @@ LABEL description="The image that builds the web code and serves it through an e
 
 # Build argument for versioning
 ARG PANTHER_VERSION
+ARG AWS_ACCOUNT_ID
+ARG AWS_REGION
+ARG GRAPHQL_ENDPOINT
+ARG AWS_COGNITO_USER_POOL_ID
+ARG AWS_COGNITO_APP_CLIENT_ID
+
+# Create ENV from build ARGs
+ENV PANTHER_VERSION=$PANTHER_VERSION
+ENV AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID
+ENV AWS_REGION=$AWS_REGION
+ENV GRAPHQL_ENDPOINT=$GRAPHQL_ENDPOINT
+ENV AWS_COGNITO_USER_POOL_ID=$AWS_COGNITO_USER_POOL_ID
+ENV AWS_COGNITO_APP_CLIENT_ID=$AWS_COGNITO_APP_CLIENT_ID
 
 # Setup default ENV variables
 ENV SERVER_PORT=8080
 ENV NODE_ENV=production
-ENV PANTHER_VERSION=$PANTHER_VERSION
 
 # Update debian distro
 RUN apk update && apk add --no-cache --update nasm libtool alpine-sdk autoconf automake
