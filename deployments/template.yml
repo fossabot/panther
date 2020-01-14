@@ -150,7 +150,7 @@ Resources:
     Type: AWS::CloudFormation::Stack
     Properties:
       Parameters:
-        Image: WebApplicationImageRepository.Outputs.ImageUrl
+        ImageRepo: WebApplicationImageRepository.Outputs.ImageRepo
         ClusterName: !Ref WebApplicationCluster
         VpcId: !GetAtt WebApplicationNetworking.Outputs.VpcId
         SubnetOneId: !GetAtt WebApplicationNetworking.Outputs.SubnetOneId
@@ -400,3 +400,13 @@ Outputs:
   WebApplicationCertificateArn:
     Description: ARN of the certificate used by the web application
     Value: !Ref WebApplicationCertificateArn
+  WebApplicationImage:
+    Description: The docker  image used by the web application
+    Value: !GetAtt FrontendApplicationServer.Outputs.WebApplicationImage
+  AWSAccountId:
+    Description: The ID of the account that this stack was deployed to
+    Value: !Ref AWS::AccountId
+  AWSRegion:
+    Description: The region that the stack was deployed to
+    Value: !Ref AWS::Region
+

@@ -34,9 +34,9 @@ Parameters:
   ClusterName:
     Type: String
     Description: The name of the cluster that the server should be attached to
-  Image:
+  ImageRepo:
     Type: String
-    Description: The docker image that the server service will use
+    Description: The URL to the repo hosting docker image that the server service will use
   ServiceName:
     Type: String
     Default: panther-web-frontend
@@ -205,7 +205,7 @@ Resources:
             - Name: AWS_COGNITO_USER_POOL_ID
               Value: !Ref CognitoUserPoolId
           Essential: true
-          Image: !Sub ${Image}:${ImageVersion}
+          Image: !Sub ${ImageRepo}:${ImageVersion}
           Interactive: false
           LogConfiguration:
             LogDriver: awslogs
@@ -225,3 +225,8 @@ Resources:
       NetworkMode: awsvpc
       RequiresCompatibilities:
         - FARGATE
+
+Outputs:
+  WebApplicationImage:
+    Description: The image used by the web application server
+    Value: !Sub ${ImageRepo}:${ImageVersion}
