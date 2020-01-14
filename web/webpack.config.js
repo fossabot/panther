@@ -24,7 +24,7 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 const CleanWebpackPlugin = require('clean-webpack-plugin');
 const WorkboxWebpackPlugin = require('workbox-webpack-plugin');
 const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
-const ReactRefreshPlugin = require('react-refresh-webpack-plugin');
+const ReactRefreshWebpackPlugin = require('@pmmmwh/react-refresh-webpack-plugin');
 const CopyPlugin = require('copy-webpack-plugin');
 
 const isEnvDevelopment = process.env.NODE_ENV === 'development';
@@ -250,7 +250,7 @@ module.exports = {
     // This is currently an experimental feature supported only by react-native, but released
     // through the official React repo. Up until now we utilise a custom webpack-plugin (since
     // the official one exists only for react-native's Metro)
-    isEnvDevelopment && new ReactRefreshPlugin(),
+    isEnvDevelopment && new ReactRefreshWebpackPlugin(),
     // Generate a manifest file which contains a mapping of all asset filenames
     // to their corresponding output file so that tools can pick it up without
     // having to parse `index.html`.

@@ -17,8 +17,8 @@
 
 const fs = require('fs');
 
-const ENTERPRISE_WEBPACK_CONFIG = './enterprise/web/webpack.config';
-const PUBLIC_WEBPACK_CONFIG = './web/webpack.config';
+const ENTERPRISE_WEBPACK_CONFIG = './enterprise/web/webpack.config.js';
+const PUBLIC_WEBPACK_CONFIG = './web/webpack.config.js';
 
 if (fs.existsSync(ENTERPRISE_WEBPACK_CONFIG)) {
   module.exports = require(ENTERPRISE_WEBPACK_CONFIG);
