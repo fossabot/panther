@@ -26,10 +26,6 @@ const WorkboxWebpackPlugin = require('workbox-webpack-plugin');
 const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
 const ReactRefreshPlugin = require('react-refresh-webpack-plugin');
 const CopyPlugin = require('copy-webpack-plugin');
-const DirContentReplacementPlugin = require('./dev-utils/dir-content-replacement-plugin');
-
-// Treating root project dir as CWD since this scripts is called through npm
-const ENTERPRISE_DIR_NAME = 'enterprise';
 
 const isEnvDevelopment = process.env.NODE_ENV === 'development';
 const isEnvProduction = process.env.NODE_ENV === 'production';
@@ -313,10 +309,6 @@ module.exports = {
       ],
       watch: path.resolve(__dirname, 'src'),
       silent: true,
-    }),
-    new DirContentReplacementPlugin({
-      dir: path.resolve(__dirname, `../${ENTERPRISE_DIR_NAME}/web`),
-      mapper: filePath => filePath.replace(`/${ENTERPRISE_DIR_NAME}/`, `/`),
     }),
   ].filter(Boolean),
 };
