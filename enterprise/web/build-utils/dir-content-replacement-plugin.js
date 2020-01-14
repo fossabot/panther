@@ -17,7 +17,7 @@
 const fs = require('fs');
 const klawSync = require('klaw-sync');
 
-class PantherEnterpriseReplacementPlugin {
+class DirContentReplacementPlugin {
   constructor({ dir, mapper }) {
     this.dir = dir;
     this.mapper = mapper;
@@ -55,4 +55,4 @@ class PantherEnterpriseReplacementPlugin {
   }
 }
 
-module.exports = PantherEnterpriseReplacementPlugin;
+module.exports = DirContentReplacementPlugin;
