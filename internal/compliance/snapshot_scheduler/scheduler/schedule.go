@@ -30,7 +30,7 @@ import (
 	"github.com/panther-labs/panther/pkg/genericapi"
 )
 
-const snapshotAPIFunctionName = "panther-snapshot-api:live"
+const snapshotAPIFunctionName = "panther-snapshot-api"
 
 var (
 	sess                               = session.Must(session.NewSession())

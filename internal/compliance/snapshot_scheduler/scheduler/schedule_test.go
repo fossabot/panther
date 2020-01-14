@@ -65,7 +65,7 @@ func getTestInvokeInput() *lambda.InvokeInput {
 	}
 
 	return &lambda.InvokeInput{
-		FunctionName: aws.String("panther-snapshot-api:live"),
+		FunctionName: aws.String("panther-snapshot-api"),
 		Payload:      payload,
 	}
 }
