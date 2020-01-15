@@ -99,7 +99,7 @@ func handleNotificationMessage(notification *SnsNotification) (result []*common.
 			zap.String("key", *s3Object.S3ObjectKey),
 		)
 
-		s3Client, err := getS3Client(*s3Object.S3Bucket)
+		s3Client, err := getS3Client(*s3Object.S3Bucket, notification.TopicArn)
 		if err != nil {
 			return nil, err
 		}

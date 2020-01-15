@@ -118,15 +118,6 @@ Resources:
             BatchSize: 10
       Tracing: !If [TracingEnabled, !Ref TracingMode, !Ref 'AWS::NoValue']
       Policies:
-        - Id: PutCloudWatchLogs
-          Version: 2012-10-17
-          Statement:
-            - Effect: Allow
-              Action:
-                - logs:CreateLogGroup
-                - logs:CreateLogStream
-                - logs:PutLogEvents
-              Resource: !GetAtt FunctionLogGroup.Arn
         - Id: ReceiveFromInputSqsQueue
           Version: 2012-10-17
           Statement:
@@ -136,14 +127,6 @@ Resources:
                 - sqs:GetQueueAttributes
                 - sqs:ReceiveMessage
               Resource: !GetAtt Queue.Arn
-        - Id: ReadFromS3
-          Version: 2012-10-17
-          Statement:
-            - Effect: Allow
-              Action:
-                - s3:GetObject
-                - s3:GetBucketLocation
-              Resource: '*'
         - Id: OutputToS3
           Version: 2012-10-17
           Statement:
@@ -156,7 +139,16 @@ Resources:
             - Effect: Allow
               Action: sns:Publish
               Resource: !Ref SnsTopicArn
-        - Id: AccessKms
+        - Id: AssumePantherLogProcessingRole
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action: sts:AssumeRole
+              Resource: 'arn:aws:iam::*:role/PantherLogProcessingRole'
+              Condition:
+                Bool:
+                  aws:SecureTransport: true
+        - Id: AccessSqsKms
           Version: 2012-10-17
           Statement:
             - Effect: Allow

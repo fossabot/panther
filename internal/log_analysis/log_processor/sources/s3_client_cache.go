@@ -17,7 +17,14 @@ package sources
  */
 
 import (
+	"errors"
+	"fmt"
+	"time"
+
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/arn"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/service/s3"
 	lru "github.com/hashicorp/golang-lru"
@@ -26,17 +33,33 @@ import (
 	"github.com/panther-labs/panther/internal/log_analysis/log_processor/common"
 )
 
+const (
+	// sessionDurationSeconds is the duration in seconds of the STS session the S3 client uses
+	sessionDurationSeconds = 3600
+	// sessionExternalID is external ID that will be used when getting credentials from STS
+	sessionExternalID       = "panther"
+	logProcessingRoleFormat = "arn:aws:iam::%s:role/PantherLogProcessingRole"
+)
+
 var (
 	// Bucket name -> region
 	bucketCache *lru.ARCCache
 
 	// region -> S3 client
-	clientCache map[string]*s3.S3
+	s3ClientCache *lru.ARCCache
 )
+
+type s3ClientCacheKey struct {
+	awsAccountID string
+	awsRegion    string
+}
 
 func init() {
 	var err error
-	clientCache = map[string]*s3.S3{}
+	s3ClientCache, err = lru.NewARC(100)
+	if err != nil {
+		panic("Failed to create client cache")
+	}
 
 	bucketCache, err = lru.NewARC(1000)
 	if err != nil {
@@ -44,13 +67,23 @@ func init() {
 	}
 }
 
-// getS3Client Fetches S3 client with permissions to read data from the given account
-func getS3Client(s3Bucket string) (*s3.S3, error) {
-	var err error
+// getS3Client Fetches S3 client with permissions to read data from the account
+// that owns the SNS Topic
+func getS3Client(s3Bucket string, topicArn string) (*s3.S3, error) {
+	parsedTopicArn, err := arn.Parse(topicArn)
+	if err != nil {
+		return nil, err
+	}
+
+	awsCreds := getAwsCredentials(parsedTopicArn.AccountID)
+	if awsCreds == nil {
+		return nil, errors.New("failed to fetch credentials for assumed role")
+	}
+
 	bucketRegion, ok := bucketCache.Get(s3Bucket)
 	if !ok {
 		zap.L().Info("bucket region was not cached, fetching it", zap.String("bucket", s3Bucket))
-		bucketRegion, err = getBucketRegion(s3Bucket)
+		bucketRegion, err = getBucketRegion(s3Bucket, awsCreds)
 		if err != nil {
 			return nil, err
 		}
@@ -59,21 +92,28 @@ func getS3Client(s3Bucket string) (*s3.S3, error) {
 
 	zap.L().Debug("found bucket region", zap.Any("region", bucketRegion))
 
-	client, ok := clientCache[bucketRegion.(string)]
+	cacheKey := s3ClientCacheKey{
+		awsAccountID: parsedTopicArn.AccountID,
+		awsRegion:    bucketRegion.(string),
+	}
+
+	var client interface{}
+	client, ok = s3ClientCache.Get(cacheKey)
 	if !ok {
 		zap.L().Info("s3 client was not cached, creating it")
 		client = s3.New(common.Session, aws.NewConfig().
-			WithRegion(bucketRegion.(string)))
-		clientCache[bucketRegion.(string)] = client
+			WithRegion(bucketRegion.(string)).
+			WithCredentials(awsCreds))
+		s3ClientCache.Add(cacheKey, client)
 	}
-	return client, nil
+	return client.(*s3.S3), nil
 }
 
-func getBucketRegion(s3Bucket string) (string, error) {
-	zap.L().Info("searching bucket region",
+func getBucketRegion(s3Bucket string, awsCreds *credentials.Credentials) (string, error) {
+	zap.L().Debug("searching bucket region",
 		zap.String("bucket", s3Bucket))
 
-	locationDiscoveryClient := s3.New(common.Session)
+	locationDiscoveryClient := s3.New(common.Session, &aws.Config{Credentials: awsCreds})
 	input := &s3.GetBucketLocationInput{Bucket: aws.String(s3Bucket)}
 	location, err := locationDiscoveryClient.GetBucketLocation(input)
 	if err != nil {
@@ -87,4 +127,15 @@ func getBucketRegion(s3Bucket string) (string, error) {
 		return endpoints.UsEast1RegionID, nil
 	}
 	return *location.LocationConstraint, nil
+}
+
+// getAwsCredentials fetches the AWS Credentials from STS for by assuming a role in the given account
+func getAwsCredentials(awsAccountID string) *credentials.Credentials {
+	roleArn := fmt.Sprintf(logProcessingRoleFormat, awsAccountID)
+	zap.L().Debug("fetching new credentials from assumed role", zap.String("roleArn", roleArn))
+
+	return stscreds.NewCredentials(common.Session, roleArn, func(p *stscreds.AssumeRoleProvider) {
+		p.Duration = time.Duration(sessionDurationSeconds) * time.Second
+		p.ExternalID = aws.String(sessionExternalID)
+	})
 }
