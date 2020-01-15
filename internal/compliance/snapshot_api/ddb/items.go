@@ -1,4 +1,4 @@
-package models
+package ddb
 
 /**
  * Copyright 2020 Panther Labs Inc
@@ -32,6 +32,6 @@ type UpdateIntegrationItem struct {
 	LastScanStartTime    *time.Time `json:"lastScanStartTime"`
 	ScanStatus           *string    `json:"scanStatus"`
 	ScanIntervalMins     *int       `json:"scanIntervalMins"`
-	SourceSnsTopicArn    *string    `json:"sourceSnsTopicArn"`
-	LogProcessingRoleArn *string    `json:"logProcessingRoleArn"`
+	S3Buckets            []*string  `json:"s3Buckets" dynamodbav:"s3Buckets,stringset"`
+	KmsKeys              []*string  `json:"kmsKeys" dynamodbav:"kmsKeys,stringset"`
 }

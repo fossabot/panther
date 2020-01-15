@@ -18,25 +18,26 @@ package api
 
 import (
 	"github.com/panther-labs/panther/api/lambda/snapshot/models"
+	"github.com/panther-labs/panther/internal/compliance/snapshot_api/ddb"
 )
 
 // UpdateIntegrationSettings makes an update to an integration from the UI.
 //
 // This endpoint updates attributes such as the behavior of the integration, or display information.
 func (API) UpdateIntegrationSettings(input *models.UpdateIntegrationSettingsInput) error {
-	return db.UpdateItem(&models.UpdateIntegrationItem{
-		IntegrationID:        input.IntegrationID,
-		IntegrationLabel:     input.IntegrationLabel,
-		ScanIntervalMins:     input.ScanIntervalMins,
-		ScanEnabled:          input.ScanEnabled,
-		LogProcessingRoleArn: input.LogProcessingRoleArn,
-		SourceSnsTopicArn:    input.SourceSnsTopicArn,
+	return db.UpdateItem(&ddb.UpdateIntegrationItem{
+		IntegrationID:    input.IntegrationID,
+		IntegrationLabel: input.IntegrationLabel,
+		ScanIntervalMins: input.ScanIntervalMins,
+		ScanEnabled:      input.ScanEnabled,
+		S3Buckets:        input.S3Buckets,
+		KmsKeys:          input.KmsKeys,
 	})
 }
 
 // UpdateIntegrationLastScanStart updates an integration when a new scan is started.
 func (API) UpdateIntegrationLastScanStart(input *models.UpdateIntegrationLastScanStartInput) error {
-	return db.UpdateItem(&models.UpdateIntegrationItem{
+	return db.UpdateItem(&ddb.UpdateIntegrationItem{
 		IntegrationID:     input.IntegrationID,
 		LastScanStartTime: input.LastScanStartTime,
 		ScanStatus:        input.ScanStatus,
@@ -45,7 +46,7 @@ func (API) UpdateIntegrationLastScanStart(input *models.UpdateIntegrationLastSca
 
 // UpdateIntegrationLastScanEnd updates an integration when a scan ends.
 func (API) UpdateIntegrationLastScanEnd(input *models.UpdateIntegrationLastScanEndInput) error {
-	return db.UpdateItem(&models.UpdateIntegrationItem{
+	return db.UpdateItem(&ddb.UpdateIntegrationItem{
 		IntegrationID:        input.IntegrationID,
 		LastScanEndTime:      input.LastScanEndTime,
 		LastScanErrorMessage: input.LastScanErrorMessage,

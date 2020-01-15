@@ -54,6 +54,7 @@ func (ddb *DDB) DeleteIntegrationItem(input *models.DeleteIntegrationInput) erro
 				return &genericapi.AWSError{Err: err, Method: "Dynamodb.DeleteItem"}
 			}
 		}
+		return &genericapi.AWSError{Err: err, Method: "Dynamodb.DeleteItem"}
 	}
 
 	return nil

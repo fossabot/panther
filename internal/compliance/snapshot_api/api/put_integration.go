@@ -33,8 +33,27 @@ import (
 	"github.com/panther-labs/panther/pkg/genericapi"
 )
 
+const (
+	sqsReceiveMessageAction = "ReceiveMessage"
+)
+
 // PutIntegration adds a set of new integrations in a batch.
 func (API) PutIntegration(input *models.PutIntegrationInput) ([]*models.SourceIntegrationMetadata, error) {
+	permissionsAddedForIntegrations := []*models.SourceIntegrationMetadata{}
+	var err error
+	defer func() {
+		if err != nil {
+			// In case there has been any error, try to undo granting of permissions to SQS queue.
+			for _, integration := range permissionsAddedForIntegrations {
+				if undoErr := removeLogProcessingPermissions(integration); undoErr != nil {
+					zap.L().Error("failed to remove SQS permission for integration. SQS queue has additional permissions that have to be removed manually",
+						zap.String("sqsPermissionLabel", *integration.IntegrationID),
+						zap.Error(undoErr),
+						zap.Error(err))
+				}
+			}
+		}
+	}()
 	newIntegrations := make([]*models.SourceIntegrationMetadata, len(input.Integrations))
 
 	// Generate the new integrations
@@ -42,8 +61,16 @@ func (API) PutIntegration(input *models.PutIntegrationInput) ([]*models.SourceIn
 		newIntegrations[i] = generateNewIntegration(integration)
 	}
 
+	for _, integration := range newIntegrations {
+		err = updateLogProcessingPermissions(integration)
+		if err != nil {
+			return nil, err
+		}
+		permissionsAddedForIntegrations = append(permissionsAddedForIntegrations, integration)
+	}
+
 	// Batch write to DynamoDB
-	if err := db.BatchPutSourceIntegrations(newIntegrations); err != nil {
+	if err = db.BatchPutSourceIntegrations(newIntegrations); err != nil {
 		return nil, err
 	}
 
@@ -62,7 +89,8 @@ func (API) PutIntegration(input *models.PutIntegrationInput) ([]*models.SourceIn
 	}
 
 	// Add to the Snapshot queue
-	return newIntegrations, ScanAllResources(integrationsToScan)
+	err = ScanAllResources(integrationsToScan)
+	return newIntegrations, err
 }
 
 // ScanAllResources schedules scans for each resource type for each integration.
@@ -127,7 +155,23 @@ func generateNewIntegration(input *models.PutIntegrationSettings) *models.Source
 		ScanEnabled:      input.ScanEnabled,
 		ScanIntervalMins: input.ScanIntervalMins,
 		// For log analysis integrations
-		SourceSnsTopicArn:    input.SourceSnsTopicArn,
-		LogProcessingRoleArn: input.LogProcessingRoleArn,
+		S3Buckets: input.S3Buckets,
+		KmsKeys:   input.KmsKeys,
 	}
+}
+
+// updateLogProcessingPermissions updates Log Processor SQS queue to allow new account
+// to send data to it.
+func updateLogProcessingPermissions(input *models.SourceIntegrationMetadata) error {
+	if *input.IntegrationType != models.IntegrationTypeAWS3 {
+		return nil
+	}
+	permissionInput := &sqs.AddPermissionInput{
+		AWSAccountIds: []*string{input.AWSAccountID},
+		Actions:       aws.StringSlice([]string{sqsReceiveMessageAction}),
+		QueueUrl:      aws.String(logAnalysisQueueURL),
+		Label:         input.IntegrationID,
+	}
+	_, err := SQSClient.AddPermission(permissionInput)
+	return err
 }

@@ -17,6 +17,7 @@ package api
  */
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -27,6 +28,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/panther-labs/panther/api/lambda/snapshot/models"
 	"github.com/panther-labs/panther/internal/compliance/snapshot_api/ddb"
@@ -43,13 +47,19 @@ type mockSQSClient struct {
 	mock.Mock
 }
 
-// SendMessageBatch is a mock method for sending a batch of messages.
-func (client *mockSQSClient) SendMessageBatch(
-	input *sqs.SendMessageBatchInput,
-) (*sqs.SendMessageBatchOutput, error) {
-
+func (client *mockSQSClient) SendMessageBatch(input *sqs.SendMessageBatchInput) (*sqs.SendMessageBatchOutput, error) {
 	args := client.Called(input)
 	return args.Get(0).(*sqs.SendMessageBatchOutput), args.Error(1)
+}
+
+func (client *mockSQSClient) AddPermission(input *sqs.AddPermissionInput) (*sqs.AddPermissionOutput, error) {
+	args := client.Called(input)
+	return args.Get(0).(*sqs.AddPermissionOutput), args.Error(1)
+}
+
+func (client *mockSQSClient) RemovePermission(input *sqs.RemovePermissionInput) (*sqs.RemovePermissionOutput, error) {
+	args := client.Called(input)
+	return args.Get(0).(*sqs.RemovePermissionOutput), args.Error(1)
 }
 
 func generateMockSQSBatchInputOutput(integrations []*models.SourceIntegrationMetadata) (
@@ -208,7 +218,105 @@ func TestPutIntegrationDatabaseError(t *testing.T) {
 		TableName: "test",
 	}
 
+	mockSQS := &mockSQSClient{}
+	SQSClient = mockSQS
+	mockSQS.On("AddPermission", mock.Anything).Return(&sqs.AddPermissionOutput{}, nil)
+	// RemoveRermission will be called to remove the permission that was added previously
+	// This is done as part of rollback process to bring the system in a consistent state
+	mockSQS.On("RemovePermission", mock.Anything).Return(&sqs.RemovePermissionOutput{}, nil)
+
 	out, err := apiTest.PutIntegration(in)
 	assert.Error(t, err)
 	assert.Empty(t, out)
+}
+
+func TestPutIntegrationDatabaseErrorRecoveryFails(t *testing.T) {
+	// Used to capture logs for unit testing purposes
+	core, recordedLogs := observer.New(zapcore.ErrorLevel)
+	zap.ReplaceGlobals(zap.New(core))
+
+	in := &models.PutIntegrationInput{
+		Integrations: []*models.PutIntegrationSettings{
+			{
+				AWSAccountID:     aws.String(testAccountID),
+				IntegrationLabel: aws.String(testIntegrationLabel),
+				IntegrationType:  aws.String(testIntegrationType),
+				ScanEnabled:      aws.Bool(true),
+				UserID:           aws.String(testUserID),
+			},
+		},
+	}
+
+	db = &ddb.DDB{
+		Client: &modelstest.MockDDBClient{
+			TestErr: true,
+		},
+		TableName: "test",
+	}
+
+	mockSQS := &mockSQSClient{}
+	SQSClient = mockSQS
+	mockSQS.On("AddPermission", mock.Anything).Return(&sqs.AddPermissionOutput{}, nil)
+	// RemoveRermission will be called to remove the permission that was added previously
+	// This is done as part of rollback process to bring the system in a consistent state
+	mockSQS.On("RemovePermission", mock.Anything).Return(&sqs.RemovePermissionOutput{}, errors.New("error"))
+
+	out, err := apiTest.PutIntegration(in)
+	require.Error(t, err)
+	require.Empty(t, out)
+
+	errorLog := recordedLogs.FilterMessage("failed to remove SQS permission for integration." +
+		" SQS queue has additional permissions that have to be removed manually")
+	require.NotNil(t, errorLog)
+}
+
+func TestPutLogIntegrationUpdateSqsQueuePermissions(t *testing.T) {
+	mockSQS := &mockSQSClient{}
+	SQSClient = mockSQS
+	logAnalysisQueueURL = "https://sqs.eu-west-1.amazonaws.com/123456789012/testqueue"
+
+	mockSQS.On("AddPermission", mock.Anything).Return(&sqs.AddPermissionOutput{}, nil)
+	db = &ddb.DDB{Client: &modelstest.MockDDBClient{TestErr: false}, TableName: "test"}
+
+	out, err := apiTest.PutIntegration(&models.PutIntegrationInput{
+		Integrations: []*models.PutIntegrationSettings{
+			{
+				AWSAccountID:    aws.String(testAccountID),
+				IntegrationType: aws.String(models.IntegrationTypeAWS3),
+				UserID:          aws.String(testUserID),
+				S3Buckets:       aws.StringSlice([]string{"bucket"}),
+				KmsKeys:         aws.StringSlice([]string{"keyarns"}),
+			},
+		},
+	})
+
+	sqsPermissionInput := mockSQS.Calls[0].Arguments[0].(*sqs.AddPermissionInput)
+	require.Equal(t, aws.StringSlice([]string{testAccountID}), sqsPermissionInput.AWSAccountIds)
+	require.Equal(t, aws.StringSlice([]string{"ReceiveMessage"}), sqsPermissionInput.Actions)
+	require.Equal(t, aws.String(logAnalysisQueueURL), sqsPermissionInput.QueueUrl)
+	require.NoError(t, err)
+	require.NotEmpty(t, out)
+}
+
+func TestPutLogIntegrationUpdateSqsQueuePermissionsFailure(t *testing.T) {
+	mockSQS := &mockSQSClient{}
+	SQSClient = mockSQS
+	logAnalysisQueueURL = "https://sqs.eu-west-1.amazonaws.com/123456789012/testqueue"
+
+	mockSQS.On("AddPermission", mock.Anything).Return(&sqs.AddPermissionOutput{}, errors.New("error"))
+	db = &ddb.DDB{Client: &modelstest.MockDDBClient{TestErr: false}, TableName: "test"}
+
+	out, err := apiTest.PutIntegration(&models.PutIntegrationInput{
+		Integrations: []*models.PutIntegrationSettings{
+			{
+				AWSAccountID:    aws.String(testAccountID),
+				IntegrationType: aws.String(models.IntegrationTypeAWS3),
+				UserID:          aws.String(testUserID),
+				S3Buckets:       aws.StringSlice([]string{"bucket"}),
+				KmsKeys:         aws.StringSlice([]string{"keyarns"}),
+			},
+		},
+	})
+	require.Error(t, err)
+	require.Empty(t, out)
 }

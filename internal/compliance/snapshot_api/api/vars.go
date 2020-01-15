@@ -33,6 +33,7 @@ var (
 	SQSClient               sqsiface.SQSAPI = sqs.New(sess)
 	maxElapsedTime                          = 5 * time.Second
 	snapshotPollersQueueURL                 = os.Getenv("SNAPSHOT_POLLERS_QUEUE_URL")
+	logAnalysisQueueURL                     = os.Getenv("LOG_ANALYSIS_QUEUE_URL")
 	tableName                               = os.Getenv("TABLE_NAME")
 )
 

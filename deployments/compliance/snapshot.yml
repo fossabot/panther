@@ -83,6 +83,9 @@ Parameters:
   SQSKeyId:
     Type: String
     Description: KMS key ID for SQS encryption
+  LogAnalysisQueueName:
+    Type: String
+    Default: panther-input-data-notifications
 
 Conditions:
   AttachLayers: !Not [!Equals [!Join ['', !Ref LayerVersionArns], '']]
@@ -190,6 +193,7 @@ Resources:
         Variables:
           DEBUG: !Ref Debug
           SNAPSHOT_POLLERS_QUEUE_URL: !Ref Queue
+          LOG_ANALYSIS_QUEUE_URL: !Sub "https://sqs.${AWS::Region}.amazonaws.com/${AWS::AccountId}/${LogAnalysisQueueName}"
           TABLE_NAME: !Ref IntegrationsTable
       FunctionName: panther-snapshot-api
       Handler: main
@@ -226,6 +230,13 @@ Resources:
                 - kms:Decrypt
                 - kms:GenerateDataKey
               Resource: !Sub arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/${SQSKeyId}
+        -
+          Id: UpdateLogProcessorQueue
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action: sqs:*Permission
+              Resource: !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:${LogAnalysisQueueName}
 
   ApiLogGroup:
     Type: AWS::Logs::LogGroup

@@ -27,16 +27,16 @@ type SourceIntegration struct {
 
 // SourceIntegrationMetadata is general settings and metadata for an integration.
 type SourceIntegrationMetadata struct {
-	AWSAccountID         *string    `json:"awsAccountId"`
-	CreatedAtTime        *time.Time `json:"createdAtTime"`
-	CreatedBy            *string    `json:"createdBy"`
-	IntegrationID        *string    `json:"integrationId"`
-	IntegrationLabel     *string    `json:"integrationLabel"`
-	IntegrationType      *string    `json:"integrationType"`
-	ScanEnabled          *bool      `json:"scanEnabled"`
-	ScanIntervalMins     *int       `json:"scanIntervalMins"`
-	SourceSnsTopicArn    *string    `json:"sourceSnsTopicArn"`
-	LogProcessingRoleArn *string    `json:"logProcessingRoleArn"`
+	AWSAccountID     *string    `json:"awsAccountId"`
+	CreatedAtTime    *time.Time `json:"createdAtTime"`
+	CreatedBy        *string    `json:"createdBy"`
+	IntegrationID    *string    `json:"integrationId"`
+	IntegrationLabel *string    `json:"integrationLabel"`
+	IntegrationType  *string    `json:"integrationType"`
+	ScanEnabled      *bool      `json:"scanEnabled"`
+	ScanIntervalMins *int       `json:"scanIntervalMins"`
+	S3Buckets        []*string  `json:"s3Buckets"`
+	KmsKeys          []*string  `json:"kmsKeys"`
 }
 
 // SourceIntegrationStatus provides context that the full scan works and that events are being received.

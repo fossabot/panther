@@ -24,14 +24,13 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb/expression"
 	"go.uber.org/zap"
 
-	"github.com/panther-labs/panther/api/lambda/snapshot/models"
 	"github.com/panther-labs/panther/pkg/genericapi"
 )
 
 // UpdateItem updates existing attributes in an item in the table.
 //
 // It inspects the input struct to identify non-nil fields, and then only updates them.
-func (ddb *DDB) UpdateItem(input *models.UpdateIntegrationItem) error {
+func (ddb *DDB) UpdateItem(input *UpdateIntegrationItem) error {
 	var update expression.UpdateBuilder
 	val := reflect.ValueOf(input).Elem()
 	st := reflect.TypeOf(input).Elem()
