@@ -15,6 +15,7 @@ venv
 
 # Generated
 out
+keys
 
 # External
 docs
