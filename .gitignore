@@ -1,11 +1,8 @@
-api/gateway/*/client/
-api/gateway/*/models/
 out/
 venv/
 .idea/
 __pycache__/
 *.zip
-
 
 # web
 web/dist/

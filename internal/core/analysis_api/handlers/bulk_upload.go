@@ -30,9 +30,9 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/go-yaml/yaml"
 	jsoniter "github.com/json-iterator/go"
 	"go.uber.org/zap"
+	"gopkg.in/yaml.v2"
 
 	"github.com/panther-labs/panther/api/gateway/analysis"
 	"github.com/panther-labs/panther/api/gateway/analysis/models"

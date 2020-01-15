@@ -21,6 +21,7 @@ import (
 	"os"
 	"path"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -37,8 +38,6 @@ import (
 )
 
 const (
-	configFile = "deployments/panther_config.yml"
-
 	// CloudFormation templates + stacks
 	applicationStack    = "panther-app"
 	applicationTemplate = "deployments/template.yml"
@@ -56,8 +55,8 @@ const (
 
 // Deploy Deploy application infrastructure
 func Deploy() error {
-	config, err := loadYamlFile(configFile)
-	if err != nil {
+	var config PantherConfig
+	if err := loadYamlFile(configFile, &config); err != nil {
 		return err
 	}
 
@@ -66,8 +65,10 @@ func Deploy() error {
 		return err
 	}
 
-	bucketParams := config["BucketsParameterValues"].(map[interface{}]interface{})
-	if err = deployTemplate(awsSession, bucketTemplate, bucketStack, stringMap(bucketParams)); err != nil {
+	bucketParams := map[string]string{
+		"AccessLogsBucketName": config.BucketsParameterValues.AccessLogsBucketName,
+	}
+	if err = deployTemplate(awsSession, bucketTemplate, bucketStack, bucketParams); err != nil {
 		return err
 	}
 
@@ -94,7 +95,7 @@ func Deploy() error {
 		return err
 	}
 
-	deployParams, err := getDeployParams(awsSession, config, bucket)
+	deployParams, err := getDeployParams(awsSession, &config, bucket)
 	if err != nil {
 		return err
 	}
@@ -116,29 +117,32 @@ func Deploy() error {
 		return err
 	}
 
+	if err := initializeAnalysisSets(awsSession, outputs["AnalysisApiEndpoint"], &config); err != nil {
+		return err
+	}
+
 	// TODO - underline link
 	fmt.Printf("\nPanther URL = https://%s\n", outputs["LoadBalancerUrl"])
 	return nil
-
-	// TODO - install initial rule sets
 }
 
 // Generate the set of deploy parameters for the main application stack.
 //
 // This will first upload the layer zipfile unless a custom layer is specified.
-func getDeployParams(awsSession *session.Session, config map[string]interface{}, bucket string) (map[string]string, error) {
-	result := stringMap(config["AppParameterValues"].(map[interface{}]interface{}))
+func getDeployParams(awsSession *session.Session, config *PantherConfig, bucket string) (map[string]string, error) {
+	v := config.AppParameterValues
+	result := map[string]string{
+		"CloudWatchLogRetentionDays":   strconv.Itoa(v.CloudWatchLogRetentionDays),
+		"Debug":                        strconv.FormatBool(v.Debug),
+		"LayerVersionArns":             v.LayerVersionArns,
+		"PythonLayerVersionArn":        v.PythonLayerVersionArn,
+		"WebApplicationCertificateArn": v.WebApplicationCertificateArn,
+		"TracingMode":                  v.TracingMode,
+	}
 
 	// If no custom Python layer is defined, then we need to build the default one.
 	if result["PythonLayerVersionArn"] == "" {
-		// Convert libs from []interface{} to []string
-		rawLibs := config["PipLayer"].([]interface{})
-		libs := make([]string, len(rawLibs))
-		for i, lib := range rawLibs {
-			libs[i] = lib.(string)
-		}
-
-		version, err := uploadLayer(awsSession, libs, bucket, layerS3ObjectKey)
+		version, err := uploadLayer(awsSession, config.PipLayer, bucket, layerS3ObjectKey)
 		if err != nil {
 			return nil, err
 		}

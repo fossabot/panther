@@ -129,8 +129,8 @@ func embedAPI(cfnFilename string) (string, error) {
 // the ARN of the Lambda function being invoked for each endpoint. The interpolation does not work
 // if we just reference a swagger file - the api spec must be embedded into the CloudFormation itself.
 func loadSwagger(filename string) (*string, error) {
-	apiBody, err := loadYamlFile(filename)
-	if err != nil {
+	var apiBody map[string]interface{}
+	if err := loadYamlFile(filename, &apiBody); err != nil {
 		return nil, err
 	}
 

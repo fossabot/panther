@@ -64,7 +64,7 @@ PipLayer:
 # List of policy/rule sets to install when Panther is FIRST deployed.
 #
 # Entries can be URLs or file:// paths that point to a .zip file.
-# If the analysis-api is already deployed and non-empty, this setting is ignored and you can instead
+# If the analysis-api is non-empty, this setting is ignored and you can instead
 # use the BulkUpload functionality from the web app to upload new or modified rule sets.
 InitialAnalysisSets:
   - example.com/default-rules.zip  # TODO - by default, point to a Panther github release artifact

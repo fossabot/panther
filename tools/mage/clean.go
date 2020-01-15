@@ -27,22 +27,9 @@ import (
 func Clean() error {
 	dirs := []string{"out"} // directories to remove
 
-	// Remove generated Swagger client/models
-	pkgs, err := filepath.Glob("api/gateway/*/client")
-	if err != nil {
-		return err
-	}
-	dirs = append(dirs, pkgs...)
-
-	pkgs, err = filepath.Glob("api/gateway/*/models")
-	if err != nil {
-		return err
-	}
-	dirs = append(dirs, pkgs...)
-
-	// Remove __pycache__ folderrs
+	// Remove __pycache__ folders
 	for _, target := range pyTargets {
-		err = filepath.Walk(target, func(path string, info os.FileInfo, err error) error {
+		err := filepath.Walk(target, func(path string, info os.FileInfo, err error) error {
 			if strings.HasSuffix(path, "__pycache__") {
 				dirs = append(dirs, path)
 			}

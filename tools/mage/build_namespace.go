@@ -58,8 +58,23 @@ func (b Build) API() error {
 		if !mg.Verbose() {
 			fmt.Println("build:api: swagger generate " + spec)
 		}
+
+		// If an API model is deleted, the generated file will still exist after "swagger generate".
+		// So we remove existing client/ and models/ directories before re-generating.
+		dir := path.Dir(spec)
+		if err := os.RemoveAll(path.Join(dir, "client")); err != nil {
+			return err
+		}
+		if err := os.RemoveAll(path.Join(dir, "models")); err != nil {
+			return err
+		}
+
 		args := []string{"generate", "client", "-q", "-t", path.Dir(spec), "-f", spec}
 		if err := sh.Run("swagger", args...); err != nil {
+			return err
+		}
+
+		if err := addSourceLicenses(dir); err != nil {
 			return err
 		}
 	}

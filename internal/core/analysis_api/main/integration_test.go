@@ -61,32 +61,16 @@ var (
 	policy = &models.Policy{
 		AutoRemediationID:         "fix-it",
 		AutoRemediationParameters: map[string]string{"hello": "world", "emptyParameter": ""},
-		Body: `# Copyright 2020 Panther Labs Inc
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-def policy(resource):
-    return True
-`,
-		ComplianceStatus: models.ComplianceStatusPASS,
-		Description:      "Matches every resource",
-		DisplayName:      "AlwaysTrue",
-		Enabled:          true,
-		ID:               "Test:Policy",
-		ResourceTypes:    []string{"AWS.S3.Bucket"},
-		Severity:         "MEDIUM",
-		Suppressions:     models.Suppressions{"panther.*"},
-		Tags:             nil,
+		Body:                      "def policy(resource):\n    return True\n",
+		ComplianceStatus:          models.ComplianceStatusPASS,
+		Description:               "Matches every resource",
+		DisplayName:               "AlwaysTrue",
+		Enabled:                   true,
+		ID:                        "Test:Policy",
+		ResourceTypes:             []string{"AWS.S3.Bucket"},
+		Severity:                  "MEDIUM",
+		Suppressions:              models.Suppressions{"panther.*"},
+		Tags:                      nil,
 		Tests: []*models.UnitTest{
 			{
 				Name:           "This will be True",
@@ -105,21 +89,7 @@ def policy(resource):
 
 	policyFromBulk = &models.Policy{
 		AutoRemediationParameters: map[string]string{"hello": "goodbye"},
-		Body: `# Copyright 2020 Panther Labs Inc
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-# Tags: ['CIS', 'AWS Managed Rules - Management and Governance']
+		Body: `# Tags: ['CIS', 'AWS Managed Rules - Management and Governance']
 def policy(resource):
     # Explicit check for True as the value may be None, and we want to return a bool not a NoneType
     return resource['Info']['LogFileValidationEnabled'] is True
@@ -201,33 +171,17 @@ def policy(resource):
 	policyFromBulkJSON = &models.Policy{
 		AutoRemediationID:         "fix-it",
 		AutoRemediationParameters: map[string]string{"hello": "goodbye"},
-		Body: `# Copyright 2020 Panther Labs Inc
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-def policy(resource):
-    return True
-`,
-		ComplianceStatus: models.ComplianceStatusPASS,
-		CreatedBy:        userID,
-		Description:      "Matches every resource",
-		DisplayName:      "AlwaysTrue",
-		Enabled:          true,
-		ID:               "Test:Policy:JSON",
-		LastModifiedBy:   userID,
-		ResourceTypes:    []string{"AWS.S3.Bucket"},
-		Severity:         "MEDIUM",
-		Tags:             nil,
+		Body:                      "def policy(resource):\n    return True\n",
+		ComplianceStatus:          models.ComplianceStatusPASS,
+		CreatedBy:                 userID,
+		Description:               "Matches every resource",
+		DisplayName:               "AlwaysTrue",
+		Enabled:                   true,
+		ID:                        "Test:Policy:JSON",
+		LastModifiedBy:            userID,
+		ResourceTypes:             []string{"AWS.S3.Bucket"},
+		Severity:                  "MEDIUM",
+		Tags:                      nil,
 		Tests: []*models.UnitTest{
 			{
 				Name:           "This will be True",

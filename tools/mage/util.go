@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"strings"
 
@@ -31,27 +32,17 @@ import (
 )
 
 // Open and parse a yaml file.
-func loadYamlFile(path string) (map[string]interface{}, error) {
+func loadYamlFile(path string, out interface{}) error {
 	contents, err := ioutil.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open '%s': %s", path, err)
+		return fmt.Errorf("failed to open '%s': %s", path, err)
 	}
 
-	var result map[string]interface{}
-	if err := yaml.Unmarshal(contents, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse yaml file '%s': %s", path, err)
+	if err := yaml.Unmarshal(contents, out); err != nil {
+		return fmt.Errorf("failed to parse yaml file '%s': %s", path, err)
 	}
 
-	return result, nil
-}
-
-// Convert a parsed yaml map into a string map.
-func stringMap(input map[interface{}]interface{}) map[string]string {
-	result := make(map[string]string, len(input))
-	for key, val := range input {
-		result[key.(string)] = fmt.Sprintf("%v", val)
-	}
-	return result
+	return nil
 }
 
 // Get CloudFormation stack outputs as a map.
@@ -127,4 +118,15 @@ func emailValidator(email string) error {
 	}
 
 	return errors.New("error: invalid email: must be at least 4 characters and contain '@' and '.'")
+}
+
+// Download a file in memory.
+func download(url string) ([]byte, error) {
+	response, err := http.Get(url) // nolint:gosec
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	return ioutil.ReadAll(response.Body)
 }

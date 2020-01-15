@@ -36,7 +36,7 @@ var (
 // Fmt Format source files
 func Fmt() error {
 	fmt.Println("fmt: license")
-	if err := addSourceLicenses(); err != nil {
+	if err := addSourceLicenses(licensePaths...); err != nil {
 		return err
 	}
 
