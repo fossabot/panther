@@ -29,7 +29,10 @@ Check out our [website](https://runpanther.io), [blog](https://blog.runpanther.i
 
 ## Setup
 
-The first thing to do is install the necessary build tools. You have the option to either install
+Panther depends on you having Docker 1.17+ installed. Please refer to the [official Docker page](https://docs.docker.com/install/)
+for information on how to install it on your OS.
+
+Having Docker installed, the next step would be to install the necessary build tools. You have the option to either install
 them manually on your machine or use the [docker image](https://hub.docker.com/r/pantherlabs/panther-buildpack) that we provide.
 
 ### Manually
