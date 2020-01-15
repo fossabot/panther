@@ -130,8 +130,7 @@
     "yup": "^0.26.6"
   },
   "scripts": {
-    "build-assets": "webpack",
-    "serve-assets": "node web/scripts/serve-assets.js",
+    "build": "webpack",
     "setup-dotenv": "node web/scripts/setup-dotenv.js",
     "generate-gql": "graphql-codegen",
     "dev": "npm run setup-dotenv -- --environment=local webpack-dev-server",
