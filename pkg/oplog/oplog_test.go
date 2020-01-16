@@ -151,11 +151,12 @@ func TestOperationLogError(t *testing.T) {
 
 func TestOperationLogBeforeStop(t *testing.T) {
 	logs := mockLogger()
+	delay := time.Millisecond
 	op := NewManager(testNamespace, testComponent).Start(testOperation)
-	time.Sleep(time.Millisecond) // need because this is so fast
+	time.Sleep(delay) // need because this is so fast
 	op.LogWarn(errors.New("something happened mid operation"))
 	require.Equal(t, 1, len(logs.FilterMessage(op.zapMsg()).All())) // should be just one like this
 	require.Nil(t, logs.FilterMessage(op.zapMsg()).All()[0].ContextMap()["endOp"])
 	dur := (logs.FilterMessage(op.zapMsg()).All()[0].ContextMap()["opTime"]).(time.Duration)
-	require.True(t, dur < time.Millisecond*2)
+	require.True(t, dur >= delay)
 }
