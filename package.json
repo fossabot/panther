@@ -1,28 +1,28 @@
 {
-  "name": "panther-ui",
+  "name": "panther",
   "version": "1.0.0",
-  "description": "Enterprise User Dashboard UI ",
-  "main": "dist/main.js",
+  "description": "Panther is a powerful cloud-native security platform for continuous monitoring and log analysis at scale",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/panther-lab/panther-ui.git"
+    "url": "git+https://github.com/panther-labs/panther.git"
   },
+  "private": false,
   "keywords": [
     "ui",
     "front-end",
     "javascript"
   ],
-  "author": "Quan Pham",
-  "license": "UNLICENSED",
+  "author": "panther-labs",
+  "license": "Apache v2.0",
   "bugs": {
-    "url": "https://github.com/panther-lab/panther-ui/issues"
+    "url": "https://github.com/panther-labs/panther/issues"
   },
-  "homepage": "https://github.com/panther-lab/panther-ui#readme",
+  "homepage": "https://github.com/panther-labs/panther#readme",
   "peerDependencies": {
     "@emotion/core": "^10.0.21"
   },
   "sideEffects": [
-    "./src/config.ts"
+    "./web/src/config.ts"
   ],
   "devDependencies": {
     "@babel/cli": "^7.0.0",
@@ -34,11 +34,12 @@
     "@babel/plugin-transform-runtime": "^7.1.0",
     "@babel/preset-env": "^7.0.0",
     "@babel/preset-react": "^7.0.0",
-    "@babel/preset-typescript": "^7.1.0",
+    "@babel/preset-typescript": "^7.8.0",
     "@babel/register": "^7.0.0",
     "@emotion/babel-preset-css-prop": "^10.0.23",
     "@graphql-codegen/cli": "^1.4.0",
     "@graphql-codegen/typescript": "^1.3.1",
+    "@pmmmwh/react-refresh-webpack-plugin": "^0.1.3",
     "@sentry/cli": "^1.48.0",
     "@types/echarts": "^4.4.1",
     "@types/history": "^4.7.2",
@@ -63,11 +64,10 @@
     "clean-webpack-plugin": "^2.0.1",
     "copy-webpack-plugin": "^5.0.5",
     "dotenv": "^8.0.0",
-    "eslint": "^6.6.0",
+    "eslint": "^6.8.0",
     "eslint-config-airbnb-base": "^13.2.0",
     "eslint-config-prettier": "^6.0.0",
     "eslint-import-resolver-webpack": "^0.11.0",
-    "eslint-loader": "^2.1.0",
     "eslint-plugin-import": "^2.18.0",
     "eslint-plugin-jsx-a11y": "^6.1.1",
     "eslint-plugin-prettier": "^3.1.0",
@@ -82,12 +82,12 @@
     "husky": "^1.1.1",
     "image-webpack-loader": "^4.6.0",
     "js-yaml": "^3.13.1",
+    "klaw-sync": "^6.0.0",
     "lint-staged": "^9.0.2",
     "minimist": "^1.2.0",
     "prettier": "^1.19.1",
     "react-dev-utils": "^9.1.0",
-    "react-refresh": "^0.5.2",
-    "react-refresh-webpack-plugin": "git+https://github.com/pmmmwh/react-refresh-webpack-plugin.git",
+    "react-refresh": "^0.7.2",
     "rimraf": "^2.6.3",
     "shelljs": "^0.8.3",
     "terser-webpack-plugin": "^1.3.0",
@@ -130,11 +130,11 @@
     "yup": "^0.26.6"
   },
   "scripts": {
-    "setup-dotenv": "node scripts/setup-dotenv.js",
-    "build-assets": "node --max_old_space_size=8192 scripts/build-assets.js",
-    "build-codegen": "node scripts/build-codegen.js",
-    "dev": "npm run setup-dotenv -- --environment=local webpack-dev-server",
+    "build-assets": "webpack",
+    "serve-assets": "node web/scripts/serve-assets.js",
+    "setup-dotenv": "node web/scripts/setup-dotenv.js",
     "generate-gql": "graphql-codegen",
-    "lint": "eslint \"src/**/*.{ts,js,tsx,jsx}\" && prettier --list-different  \"src/**/*.{ts,js,tsx,jsx,md,scss,css,json}\" && tsc -p ."
+    "dev": "npm run setup-dotenv -- --environment=local webpack-dev-server",
+    "lint": "eslint \"{web,enterprise}/**/*.{ts,js,tsx,jsx}\" && prettier --list-different  \"{web,enterprise}/**/*.{ts,js,tsx,jsx,md,scss,css,json}\" && tsc -p ."
   }
 }

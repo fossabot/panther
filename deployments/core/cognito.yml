@@ -83,22 +83,6 @@ Resources:
       Precedence: 0
       UserPoolId: !Ref UserPool
 
-  AnalystGroup:
-    Type: AWS::Cognito::UserPoolGroup
-    Properties:
-      Description: Analyst for Panther web application, allows rule, alert and configuration managing
-      GroupName: Analyst
-      Precedence: 1
-      UserPoolId: !Ref UserPool
-
-  ObserverGroup:
-    Type: AWS::Cognito::UserPoolGroup
-    Properties:
-      Description: Observer Group for Panther web application, only have access to Read Only operations
-      GroupName: Observer
-      Precedence: 2
-      UserPoolId: !Ref UserPool
-
   AppClient:
     Type: AWS::Cognito::UserPoolClient
     Properties:

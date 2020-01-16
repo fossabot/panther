@@ -2,6 +2,7 @@
 .idea
 .github
 .circleci
+codegen.json
 
 # Build
 build
@@ -9,7 +10,7 @@ web/dist
 web/README.md
 
 # Deps
-web/node_modules
+node_modules
 venv
 
 # Generated

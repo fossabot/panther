@@ -1,19 +1,10 @@
 /**
- * Panther is a scalable, powerful, cloud-native SIEM written in Golang/React.
  * Copyright (C) 2020 Panther Labs Inc
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * This program [The enterprise software] is licensed under the terms of a commercial license
+ * available from Panther Labs Inc ("Panther Commercial License") by contacting contact@runpanther.com.
+ * All use, distribution, and/or modification of this software, whether commercial or non-commercial,
+ * falls under the Panther Commercial License to the extent it is permitted.
  */
 
 /* eslint-disable react/display-name */
@@ -21,9 +12,9 @@
 import React from 'react';
 import { Text, TableProps, Box } from 'pouncejs';
 import { User } from 'Generated/schema';
-import ListUsersTableRowOptions from 'Pages/users/subcomponents/list-users-table-row-options';
 import dayjs from 'dayjs';
 import { generateEnumerationColumn } from 'Helpers/utils';
+import ListUsersTableRowOptions from './subcomponents/list-users-table-row-options';
 
 // The columns that the associated table will show
 const columns = [

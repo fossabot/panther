@@ -38,7 +38,6 @@ type API interface {
 	AddUserToGroup(id *string, groupName *string, userPoolID *string) error
 	CreateUser(input *CreateUserInput) (*string, error)
 	CreateUserPool(displayName *string) (*UserPool, error)
-	CreateUserPoolGroups(userPoolID *string) error
 	DeleteUser(id *string, userPoolID *string) error
 	GetUser(id *string, userPoolID *string) (*models.User, error)
 	ListGroups(userPoolID *string) ([]*models.Group, error)

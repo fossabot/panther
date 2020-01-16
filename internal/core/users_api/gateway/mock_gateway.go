@@ -52,12 +52,6 @@ func (m *MockUserGateway) CreateUserPool(displayName *string) (*UserPool, error)
 	return args.Get(0).(*UserPool), args.Error(1)
 }
 
-// CreateUserPoolGroups mocks CreateUserPoolGroups for testing
-func (m *MockUserGateway) CreateUserPoolGroups(userPoolID *string) error {
-	args := m.Called(userPoolID)
-	return args.Error(0)
-}
-
 // DeleteUser mocks DeleteUser for testing
 func (m *MockUserGateway) DeleteUser(id *string, userPoolID *string) error {
 	args := m.Called(id, userPoolID)

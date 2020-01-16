@@ -26,7 +26,7 @@ Panther use cases:
 
 Check out our [website](https://runpanther.io), [blog](https://blog.runpanther.io), and [docs](https://docs.runpanther.io) to learn more.
 
-*NOTE: Panther is currently in beta.*
+_NOTE: Panther is currently in beta._
 
 ## Setup
 
@@ -88,7 +88,7 @@ If you haven't already, [configure](https://docs.aws.amazon.com/cli/latest/userg
 Deploying is as simple as `mage deploy`.
 
 You will be prompted to enter a name and email for
-the initial admin user. Once the deploy is complete, that email will receive a link to sign in.
+the default admin user. Once the deploy is complete, that email will receive a link to sign in.
 
 > NOTE (1): The initial deploy will take 10-15 minutes, and the `deploy` command may timeout before the stack is
 > actually finished. Check the AWS CloudFormation console for the status of your deployment.

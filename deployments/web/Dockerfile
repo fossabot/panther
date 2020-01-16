@@ -37,14 +37,17 @@ RUN mkdir /code
 # To a different folder so we don't pollute the root of our container
 WORKDIR /code
 
-# Mount the code
-ADD web .
+# Mount the package.json
+ADD package.json .
 
 # Install the dependencies
 RUN npm --production=false install
 
+# Mount the code
+ADD web web
+
 # Build the project with the ENV vars present in the system & run the node server
-CMD node scripts/build-assets.js && node scripts/serve-assets.js
+CMD npm run build-assets && npm run serve-assets
 
 # through the port chosen during build time (defaults to 8080)
 EXPOSE ${SERVER_PORT}

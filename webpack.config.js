@@ -15,7 +15,15 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+/* eslint-disable global-require, import/no-dynamic-require */
 
-const { execSync } = require('child_process');
+const fs = require('fs');
 
-execSync('node_modules/webpack/bin/webpack.js', { stdio: 'inherit' });
+const ENTERPRISE_WEBPACK_CONFIG = './enterprise/web/webpack.config.js';
+const PUBLIC_WEBPACK_CONFIG = './web/webpack.config.js';
+
+if (fs.existsSync(ENTERPRISE_WEBPACK_CONFIG)) {
+  module.exports = require(ENTERPRISE_WEBPACK_CONFIG);
+} else {
+  module.exports = require(PUBLIC_WEBPACK_CONFIG);
+}

@@ -35,12 +35,6 @@ func (API) CreateUserInfrastructure(input *models.CreateUserInfrastructureInput)
 	}
 	userPoolID := userPool.UserPoolID
 
-	err = userGateway.CreateUserPoolGroups(userPoolID)
-	if err != nil {
-		zap.L().Error("error creating user pool groups", zap.Error(err))
-		return nil, err
-	}
-
 	firstUserID, err := userGateway.CreateUser(&gateway.CreateUserInput{
 		GivenName:  input.GivenName,
 		FamilyName: input.FamilyName,

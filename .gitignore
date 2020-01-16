@@ -4,11 +4,13 @@ venv/
 __pycache__/
 *.zip
 
+# Dependencies
+node_modules/
+npm-debug.log*
+
 # web
 web/dist/
 web/scripts/deploy-sourcemap.js
-web/node_modules/
-web/npm-debug.log*
 
 # Private keys
 keys/
