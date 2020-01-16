@@ -1,19 +1,21 @@
 package main
 
 /**
- * Copyright 2020 Panther Labs Inc
+ * Panther is a scalable, powerful, cloud-native SIEM written in Golang/React.
+ * Copyright (C) 2020 Panther Labs Inc
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 import (
@@ -22,6 +24,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"sort"
 	"strings"
 	"testing"
@@ -61,7 +64,6 @@ var (
 	policy = &models.Policy{
 		AutoRemediationID:         "fix-it",
 		AutoRemediationParameters: map[string]string{"hello": "world", "emptyParameter": ""},
-		Body:                      "def policy(resource):\n    return True\n",
 		ComplianceStatus:          models.ComplianceStatusPASS,
 		Description:               "Matches every resource",
 		DisplayName:               "AlwaysTrue",
@@ -89,22 +91,17 @@ var (
 
 	policyFromBulk = &models.Policy{
 		AutoRemediationParameters: map[string]string{"hello": "goodbye"},
-		Body: `# Tags: ['CIS', 'AWS Managed Rules - Management and Governance']
-def policy(resource):
-    # Explicit check for True as the value may be None, and we want to return a bool not a NoneType
-    return resource['Info']['LogFileValidationEnabled'] is True
-`,
-		ComplianceStatus: models.ComplianceStatusPASS,
-		CreatedBy:        userID,
-		ID:               "AWS.CloudTrail.Log.Validation.Enabled",
-		Enabled:          true,
-		ResourceTypes:    []string{"AWS.CloudTrail"},
-		LastModifiedBy:   userID,
-		Tags:             []string{"AWS Managed Rules - Management and Governance", "CIS"},
-		Reference:        "reference.link",
-		Runbook:          "Runbook\n",
-		Severity:         "MEDIUM",
-		Description:      "This rule validates that AWS CloudTrails have log file validation enabled.\n",
+		ComplianceStatus:          models.ComplianceStatusPASS,
+		CreatedBy:                 userID,
+		ID:                        "AWS.CloudTrail.Log.Validation.Enabled",
+		Enabled:                   true,
+		ResourceTypes:             []string{"AWS.CloudTrail"},
+		LastModifiedBy:            userID,
+		Tags:                      []string{"AWS Managed Rules - Management and Governance", "CIS"},
+		Reference:                 "reference.link",
+		Runbook:                   "Runbook\n",
+		Severity:                  "MEDIUM",
+		Description:               "This rule validates that AWS CloudTrails have log file validation enabled.\n",
 		Tests: []*models.UnitTest{
 			{
 				Name:           "Log File Validation Disabled",
@@ -171,7 +168,6 @@ def policy(resource):
 	policyFromBulkJSON = &models.Policy{
 		AutoRemediationID:         "fix-it",
 		AutoRemediationParameters: map[string]string{"hello": "goodbye"},
-		Body:                      "def policy(resource):\n    return True\n",
 		ComplianceStatus:          models.ComplianceStatusPASS,
 		CreatedBy:                 userID,
 		Description:               "Matches every resource",
@@ -213,6 +209,16 @@ func TestIntegrationAPI(t *testing.T) {
 	if !integrationTest {
 		t.Skip()
 	}
+
+	// Set expected bodies from test files
+	trueBody, err := ioutil.ReadFile(path.Join(policiesRoot, "always_true.py"))
+	require.NoError(t, err)
+	policy.Body = models.Body(trueBody)
+	policyFromBulkJSON.Body = models.Body(trueBody)
+
+	cloudtrailBody, err := ioutil.ReadFile(path.Join(policiesRoot, "aws_cloudtrail_log_validation_enabled.py"))
+	require.NoError(t, err)
+	policyFromBulk.Body = models.Body(cloudtrailBody)
 
 	// Lookup CloudFormation outputs
 	cfnClient := cloudformation.New(awsSession)

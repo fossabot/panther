@@ -1,19 +1,21 @@
 package mage
 
 /**
- * Copyright 2020 Panther Labs Inc
+ * Panther is a scalable, powerful, cloud-native SIEM written in Golang/React.
+ * Copyright (C) 2020 Panther Labs Inc
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 import (
@@ -21,21 +23,26 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/magefile/mage/mg"
 )
 
-const sourceLicense = "docs/LICENSE_HEADER.txt"
+const (
+	agplSource       = "docs/LICENSE_HEADER_AGPL.txt"
+	apacheSource     = "docs/LICENSE_HEADER_APACHE.txt"
+	commercialSource = "docs/LICENSE_HEADER_PANTHER.txt"
+)
 
 var (
-	// Base source paths where license headers will be added
-	licensePaths = []string{
-		"api", "deployments", "internal", "pkg", "tools", "web/scripts", "web/src", "magefile.go"}
+	// Most open-source code is AGPL
+	agplPaths = []string{"api", "build", "deployments", "internal", "tools", "web/scripts", "web/src", "magefile.go"}
 
-	// Don't apply the license header to some files used in an integration test
-	licenseExceptions = regexp.MustCompile(`internal/core/analysis_api/main/test_policies/.+`)
+	// Standalone Go packages are Apache
+	apachePaths = []string{"pkg"}
+
+	// Enterprise closed-source code is Panther commercial license
+	commercialPaths = []string{"enterprise"}
 )
 
 // Add a comment character in front of each line in a block of license text.
@@ -53,8 +60,28 @@ func commentEachLine(prefix, text string) string {
 	return strings.Join(result, "\n")
 }
 
-func addSourceLicenses(basePaths ...string) error {
-	rawHeader, err := ioutil.ReadFile(sourceLicense)
+// Add license headers to all applicable source files.
+func fmtLicense() error {
+	if err := fmtLicenseGroup(agplSource, agplPaths...); err != nil {
+		return err
+	}
+	if err := fmtLicenseGroup(apacheSource, apachePaths...); err != nil {
+		return err
+	}
+	if info, err := os.Stat("enterprise"); err == nil && info.IsDir() {
+		return fmtLicenseGroup(commercialSource, commercialPaths...)
+	}
+
+	return nil
+}
+
+// Add one type of license header to a group of files.
+func fmtLicenseGroup(sourceFile string, basePaths ...string) error {
+	if mg.Verbose() {
+		fmt.Println("fmt: license:", sourceFile, basePaths)
+	}
+
+	rawHeader, err := ioutil.ReadFile(sourceFile)
 	if err != nil {
 		return err
 	}
@@ -68,13 +95,12 @@ func addSourceLicenses(basePaths ...string) error {
 			if err != nil {
 				return err
 			}
-
-			if info.IsDir() || licenseExceptions.MatchString(path) {
-				return nil // skip directories and excluded paths
+			if info.IsDir() {
+				return nil // skip directories
 			}
-
 			return addFileLicense(path, asteriskLicense, hashtagLicense)
 		})
+
 		if err != nil {
 			return err
 		}
@@ -93,13 +119,20 @@ func addFileLicense(path, asteriskLicense, hashtagLicense string) error {
 		return modifyFile(path, func(contents string) string {
 			return prependHeader(contents, asteriskLicense)
 		})
-	case "dockerfile", ".py", ".sh", ".yml", ".yaml":
+	case ".py", ".sh", ".yml", ".yaml":
 		return modifyFile(path, func(contents string) string {
 			return prependHeader(contents, hashtagLicense)
 		})
-	default:
-		return nil
+	case "":
+		// empty extension - might be called "Dockerfile"
+		if strings.ToLower(filepath.Base(path)) == "dockerfile" {
+			return modifyFile(path, func(contents string) string {
+				return prependHeader(contents, hashtagLicense)
+			})
+		}
 	}
+
+	return nil
 }
 
 // Rewrite file contents on disk with the given modifier function.
@@ -113,10 +146,6 @@ func modifyFile(path string, modifier func(string) string) error {
 	newContents := modifier(contents)
 	if newContents == contents {
 		return nil // no changes required
-	}
-
-	if mg.Verbose() {
-		fmt.Println("fmt: license: " + path)
 	}
 
 	return ioutil.WriteFile(path, []byte(newContents), 0644)
