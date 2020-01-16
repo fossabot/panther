@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudformation"
 )
@@ -59,6 +60,11 @@ func createChangeSet(awsSession *session.Session, templateFile, stack string, pa
 	response, err := client.DescribeStacks(&cloudformation.DescribeStacksInput{StackName: &stack})
 	changeSetType := "CREATE"
 	if err == nil && len(response.Stacks) > 0 {
+		// Check if the previous deployment timed out and is still going, if so continue where that left off
+		if *response.Stacks[0].StackStatus == "CREATE_IN_PROGRESS" || *response.Stacks[0].StackStatus == "UPDATE_IN_PROGRESS" {
+			fmt.Printf("deploy: WARNING: %s already in state %s, resuming previous deployment\n", stack, *response.Stacks[0].StackStatus)
+			return *response.Stacks[0].ChangeSetId, nil
+		}
 		changeSetType = "UPDATE"
 	}
 
@@ -153,10 +159,15 @@ func executeChangeSet(awsSession *session.Session, changeSet, stack string) erro
 	prevStatus := ""
 	for start := time.Now(); time.Since(start) < pollTimeout; {
 		response, err := client.DescribeStacks(input)
-		if err != nil || len(response.Stacks) == 0 {
-			// Stack may not exist yet
-			time.Sleep(pollInterval)
-			continue
+		if err != nil {
+			if awsErr, ok := err.(awserr.Error); ok {
+				if awsErr.Code() == "ExpiredToken" {
+					fmt.Printf("deploy: %s: ExecuteChangeSet: security token expired, exiting.\n"+
+						"Re-executing the deploy command with fresh credentials will pick up where the previous deployment finished.\n", stack)
+					return err
+				}
+			}
+			return err
 		}
 
 		status := *response.Stacks[0].StackStatus
