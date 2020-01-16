@@ -9,3 +9,5 @@ To setup the project all you need to do is install its dependencies by running:
 ```
 $ npm i
 ```
+
+from within the `panther/web` directory.
