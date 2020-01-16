@@ -65,14 +65,16 @@ export const RESOURCE_TYPES = [
 ] as const;
 
 export const LOG_TYPES = [
-  'AWS.AuroraMySQLAudit.Log',
-  'AWS.CloudTrail.Log',
-  'AWS.S3ServerAccess.Log',
-  'AWS.VPCFlow.Log',
-  'Osquery.Batch.Log',
-  'Osquery.Differential.Log',
-  'Osquery.Snapshot.Log',
-  'Osquery.Status.Log',
+  'AWS.ALB',
+  'AWS.AuroraMySQLAudit',
+  'AWS.CloudTrail',
+  'AWS.GuardDuty',
+  'AWS.S3ServerAccess',
+  'AWS.VPCFlow',
+  'Osquery.Batch',
+  'Osquery.Differential',
+  'Osquery.Snapshot',
+  'Osquery.Status',
 ] as const;
 
 export const SEVERITY_COLOR_MAP: { [key in SeverityEnum]: BadgeProps['color'] } = {
