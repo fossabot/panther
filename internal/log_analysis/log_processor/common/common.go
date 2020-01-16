@@ -31,10 +31,23 @@ type ParsedEvent struct {
 
 // DataStream represents a data stream that read by the processor
 type DataStream struct {
-	Reader *io.Reader
+	Reader io.Reader
+	Hints  DataStreamHints
 	// The log type if known
 	// If it is nil, it means the log type hasn't been identified yet
 	LogType *string
+}
+
+// Used in a DataStream as meta data to describe the data
+type DataStreamHints struct {
+	S3 *S3DataStreamHints // if nil, no hint
+}
+
+// Used in a DataStreamHints as meta data to describe the S3 object backing the stream
+type S3DataStreamHints struct {
+	Bucket      string
+	Key         string
+	ContentType string
 }
 
 // S3Notification is sent when new data is available in S3

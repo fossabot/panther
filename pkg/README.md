@@ -6,4 +6,5 @@ Standalone go utilities shared by multiple projects. See each module for details
 * [`gatewayapi`](gatewayapi) - utilities for developing Gateway API Lambda proxies
 * [`genericapi`](genericapi) - *DEPRECATED* - provides router for API-style Lambda functions
 * [`lambdalogger`](lambdalogger) - installs global zap logger with lambda request ID
+* [`oplog`](oplog) - standardized logging for operations (events with start/stop/status)
 * [`testutils`](testutils) - helper functions for integration tests

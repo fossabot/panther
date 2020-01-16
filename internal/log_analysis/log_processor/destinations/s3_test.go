@@ -21,6 +21,7 @@ import (
 	"compress/gzip"
 	"errors"
 	"io/ioutil"
+	"sync"
 	"testing"
 	"time"
 
@@ -194,7 +195,6 @@ func TestSendDataToS3BeforeTerminating(t *testing.T) {
 
 	// sending event to buffered channel
 	eventChannel <- parsedEvent
-	close(eventChannel)
 
 	marshalledEvent, _ := jsoniter.Marshal(parsedEvent.Event)
 
@@ -205,7 +205,7 @@ func TestSendDataToS3BeforeTerminating(t *testing.T) {
 	destination.mockGlue.On("CreatePartition", mock.Anything).Return(&glue.CreatePartitionOutput{},
 		awserr.New("AlreadyExistsException", "Partition already exists.", errors.New("test AlreadyExistsException"))).Once()
 
-	require.NoError(t, destination.SendEvents(eventChannel))
+	runSendEvents(t, destination, eventChannel, false)
 
 	// There is no way to know the key of the S3 object since we are generating it based on time
 	// I am fetching it from the actual request performed to S3 and:
@@ -268,7 +268,6 @@ func TestSendDataIfSizeLimitHasBeenReached(t *testing.T) {
 		Event:   testEvent,
 		LogType: logType,
 	}
-	close(eventChannel)
 
 	destination.mockS3.On("PutObject", mock.Anything).Return(&s3.PutObjectOutput{}, nil).Twice()
 	destination.mockSns.On("Publish", mock.Anything).Return(&sns.PublishOutput{}, nil).Twice()
@@ -281,7 +280,7 @@ func TestSendDataIfSizeLimitHasBeenReached(t *testing.T) {
 	// We expect this to cause the S3Destination to create two objects in S3
 	maxFileSize = 3
 
-	require.NoError(t, destination.SendEvents(eventChannel))
+	runSendEvents(t, destination, eventChannel, false)
 
 	// Verify partition NOT created because we are testing failure in CreatePartition()
 	require.Equal(t, 0, len(destination.partitionExistsCache))
@@ -310,7 +309,6 @@ func TestSendDataIfTimeLimitHasBeenReached(t *testing.T) {
 		Event:   testEvent,
 		LogType: logType,
 	}
-	close(eventChannel)
 
 	destination.mockS3.On("PutObject", mock.Anything).Return(&s3.PutObjectOutput{}, nil).Twice()
 	destination.mockSns.On("Publish", mock.Anything).Return(&sns.PublishOutput{}, nil).Twice()
@@ -320,7 +318,7 @@ func TestSendDataIfTimeLimitHasBeenReached(t *testing.T) {
 	// We expect this to cause the S3Destination to create two objects in S3
 	maxDuration = 1 * time.Nanosecond
 
-	require.NoError(t, destination.SendEvents(eventChannel))
+	runSendEvents(t, destination, eventChannel, false)
 
 	// Verify partition created
 	require.Equal(t, 1, len(destination.partitionExistsCache))
@@ -348,14 +346,13 @@ func TestSendDataToS3FromMultipleLogTypesBeforeTerminating(t *testing.T) {
 		Event:   testEvent,
 		LogType: logType2,
 	}
-	close(eventChannel)
 
 	destination.mockS3.On("PutObject", mock.Anything).Return(&s3.PutObjectOutput{}, nil).Twice()
 	destination.mockSns.On("Publish", mock.Anything).Return(&sns.PublishOutput{}, nil).Twice()
 	destination.mockGlue.On("GetTable", mock.Anything).Return(testGetTableOutput, nil).Twice()
 	destination.mockGlue.On("CreatePartition", mock.Anything).Return(&glue.CreatePartitionOutput{}, nil).Twice()
 
-	require.NoError(t, destination.SendEvents(eventChannel))
+	runSendEvents(t, destination, eventChannel, false)
 
 	// Verify partition(s) created, 1 per type
 	require.Equal(t, 2, len(destination.partitionExistsCache))
@@ -377,11 +374,10 @@ func TestSendDataFailsIfS3Fails(t *testing.T) {
 		Event:   testEvent,
 		LogType: logType,
 	}
-	close(eventChannel)
 
 	destination.mockS3.On("PutObject", mock.Anything).Return(&s3.PutObjectOutput{}, errors.New("")).Twice()
 
-	require.Error(t, destination.SendEvents(eventChannel))
+	runSendEvents(t, destination, eventChannel, true)
 
 	// Verify NO partition created
 	require.Equal(t, 0, len(destination.partitionExistsCache))
@@ -403,15 +399,45 @@ func TestSendDataFailsIfSnsFails(t *testing.T) {
 		Event:   testEvent,
 		LogType: logType,
 	}
-	close(eventChannel)
 
 	destination.mockS3.On("PutObject", mock.Anything).Return(&s3.PutObjectOutput{}, nil)
 	destination.mockSns.On("Publish", mock.Anything).Return(&sns.PublishOutput{}, errors.New("test"))
 	destination.mockGlue.On("GetTable", mock.Anything).Return(testGetTableOutput, nil).Once()
 	destination.mockGlue.On("CreatePartition", mock.Anything).Return(&glue.CreatePartitionOutput{}, nil).Once()
 
-	require.Error(t, destination.SendEvents(eventChannel))
+	runSendEvents(t, destination, eventChannel, true)
 
 	// Verify partition created
 	require.Equal(t, 1, len(destination.partitionExistsCache))
+}
+
+func runSendEvents(t *testing.T, destination Destination, eventChannel chan *common.ParsedEvent, expectErr bool) {
+	errChan := make(chan error)
+
+	if expectErr {
+		go func() {
+			var foundErr error
+			for err := range errChan {
+				foundErr = err
+			}
+			require.Error(t, foundErr)
+		}()
+	} else {
+		go func() {
+			var foundErr error
+			for err := range errChan {
+				foundErr = err
+			}
+			require.NoError(t, foundErr)
+		}()
+	}
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		destination.SendEvents(eventChannel, errChan)
+		wg.Done()
+	}()
+	close(eventChannel) // causes SendEvents() to terminate
+	wg.Wait()
+	close(errChan)
 }

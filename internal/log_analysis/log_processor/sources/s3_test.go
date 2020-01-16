@@ -19,7 +19,6 @@ package sources
 import (
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,12 +26,12 @@ func TestParseCloudTrailNotification(t *testing.T) {
 	notification := "{\"s3Bucket\": \"testbucket\", \"s3ObjectKey\": [\"key1\",\"key2\"]}"
 	expectedOutput := []*S3ObjectInfo{
 		{
-			S3Bucket:    aws.String("testbucket"),
-			S3ObjectKey: aws.String("key1"),
+			S3Bucket:    "testbucket",
+			S3ObjectKey: "key1",
 		},
 		{
-			S3Bucket:    aws.String("testbucket"),
-			S3ObjectKey: aws.String("key2"),
+			S3Bucket:    "testbucket",
+			S3ObjectKey: "key2",
 		},
 	}
 	s3Objects, err := ParseNotification(notification)
@@ -50,8 +49,8 @@ func TestParseS3Notification(t *testing.T) {
 		"\"eTag\":\"d41d8cd98f00b204e9800998ecf8427e\",\"versionId\":\"096fKKXTRTtl3on89fVO.nfljtsv6qko\",\"sequencer\":\"0055AED6DCD90281E5\"}}}]}"
 	expectedOutput := []*S3ObjectInfo{
 		{
-			S3Bucket:    aws.String("mybucket"),
-			S3ObjectKey: aws.String("key1"),
+			S3Bucket:    "mybucket",
+			S3ObjectKey: "key1",
 		},
 	}
 	s3Objects, err := ParseNotification(notification)

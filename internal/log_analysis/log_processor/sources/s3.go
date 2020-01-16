@@ -19,7 +19,6 @@ package sources
 import (
 	"bufio"
 	"compress/gzip"
-	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -30,17 +29,18 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/sns"
 	jsoniter "github.com/json-iterator/go"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	"github.com/panther-labs/panther/internal/log_analysis/log_processor/common"
 )
 
-// ReadData reads incoming messages and returns a slice of DataStream items
-func ReadData(messages []*string) (result []*common.DataStream, err error) {
-	zap.L().Info("Reading data for messages", zap.Int("numMessages", len(messages)))
+// ReadSQSMessages reads incoming messages containing SNS notifications and returns a slice of DataStream items
+func ReadSQSMessages(messages []events.SQSMessage) (result []*common.DataStream, err error) {
+	zap.L().Debug("reading data for messages", zap.Int("numMessages", len(messages)))
 	for _, message := range messages {
 		snsNotificationMessage := &SnsNotification{}
-		if err := jsoniter.UnmarshalFromString(*message, snsNotificationMessage); err != nil {
+		if err := jsoniter.UnmarshalFromString(message.Body, snsNotificationMessage); err != nil {
 			return nil, err
 		}
 
@@ -60,17 +60,21 @@ func ReadData(messages []*string) (result []*common.DataStream, err error) {
 			return nil, errors.New("received unexpected message in SQS queue")
 		}
 	}
-	return
+	return result, nil
 }
 
 // ConfirmSubscription will confirm the SNS->SQS subscription
-func ConfirmSubscription(notification *SnsNotification) error {
-	zap.L().Info("confirming sns subscription",
-		zap.String("topicArn", notification.TopicArn))
+func ConfirmSubscription(notification *SnsNotification) (err error) {
+	operation := common.OpLogManager.Start("ConfirmSubscription", common.OpLogSNSServiceDim)
+	defer func() {
+		operation.Stop()
+		// sns dim info
+		operation.Log(err, zap.String("topicArn", notification.TopicArn))
+	}()
 
 	topicArn, err := arn.Parse(notification.TopicArn)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to parse topic arn: "+notification.TopicArn)
 	}
 	snsClient := sns.New(common.Session, aws.NewConfig().WithRegion(topicArn.Region))
 	subscriptionConfiguration := &sns.ConfirmSubscriptionInput{
@@ -79,79 +83,105 @@ func ConfirmSubscription(notification *SnsNotification) error {
 	}
 	_, err = snsClient.ConfirmSubscription(subscriptionConfiguration)
 	if err != nil {
-		zap.L().Warn("failed to confirm subscription", zap.Error(err))
+		err = errors.Wrap(err, "failed to confirm subscription for: "+notification.TopicArn)
 		return err
 	}
-	zap.L().Info("successfully confirmed subscription",
-		zap.String("topicArn", notification.TopicArn))
 	return nil
 }
 
 func handleNotificationMessage(notification *SnsNotification) (result []*common.DataStream, err error) {
 	s3Objects, err := ParseNotification(notification.Message)
 	if err != nil {
-		return
+		return nil, err
 	}
-
 	for _, s3Object := range s3Objects {
-		zap.L().Debug("going to load new object from S3",
-			zap.String("bucket", *s3Object.S3Bucket),
-			zap.String("key", *s3Object.S3ObjectKey),
-		)
-
-		s3Client, err := getS3Client(*s3Object.S3Bucket, notification.TopicArn)
+		var dataStream *common.DataStream
+		dataStream, err = readS3Object(s3Object, notification.TopicArn)
 		if err != nil {
-			return nil, err
-		}
-
-		getObjectInput := &s3.GetObjectInput{
-			Bucket: s3Object.S3Bucket,
-			Key:    s3Object.S3ObjectKey,
-		}
-		output, err := s3Client.GetObject(getObjectInput)
-		if err != nil {
-			return nil, err
-		}
-
-		bufferedReader := bufio.NewReader(output.Body)
-
-		// We peek into the file header to identify the content type
-		// http.DetectContentType only uses up to the first 512 bytes
-		headerBytes, readerErr := bufferedReader.Peek(512)
-		if readerErr != nil {
-			return nil, err
-		}
-		contentType := http.DetectContentType(headerBytes)
-
-		var streamReader io.Reader
-
-		// Checking for prefix because the returned type can have also charset used
-		if strings.HasPrefix(contentType, "text/plain") {
-			// if it's plain text, just return the buffered reader
-			streamReader = bufferedReader
-		} else if strings.HasPrefix(contentType, "application/x-gzip") {
-			gzipReader, err := gzip.NewReader(bufferedReader)
-			if err != nil {
-				zap.L().Warn("failed to created gzip reader", zap.Error(err))
-				return nil, err
-			}
-			streamReader = gzipReader
-		}
-
-		dataStream := &common.DataStream{
-			Reader:  &streamReader,
-			LogType: s3Object.LogType,
+			return
 		}
 		result = append(result, dataStream)
 	}
 	return result, err
 }
 
+func readS3Object(s3Object *S3ObjectInfo, topicArn string) (dataStream *common.DataStream, err error) {
+	operation := common.OpLogManager.Start("readS3Object", common.OpLogS3ServiceDim)
+	defer func() {
+		operation.Stop()
+		operation.Log(err,
+			// s3 dim info
+			zap.String("bucket", s3Object.S3Bucket),
+			zap.String("key", s3Object.S3ObjectKey))
+	}()
+
+	s3Client, err := getS3Client(s3Object.S3Bucket, topicArn)
+	if err != nil {
+		err = errors.Wrapf(err, "failed to get S3 client for s3://%s/%s",
+			s3Object.S3Bucket, s3Object.S3ObjectKey)
+		return nil, err
+	}
+
+	getObjectInput := &s3.GetObjectInput{
+		Bucket: &s3Object.S3Bucket,
+		Key:    &s3Object.S3ObjectKey,
+	}
+	output, err := s3Client.GetObject(getObjectInput)
+	if err != nil {
+		err = errors.Wrapf(err, "GetObject() failed for s3://%s/%s",
+			s3Object.S3Bucket, s3Object.S3ObjectKey)
+		return nil, err
+	}
+
+	bufferedReader := bufio.NewReader(output.Body)
+
+	// We peek into the file header to identify the content type
+	// http.DetectContentType only uses up to the first 512 bytes
+	headerBytes, err := bufferedReader.Peek(512)
+	if err != nil {
+		if err != bufio.ErrBufferFull && err != io.EOF { // EOF or ErrBufferFull means file is shorter than n
+			err = errors.Wrapf(err, "failed to Peek() in S3 payload for s3://%s/%s",
+				s3Object.S3Bucket, s3Object.S3ObjectKey)
+			return nil, err
+		}
+		err = nil // not really an error
+	}
+	contentType := http.DetectContentType(headerBytes)
+
+	var streamReader io.Reader
+
+	// Checking for prefix because the returned type can have also charset used
+	if strings.HasPrefix(contentType, "text/plain") {
+		// if it's plain text, just return the buffered reader
+		streamReader = bufferedReader
+	} else if strings.HasPrefix(contentType, "application/x-gzip") {
+		var gzipReader *gzip.Reader
+		gzipReader, err = gzip.NewReader(bufferedReader)
+		if err != nil {
+			err = errors.Wrapf(err, "failed to created gzip reader for s3://%s/%s",
+				s3Object.S3Bucket, s3Object.S3ObjectKey)
+			return nil, err
+		}
+		streamReader = gzipReader
+	}
+
+	dataStream = &common.DataStream{
+		Reader: streamReader,
+		Hints: common.DataStreamHints{
+			S3: &common.S3DataStreamHints{
+				Bucket:      s3Object.S3Bucket,
+				Key:         s3Object.S3ObjectKey,
+				ContentType: contentType,
+			},
+		},
+	}
+	return dataStream, err
+}
+
 // ParseNotification parses a message received
 func ParseNotification(message string) ([]*S3ObjectInfo, error) {
 	s3Objects, err := parseCloudTrailNotification(message)
 	if err != nil {
-		zap.L().Error("encountered issue when parsing CloudTrail notification", zap.Error(err))
 		return nil, err
 	}
 
@@ -159,14 +189,12 @@ func ParseNotification(message string) ([]*S3ObjectInfo, error) {
 	if len(s3Objects) == 0 {
 		s3Objects, err = parseS3Event(message)
 		if err != nil {
-			zap.L().Error("encountered issue when parsing S3 notification", zap.Error(err))
 			return nil, err
 		}
 	}
 
 	if len(s3Objects) == 0 {
-		zap.L().Error("notification is not of known type")
-		return nil, errors.New("notification is not of known type")
+		return nil, errors.New("notification is not of known type: " + message)
 	}
 	return s3Objects, nil
 }
@@ -178,13 +206,13 @@ func parseCloudTrailNotification(message string) (result []*S3ObjectInfo, err er
 	cloudTrailNotification := &cloudTrailNotification{}
 	err = jsoniter.UnmarshalFromString(message, cloudTrailNotification)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to parse CloudTrail event")
 	}
 
 	for _, s3Key := range cloudTrailNotification.S3ObjectKey {
 		info := &S3ObjectInfo{
-			S3Bucket:    cloudTrailNotification.S3Bucket,
-			S3ObjectKey: s3Key,
+			S3Bucket:    *cloudTrailNotification.S3Bucket,
+			S3ObjectKey: *s3Key,
 		}
 		result = append(result, info)
 	}
@@ -198,13 +226,13 @@ func parseS3Event(message string) (result []*S3ObjectInfo, err error) {
 	notification := &events.S3Event{}
 	err = jsoniter.UnmarshalFromString(message, notification)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to parse S3 event")
 	}
 
 	for _, record := range notification.Records {
 		info := &S3ObjectInfo{
-			S3Bucket:    aws.String(record.S3.Bucket.Name),
-			S3ObjectKey: aws.String(record.S3.Object.Key),
+			S3Bucket:    record.S3.Bucket.Name,
+			S3ObjectKey: record.S3.Object.Key,
 		}
 		result = append(result, info)
 	}
@@ -217,11 +245,10 @@ type cloudTrailNotification struct {
 	S3ObjectKey []*string `json:"s3ObjectKey"`
 }
 
-//S3ObjectInfo contains information about the S3 object
+// S3ObjectInfo contains information about the S3 object
 type S3ObjectInfo struct {
-	S3Bucket    *string
-	S3ObjectKey *string
-	LogType     *string
+	S3Bucket    string
+	S3ObjectKey string
 }
 
 // SnsNotification struct represents an SNS message arriving to Panther SQS from a customer account.

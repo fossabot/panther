@@ -30,12 +30,12 @@ import (
 
 // Destination defines the interface that all Destinations should follow
 type Destination interface {
-	SendEvents(parsedEventChannel chan *common.ParsedEvent) error
+	SendEvents(parsedEventChannel chan *common.ParsedEvent, errChan chan error)
 }
 
 //CreateDestination the method returns the appropriate Destination based on configuration
 func CreateDestination() Destination {
-	zap.L().Info("creating destination")
+	zap.L().Debug("creating S3 destination")
 	s3BucketName := os.Getenv("S3_BUCKET")
 
 	if s3BucketName != "" {
@@ -46,7 +46,7 @@ func CreateDestination() Destination {
 
 func createFirehoseDestination() Destination {
 	client := firehose.New(common.Session)
-	zap.L().Info("created Firehose destination")
+	zap.L().Debug("created Firehose destination")
 	return &FirehoseDestination{
 		client:         client,
 		firehosePrefix: "panther",

@@ -18,99 +18,161 @@ package processor
 
 import (
 	"bufio"
+	"io"
 	"sync"
 
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	"github.com/panther-labs/panther/internal/log_analysis/log_processor/classification"
 	"github.com/panther-labs/panther/internal/log_analysis/log_processor/common"
 	"github.com/panther-labs/panther/internal/log_analysis/log_processor/destinations"
+	"github.com/panther-labs/panther/pkg/oplog"
 )
 
-// ParsedEventBufferSize is the size of the buffer of the Go channel containing the parsed events.
-// Since there are different goroutines writing and reading from that channel each with different I/O characteristics,
-// we are specifying this buffer to avoid blocking the goroutines that write to the channel if the reader goroutine is
-// temporarily busy. The writer goroutines will block writing but only when the buffer has been full - something we need
-// to avoid using up lot of memory.
-// see also: https://golang.org/doc/effective_go.html#channels
-const ParsedEventBufferSize = 1000
+const (
+	// oplog keys
+	operationName = "parse"
+	statsKey      = "stats"
+)
 
 var (
-	parsedEventChannel      chan *common.ParsedEvent
-	destinationErrorChannel chan error
+	// ParsedEventBufferSize is the size of the buffer of the Go channel containing the parsed events.
+	// Since there are different goroutines writing and reading from that channel each with different I/O characteristics,
+	// we are specifying this buffer to avoid blocking the goroutines that write to the channel if the reader goroutine is
+	// temporarily busy. The writer goroutines will block writing but only when the buffer has been full - something we need
+	// to avoid using up lot of memory.
+	// see also: https://golang.org/doc/effective_go.html#channels
+	ParsedEventBufferSize = 1000
 )
 
-// Handle orchestrates the tasks of parsing logs, classification, normalization
-// and forwarding the logs to the appropriate destination
-func Handle(dataStreams []*common.DataStream) error {
-	zap.L().Info("handling data streams", zap.Int("numDataStreams", len(dataStreams)))
-	parsedEventChannel = make(chan *common.ParsedEvent, ParsedEventBufferSize)
-	destinationErrorChannel = make(chan error)
+// Process orchestrates the tasks of parsing logs, classification, normalization
+// and forwarding the logs to the appropriate destination. Any errors will cause Lambda invocation to fail
+func Process(dataStreams []*common.DataStream, destination destinations.Destination) error {
+	return process(dataStreams, destination, NewProcessor)
+}
 
+// entry point to allow customizing processor for testing
+func process(dataStreams []*common.DataStream, destination destinations.Destination,
+	newProcessorFunc func(*common.DataStream) *Processor) error {
+
+	zap.L().Debug("processing data streams", zap.Int("numDataStreams", len(dataStreams)))
+	parsedEventChannel := make(chan *common.ParsedEvent, ParsedEventBufferSize)
+	errorChannel := make(chan error)
+
+	var sendEventsWg sync.WaitGroup
+	sendEventsWg.Add(1)
 	go func() {
-		destination := destinations.CreateDestination()
-		err := destination.SendEvents(parsedEventChannel)
-		if err != nil {
-			destinationErrorChannel <- err
-		}
-		close(destinationErrorChannel)
+		destination.SendEvents(parsedEventChannel, errorChannel) // runs until parsedEventChannel is closed
+		sendEventsWg.Done()
 	}()
 
 	var streamProcessingWg sync.WaitGroup
 	for _, dataStream := range dataStreams {
+		processor := newProcessorFunc(dataStream)
 		streamProcessingWg.Add(1)
-		go func(input *common.DataStream) {
-			processStream(input)
+		go func(p *Processor) {
+			err := p.run(parsedEventChannel)
+			if err != nil {
+				errorChannel <- err
+			}
 			streamProcessingWg.Done()
-		}(dataStream)
+		}(processor)
 	}
 
 	go func() {
-		zap.L().Info("waiting for goroutines to stop reading data", zap.Int("numDataStreams", len(dataStreams)))
+		zap.L().Debug("waiting for goroutines to stop reading data")
 		// Close the channel after all goroutines have finished writing to it.
 		// The Destination that is reading the channel will terminate
 		// after consuming all the buffered messages
 		streamProcessingWg.Wait()
-		zap.L().Info("data processing goroutines finished")
-		close(parsedEventChannel)
+		close(parsedEventChannel) // will cause SendEvent() go routine to finish and exit
+		sendEventsWg.Wait()       // wait until all files and errors are written
+		close(errorChannel)       // this will allow process() to exit loop below
+		zap.L().Debug("data processing goroutines finished")
 	}()
 
-	// Blocking until the destination has finished.
-	// If the destination finished successfully this will return nil
-	// otherwise it will return an error and will cause Lambda invocation to fail
-	err := <-destinationErrorChannel
+	// Blocking until the processing has finished.
+	// If the processing has finished successfully err will be nil
+	// otherwise it will it will be set to an error and will cause Lambda invocation to fail.
+	var err error
+	for err = range errorChannel {
+	} // to ensure there are not writes to a closed channel, loop to drain
 	return err
 }
 
-//processStream loads the data from S3, parses it and writes them to the output channel
-func processStream(input *common.DataStream) {
-	zap.L().Info("starting to process data stream")
-	classifier := classification.NewClassifier()
-	logLines := 0
-	successfullyClassified := 0
-	classificationFailures := 0
-	scanner := bufio.NewScanner(*input.Reader)
-	for scanner.Scan() {
-		logLines++
-
-		classificationResult := classifier.Classify(scanner.Text())
-		if classificationResult.LogType == nil {
-			zap.L().Warn("failed to classify log line", zap.Int("lineNum", logLines))
-			classificationFailures++
-			continue
-		}
-		successfullyClassified++
-
-		for _, parsedEvent := range classificationResult.Events {
-			message := &common.ParsedEvent{
-				Event:   parsedEvent,
-				LogType: *classificationResult.LogType,
+// processStream reads the data from an S3 the dataStream, parses it and writes events to the output channel
+func (p *Processor) run(outputChan chan *common.ParsedEvent) error {
+	var err error
+	stream := bufio.NewReader(p.input.Reader)
+	for {
+		var line string
+		line, err = stream.ReadString('\n')
+		if err != nil {
+			if err == io.EOF { // we are done
+				err = nil // not really an error
+				p.processLogLine(line, outputChan)
 			}
-			parsedEventChannel <- message
+			break
+		}
+		p.processLogLine(line, outputChan)
+	}
+	if err != nil {
+		err = errors.Wrap(err, "failed to ReadString()")
+	}
+	p.logStats(err) // emit log line describing the processing of the file and any errors
+	return err
+}
+
+func (p *Processor) processLogLine(line string, outputChan chan *common.ParsedEvent) {
+	classificationResult := p.classifyLogLine(line)
+	if classificationResult.LogType == nil { // unable to classify, no error, keep parsing (best effort, will be logged)
+		return
+	}
+	p.sendEvents(classificationResult, outputChan)
+}
+
+func (p *Processor) classifyLogLine(line string) *classification.ClassifierResult {
+	result := p.classifier.Classify(line)
+	if result.LogType == nil && len(result.LogLine) > 0 { // only if line is not empty do we log (often we get trailing \n's)
+		if p.input.Hints.S3 != nil { // make easy to troubleshoot but do not add log line (even partial) to avoid leaking data into CW
+			p.operation.LogWarn(errors.New("failed to classify log line"),
+				zap.Uint64("lineNum", p.classifier.Stats().LogLineCount),
+				zap.String("bucket", p.input.Hints.S3.Bucket),
+				zap.String("key", p.input.Hints.S3.Key))
 		}
 	}
-	zap.L().Info("finished processing stream",
-		zap.Int("logLines", logLines),
-		zap.Int("successfullyClassified", successfullyClassified),
-		zap.Int("classificationFailures", classificationFailures))
+	return result
+}
+
+func (p *Processor) sendEvents(result *classification.ClassifierResult, outputChan chan *common.ParsedEvent) {
+	for _, parsedEvent := range result.Events {
+		message := &common.ParsedEvent{
+			Event:   parsedEvent,
+			LogType: *result.LogType,
+		}
+		outputChan <- message
+	}
+}
+
+func (p *Processor) logStats(err error) {
+	p.operation.Stop()
+	p.operation.Log(err, zap.Any(statsKey, *p.classifier.Stats()))
+	for _, parserStats := range p.classifier.ParserStats() {
+		p.operation.Log(err, zap.Any(statsKey, *parserStats))
+	}
+}
+
+type Processor struct {
+	input      *common.DataStream
+	classifier classification.ClassifierAPI
+	operation  *oplog.Operation
+}
+
+func NewProcessor(input *common.DataStream) *Processor {
+	return &Processor{
+		input:      input,
+		classifier: classification.NewClassifier(),
+		operation:  common.OpLogManager.Start(operationName),
+	}
 }

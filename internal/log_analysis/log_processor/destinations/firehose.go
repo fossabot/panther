@@ -44,7 +44,7 @@ type FirehoseDestination struct {
 // It continuously reads events from outputChannel, groups them in batches per log type
 // and sends them to the appropriate Kinesis FIrehose. If the method encounters an error
 // it stops reading from the outputChannel and writes an error to the errorChannel
-func (destination *FirehoseDestination) SendEvents(parsedEventChannel chan *common.ParsedEvent) error {
+func (destination *FirehoseDestination) SendEvents(parsedEventChannel chan *common.ParsedEvent, errChan chan error) {
 	logtypeToRecords := make(map[string]*recordBatch)
 	eventsProcessed := 0
 	zap.L().Info("starting to read events from channel")
@@ -53,7 +53,8 @@ func (destination *FirehoseDestination) SendEvents(parsedEventChannel chan *comm
 		data, err := jsoniter.Marshal(event.Event)
 		if err != nil {
 			zap.L().Warn("failed to marshall event", zap.Error(err))
-			return err
+			errChan <- err
+			continue
 		}
 		currentRecord := &firehose.Record{
 			Data: data,
@@ -69,7 +70,8 @@ func (destination *FirehoseDestination) SendEvents(parsedEventChannel chan *comm
 			err := destination.sendRecords(event.LogType, records.records)
 			if err != nil {
 				zap.L().Warn("failed to send records to firehose", zap.Error(err))
-				return err
+				errChan <- err
+				continue
 			}
 			records.initialize(currentRecord)
 		}
@@ -82,11 +84,11 @@ func (destination *FirehoseDestination) SendEvents(parsedEventChannel chan *comm
 		err := destination.sendRecords(logType, info.records)
 		if err != nil {
 			zap.L().Warn("failed to send records to firehose", zap.Error(err))
-			return err
+			errChan <- err
+			continue
 		}
 	}
 	zap.L().Info("Finished sending messages", zap.Int("events", eventsProcessed))
-	return nil
 }
 
 func (destination *FirehoseDestination) sendRecords(logType string, records []*firehose.Record) error {

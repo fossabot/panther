@@ -28,7 +28,7 @@ type ParserPriorityQueue struct {
 	items []*ParserQueueItem
 }
 
-// initialize adds all parsers to the priority queue
+// initialize adds all registered parsers to the priority queue
 // All parsers have the same priority
 func (q *ParserPriorityQueue) initialize() {
 	for _, parserMetadata := range parserRegistry.Elements() {
