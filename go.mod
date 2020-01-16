@@ -9,7 +9,7 @@ require (
 	github.com/SermoDigital/jose v0.9.1
 	github.com/asaskevich/govalidator v0.0.0-20200108200545-475eaeb16496 // indirect
 	github.com/aws/aws-lambda-go v1.13.3
-	github.com/aws/aws-sdk-go v1.28.2
+	github.com/aws/aws-sdk-go v1.28.3
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/go-openapi/analysis v0.19.7 // indirect
 	github.com/go-openapi/errors v0.19.3
@@ -42,10 +42,10 @@ require (
 	go.uber.org/atomic v1.5.1 // indirect
 	go.uber.org/multierr v1.4.0 // indirect
 	go.uber.org/zap v1.13.0
-	golang.org/x/crypto v0.0.0-20200109152110-61a87790db17 // indirect
+	golang.org/x/crypto v0.0.0-20200115085410-6d4e4cb37c7d // indirect
 	golang.org/x/lint v0.0.0-20191125180803-fdd1cda4f05f // indirect
 	golang.org/x/net v0.0.0-20200114155413-6afb5195e5aa // indirect
-	golang.org/x/tools v0.0.0-20200114191411-189207f339b7 // indirect
+	golang.org/x/tools v0.0.0-20200116062425-473961ec044c // indirect
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 	gopkg.in/go-playground/validator.v9 v9.31.0
 	gopkg.in/russross/blackfriday.v2 v2.0.0 // indirect

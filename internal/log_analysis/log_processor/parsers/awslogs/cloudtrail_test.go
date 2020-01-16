@@ -69,7 +69,7 @@ func TestCloudTrailLog(t *testing.T) {
 		},
 	}
 
-	require.Equal(t, (interface{})(expectedEvent), parser.Parse(log)[0])
+	require.Equal(t, []interface{}{expectedEvent}, parser.Parse(log))
 }
 
 func TestCloudTrailLogType(t *testing.T) {

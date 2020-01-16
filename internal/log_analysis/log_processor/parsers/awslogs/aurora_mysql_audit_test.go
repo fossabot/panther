@@ -47,7 +47,7 @@ func TestAuroraMySQLAuditLog(t *testing.T) {
 		RetCode: aws.Int(0),
 	}
 	parser := &AuroraMySQLAuditParser{}
-	require.Equal(t, (interface{})(expectedEvent), parser.Parse(log)[0])
+	require.Equal(t, []interface{}{expectedEvent}, parser.Parse(log))
 }
 
 func TestAuroraMysqlAuditLogType(t *testing.T) {

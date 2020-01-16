@@ -53,7 +53,7 @@ func TestS3AccessLogGetHttpOk(t *testing.T) {
 		TLSVersion:         aws.String("TLSV1.1"),
 	}
 
-	require.Equal(t, (interface{})(expectedEvent), parser.Parse(log)[0])
+	require.Equal(t, []interface{}{expectedEvent}, parser.Parse(log))
 }
 
 func TestS3AccessLogGetHttpNotFound(t *testing.T) {
@@ -84,7 +84,7 @@ func TestS3AccessLogGetHttpNotFound(t *testing.T) {
 		TLSVersion:         aws.String("TLSV1.1"),
 	}
 
-	require.Equal(t, (interface{})(expectedEvent), parser.Parse(log)[0])
+	require.Equal(t, []interface{}{expectedEvent}, parser.Parse(log))
 }
 
 func TestS3AccessLogPutHttpOK(t *testing.T) {
@@ -116,7 +116,7 @@ func TestS3AccessLogPutHttpOK(t *testing.T) {
 		TLSVersion:         aws.String("TLSV1.1"),
 	}
 
-	require.Equal(t, (interface{})(expectedEvent), parser.Parse(log)[0])
+	require.Equal(t, []interface{}{expectedEvent}, parser.Parse(log))
 }
 
 func TestS3AccessLogPutHttpOKExtraFields(t *testing.T) {
@@ -149,7 +149,7 @@ func TestS3AccessLogPutHttpOKExtraFields(t *testing.T) {
 		AdditionalFields:   []string{"test1", "test2"},
 	}
 
-	require.Equal(t, (interface{})(expectedEvent), parser.Parse(log)[0])
+	require.Equal(t, []interface{}{expectedEvent}, parser.Parse(log))
 }
 
 func TestS3ServerAccessLogType(t *testing.T) {

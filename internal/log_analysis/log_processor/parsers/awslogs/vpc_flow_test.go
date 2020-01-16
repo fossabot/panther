@@ -50,7 +50,7 @@ func TestVpcFlowLog(t *testing.T) {
 		Version:     aws.Int(2),
 	}
 
-	require.Equal(t, (interface{})(expectedEvent), parser.Parse(log)[0])
+	require.Equal(t, []interface{}{expectedEvent}, parser.Parse(log))
 }
 
 func TestVpcFlowLogNoData(t *testing.T) {
@@ -68,7 +68,7 @@ func TestVpcFlowLogNoData(t *testing.T) {
 		LogStatus:   aws.String("NODATA"),
 	}
 
-	require.Equal(t, (interface{})(expectedEvent), parser.Parse(log)[0])
+	require.Equal(t, []interface{}{expectedEvent}, parser.Parse(log))
 }
 
 func TestVpcFlowLogType(t *testing.T) {

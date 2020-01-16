@@ -42,6 +42,8 @@ var (
 			&awslogs.ALB{}, awslogs.ALBDesc),
 		(&awslogs.AuroraMySQLAuditParser{}).LogType(): DefaultHourlyLogParser(&awslogs.AuroraMySQLAuditParser{},
 			&awslogs.AuroraMySQLAudit{}, awslogs.AuroraMySQLAuditDesc),
+		(&awslogs.GuardDutyParser{}).LogType(): DefaultHourlyLogParser(&awslogs.GuardDutyParser{},
+			&awslogs.GuardDuty{}, awslogs.GuardDutyDesc),
 		(&osquerylogs.DifferentialParser{}).LogType(): DefaultHourlyLogParser(&osquerylogs.DifferentialParser{},
 			&osquerylogs.Differential{}, osquerylogs.DifferentialDesc),
 		(&osquerylogs.BatchParser{}).LogType(): DefaultHourlyLogParser(&osquerylogs.BatchParser{},

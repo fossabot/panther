@@ -67,7 +67,7 @@ func TestHTTPLog(t *testing.T) {
 	}
 
 	parser := &ALBParser{}
-	require.Equal(t, (interface{})(expectedEvent), parser.Parse(log)[0])
+	require.Equal(t, []interface{}{expectedEvent}, parser.Parse(log))
 }
 
 func TestHTTPSLog(t *testing.T) {
@@ -113,7 +113,7 @@ func TestHTTPSLog(t *testing.T) {
 	}
 
 	parser := &ALBParser{}
-	require.Equal(t, (interface{})(expectedEvent), parser.Parse(log)[0])
+	require.Equal(t, []interface{}{expectedEvent}, parser.Parse(log))
 }
 
 func TestHTTP2Log(t *testing.T) {
@@ -159,7 +159,7 @@ func TestHTTP2Log(t *testing.T) {
 	}
 
 	parser := &ALBParser{}
-	require.Equal(t, (interface{})(expectedEvent), parser.Parse(log)[0])
+	require.Equal(t, []interface{}{expectedEvent}, parser.Parse(log))
 }
 
 func TestAlbLogType(t *testing.T) {
