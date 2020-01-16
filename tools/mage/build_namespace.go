@@ -112,16 +112,9 @@ func (b Build) Lambda() error {
 		return err
 	}
 
-	results := make(chan error)
 	fmt.Printf("build:lambda: go build internal/*/main (%d binaries)\n", len(packages))
 	for _, pkg := range packages {
-		go func(pkg string) {
-			results <- buildPackage(pkg)
-		}(pkg)
-	}
-
-	for range packages {
-		if err = <-results; err != nil {
+		if err := buildPackage(pkg); err != nil {
 			return err
 		}
 	}
