@@ -17,6 +17,7 @@ package mage
  */
 
 import (
+	"encoding/base64"
 	"fmt"
 	"os"
 	"path"
@@ -26,6 +27,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cognitoidentityprovider"
+	"github.com/aws/aws-sdk-go/service/ecr"
 	"github.com/aws/aws-sdk-go/service/lambda"
 	"github.com/aws/aws-sdk-go/service/s3"
 	jsoniter "github.com/json-iterator/go"
@@ -89,11 +91,6 @@ func Deploy() error {
 	}
 	bucket := outputs["SourceBucketName"]
 
-	// If you need to run some stuff BEFORE the cloudformation deploy, here would work
-	if err := sh.Run("docker", "pull", "--flag", "https://url"); err != nil {
-		return err
-	}
-
 	template, err := cfnPackage(applicationTemplate, bucket, applicationStack)
 	if err != nil {
 		return err
@@ -110,6 +107,10 @@ func Deploy() error {
 
 	outputs, err = getStackOutputs(awsSession, applicationStack)
 	if err != nil {
+		return err
+	}
+
+	if err = buildAndPushImageFromSource(awsSession, outputs); err != nil {
 		return err
 	}
 
@@ -302,5 +303,49 @@ func inviteFirstUser(awsSession *session.Session, userPoolID string) error {
 			*response.FunctionError, string(response.Payload))
 	}
 
+	return nil
+}
+
+// Functions that build a personalized docker image from source, while pushing it to the private image repo of the user
+func buildAndPushImageFromSource(awsSession *session.Session, outputs map[string]string) error {
+
+	fmt.Println("docker: Building docker image from source...")
+	if err := runCommand("docker", "build",
+		"--file", "deployments/web/Dockerfile",
+		"--tag", outputs["WebApplicationImage"],
+		"--build-arg", fmt.Sprintf("AWS_ACCOUNT_ID=%s", outputs["AWSAccountId"]),
+		"--build-arg", fmt.Sprintf("AWS_REGION=%s", outputs["AWSRegion"]),
+		"--build-arg", fmt.Sprintf("GRAPHQL_ENDPOINT=%s", outputs["WebApplicationGraphQLApiEndpoint"]),
+		"--build-arg", fmt.Sprintf("AWS_COGNITO_USER_POOL_ID=%s", outputs["UserPoolId"]),
+		"--build-arg", fmt.Sprintf("AWS_COGNITO_APP_CLIENT_ID=%s", outputs["UserPoolClientId"]),
+		".",
+	); err != nil {
+		return err
+	}
+
+	fmt.Println("Requesting access to remote image repo...")
+	ecrClient := ecr.New(awsSession)
+	req, resp := ecrClient.GetAuthorizationTokenRequest(&ecr.GetAuthorizationTokenInput{})
+	if err := req.Send(); err != nil {
+		return err
+	}
+
+	ecrAuthorizationToken := *resp.AuthorizationData[0].AuthorizationToken
+	ecrServer := *resp.AuthorizationData[0].ProxyEndpoint
+
+	decodedCredentialsInBytes, _ := base64.StdEncoding.DecodeString(ecrAuthorizationToken)
+	credentials := strings.Split(string(decodedCredentialsInBytes), ":")
+
+	fmt.Println("Logging in to remote image repo...")
+	if err := runCommand("docker", "login", "-u", credentials[0], "-p", credentials[1], ecrServer); err != nil {
+		return err
+	}
+
+	fmt.Println("Begin image push to remote repo...")
+	if err := runCommand("docker", "push", outputs["WebApplicationImage"]); err != nil {
+		return err
+	}
+
+	fmt.Println("Image pushed successfully!")
 	return nil
 }

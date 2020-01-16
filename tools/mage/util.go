@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -128,3 +129,12 @@ func emailValidator(email string) error {
 
 	return errors.New("error: invalid email: must be at least 4 characters and contain '@' and '.'")
 }
+
+// A wrapper around the basic `exec.Command`, running it immediately & adding streaming output to STDOUT/STDERR
+func runCommand(name string, arg ...string) error {
+	cmd := exec.Command(name, arg ...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
