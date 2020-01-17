@@ -73,6 +73,11 @@ func TestVpcFlowLogNoData(t *testing.T) {
 	require.Equal(t, []interface{}{expectedEvent}, parser.Parse(log))
 }
 
+func TestVpcFlowLogHeader(t *testing.T) {
+	parser := &VPCFlowParser{}
+	require.Equal(t, []interface{}{}, parser.Parse(vpcFlowHeader))
+}
+
 func TestVpcFlowLogType(t *testing.T) {
 	parser := &VPCFlowParser{}
 	require.Equal(t, "AWS.VPCFlow", parser.LogType())

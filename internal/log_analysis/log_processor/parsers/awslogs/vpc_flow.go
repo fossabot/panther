@@ -56,8 +56,18 @@ type VPCFlow struct {
 // VPCFlowParser parses AWS VPC Flow Parser logs
 type VPCFlowParser struct{}
 
+// Expected CSV header line
+const vpcFlowHeader = "version account-id interface-id srcaddr dstaddr srcport dstport protocol packets bytes start end action log-status"
+
 // Parse returns the parsed events or nil if parsing failed
 func (p *VPCFlowParser) Parse(log string) []interface{} {
+	// Flow log files usually (always?) have a header (might have more columns):
+	//    version account-id interface-id srcaddr dstaddr srcport dstport protocol packets bytes start end action log-status
+	// If this is a header, return success but no events
+	if strings.HasPrefix(log, vpcFlowHeader) {
+		return []interface{}{} // empty list
+	}
+
 	reader := csv.NewReader(strings.NewReader(log))
 	reader.Comma = ' '
 
