@@ -164,6 +164,50 @@ func TestHTTP2Log(t *testing.T) {
 	require.Equal(t, []interface{}{expectedEvent}, parser.Parse(log))
 }
 
+func TestHTTPSNoTarget(t *testing.T) {
+	//nolint:lll
+	log := `https 2018-08-26T14:17:23.186641Z app/web/09603e7dbbd08802 138.246.253.5:57185 - -1 -1 -1 400 - 25 150` +
+		` "HEAD https://web-1241004567.us-east-1.elb.amazonaws.com:443/ HTTP/1.1" "-" ECDHE-RSA-AES128-GCM-SHA256` +
+		` TLSv1.2 - "-" "-" "arn:aws:acm:us-east-1:050603629990:certificate/bedab50c-9007-4ee9-89a5-d1929edb364c" - 2018-08-26T14:17:23.186641Z "-" "-" "-" "-" "-"
+`
+
+	expectedTime := time.Unix(1535293043, 186641000).UTC()
+
+	expectedEvent := &ALB{
+		Type:                   aws.String("https"),
+		Timestamp:              (*timestamp.RFC3339)(&expectedTime),
+		ELB:                    aws.String("app/web/09603e7dbbd08802"),
+		ClientIP:               aws.String("138.246.253.5"),
+		ClientPort:             aws.Int(57185),
+		TargetIP:               nil,
+		TargetPort:             nil,
+		RequestProcessingTime:  aws.Float64(-1),
+		TargetProcessingTime:   aws.Float64(-1),
+		ResponseProcessingTime: aws.Float64(-1),
+		ELBStatusCode:          aws.Int(400),
+		TargetStatusCode:       nil,
+		ReceivedBytes:          aws.Int(25),
+		SentBytes:              aws.Int(150),
+		RequestHTTPMethod:      aws.String("HEAD"),
+		RequestHTTPVersion:     aws.String("HTTP/1.1"),
+		RequestURL:             aws.String("https://web-1241004567.us-east-1.elb.amazonaws.com:443/"),
+		UserAgent:              nil,
+		SSLCipher:              aws.String("ECDHE-RSA-AES128-GCM-SHA256"),
+		SSLProtocol:            aws.String("TLSv1.2"),
+		TargetGroupARN:         nil,
+		TraceID:                nil,
+		DomainName:             nil,
+		ChosenCertARN:          aws.String("arn:aws:acm:us-east-1:050603629990:certificate/bedab50c-9007-4ee9-89a5-d1929edb364c"),
+		MatchedRulePriority:    nil,
+		RequestCreationTime:    (*timestamp.RFC3339)(&expectedTime),
+		ActionsExecuted:        []string{},
+		RedirectURL:            nil,
+		ErrorReason:            nil,
+	}
+	parser := &ALBParser{}
+	require.Equal(t, []interface{}{expectedEvent}, parser.Parse(log))
+}
+
 func TestAlbLogType(t *testing.T) {
 	parser := &ALBParser{}
 	require.Equal(t, "AWS.ALB", parser.LogType())
