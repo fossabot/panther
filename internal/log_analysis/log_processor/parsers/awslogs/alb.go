@@ -102,8 +102,15 @@ func (p *ALBParser) Parse(log string) []interface{} {
 		return nil
 	}
 
-	clientIPPort := strings.Split(record[3], ":")
-	targetIPPort := strings.Split(record[4], ":")
+	var clientIPPort, targetIPPort []string
+	clientIPPort = strings.Split(record[3], ":")
+	if len(clientIPPort) != 2 {
+		clientIPPort = []string{record[3], "-"}
+	}
+	targetIPPort = strings.Split(record[4], ":")
+	if len(targetIPPort) != 2 {
+		targetIPPort = []string{record[4], "-"}
+	}
 
 	requestItems := strings.Split(record[12], " ")
 
