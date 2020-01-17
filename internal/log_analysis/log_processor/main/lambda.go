@@ -1,19 +1,21 @@
 package main
 
 /**
- * Copyright 2020 Panther Labs Inc
+ * Panther is a scalable, powerful, cloud-native SIEM written in Golang/React.
+ * Copyright (C) 2020 Panther Labs Inc
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 import (
@@ -21,9 +23,11 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-lambda-go/lambdacontext"
 	"go.uber.org/zap"
 
+	"github.com/panther-labs/panther/internal/log_analysis/log_processor/common"
+	"github.com/panther-labs/panther/internal/log_analysis/log_processor/destinations"
 	"github.com/panther-labs/panther/internal/log_analysis/log_processor/processor"
 	"github.com/panther-labs/panther/internal/log_analysis/log_processor/sources"
 	"github.com/panther-labs/panther/pkg/lambdalogger"
@@ -34,17 +38,26 @@ func main() {
 }
 
 func handle(ctx context.Context, event events.SQSEvent) error {
-	lambdalogger.ConfigureGlobal(ctx, nil)
+	lc, _ := lambdalogger.ConfigureGlobal(ctx, nil)
+	return process(lc, event)
+}
 
-	zap.L().Info("num_sqs_messages", zap.Int("count", len(event.Records)))
-	messages := make([]*string, len(event.Records))
-	for i, message := range event.Records {
-		messages[i] = aws.String(message.Body)
+func process(lc *lambdacontext.LambdaContext, event events.SQSEvent) (err error) {
+	operation := common.OpLogManager.Start(lc.InvokedFunctionArn, common.OpLogLambdaServiceDim)
+	defer func() {
+		operation.Stop()
+		operation.Log(err, zap.Int("sqsMessageCount", len(event.Records)))
+	}()
+
+	// this is not likely to happen in production but needed to avoid opening sessions in tests w/no events
+	if len(event.Records) == 0 {
+		return err
 	}
 
-	buffers, err := sources.ReadData(messages)
+	dataStreams, err := sources.ReadSQSMessages(event.Records)
 	if err != nil {
 		return err
 	}
-	return processor.Handle(buffers)
+	err = processor.Process(dataStreams, destinations.CreateDestination())
+	return err
 }

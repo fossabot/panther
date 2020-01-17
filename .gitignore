@@ -1,5 +1,3 @@
-api/gateway/*/client/
-api/gateway/*/models/
 out/
 venv/
 .idea/

@@ -1,19 +1,21 @@
 package mage
 
 /**
- * Copyright 2020 Panther Labs Inc
+ * Panther is a scalable, powerful, cloud-native SIEM written in Golang/React.
+ * Copyright (C) 2020 Panther Labs Inc
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 import (
@@ -22,6 +24,7 @@ import (
 	"os"
 	"path"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -39,8 +42,6 @@ import (
 )
 
 const (
-	configFile = "deployments/panther_config.yml"
-
 	// CloudFormation templates + stacks
 	applicationStack    = "panther-app"
 	applicationTemplate = "deployments/template.yml"
@@ -58,8 +59,8 @@ const (
 
 // Deploy Deploy application infrastructure
 func Deploy() error {
-	config, err := loadYamlFile(configFile)
-	if err != nil {
+	var config PantherConfig
+	if err := loadYamlFile(configFile, &config); err != nil {
 		return err
 	}
 
@@ -68,8 +69,10 @@ func Deploy() error {
 		return err
 	}
 
-	bucketParams := config["BucketsParameterValues"].(map[interface{}]interface{})
-	if err = deployTemplate(awsSession, bucketTemplate, bucketStack, stringMap(bucketParams)); err != nil {
+	bucketParams := map[string]string{
+		"AccessLogsBucketName": config.BucketsParameterValues.AccessLogsBucketName,
+	}
+	if err = deployTemplate(awsSession, bucketTemplate, bucketStack, bucketParams); err != nil {
 		return err
 	}
 
@@ -96,7 +99,7 @@ func Deploy() error {
 		return err
 	}
 
-	deployParams, err := getDeployParams(awsSession, config, bucket)
+	deployParams, err := getDeployParams(awsSession, &config, bucket)
 	if err != nil {
 		return err
 	}
@@ -122,29 +125,32 @@ func Deploy() error {
 		return err
 	}
 
+	if err := initializeAnalysisSets(awsSession, outputs["AnalysisApiEndpoint"], &config); err != nil {
+		return err
+	}
+
 	// TODO - underline link
 	fmt.Printf("\nPanther URL = https://%s\n", outputs["LoadBalancerUrl"])
 	return nil
-
-	// TODO - install initial rule sets
 }
 
 // Generate the set of deploy parameters for the main application stack.
 //
 // This will first upload the layer zipfile unless a custom layer is specified.
-func getDeployParams(awsSession *session.Session, config map[string]interface{}, bucket string) (map[string]string, error) {
-	result := stringMap(config["AppParameterValues"].(map[interface{}]interface{}))
+func getDeployParams(awsSession *session.Session, config *PantherConfig, bucket string) (map[string]string, error) {
+	v := config.AppParameterValues
+	result := map[string]string{
+		"CloudWatchLogRetentionDays":   strconv.Itoa(v.CloudWatchLogRetentionDays),
+		"Debug":                        strconv.FormatBool(v.Debug),
+		"LayerVersionArns":             v.LayerVersionArns,
+		"PythonLayerVersionArn":        v.PythonLayerVersionArn,
+		"WebApplicationCertificateArn": v.WebApplicationCertificateArn,
+		"TracingMode":                  v.TracingMode,
+	}
 
 	// If no custom Python layer is defined, then we need to build the default one.
 	if result["PythonLayerVersionArn"] == "" {
-		// Convert libs from []interface{} to []string
-		rawLibs := config["PipLayer"].([]interface{})
-		libs := make([]string, len(rawLibs))
-		for i, lib := range rawLibs {
-			libs[i] = lib.(string)
-		}
-
-		version, err := uploadLayer(awsSession, libs, bucket, layerS3ObjectKey)
+		version, err := uploadLayer(awsSession, config.PipLayer, bucket, layerS3ObjectKey)
 		if err != nil {
 			return nil, err
 		}

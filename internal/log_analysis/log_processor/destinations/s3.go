@@ -1,19 +1,21 @@
 package destinations
 
 /**
- * Copyright 2020 Panther Labs Inc
+ * Panther is a scalable, powerful, cloud-native SIEM written in Golang/React.
+ * Copyright (C) 2020 Panther Labs Inc
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 import (
@@ -31,6 +33,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/sns/snsiface"
 	"github.com/google/uuid"
 	jsoniter "github.com/json-iterator/go"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	"github.com/panther-labs/panther/internal/log_analysis/log_processor/common"
@@ -38,7 +41,7 @@ import (
 )
 
 // s3ObjectKeyFormat represents the format of the S3 object key
-const s3ObjectKeyFormat = "%s/%s-%s.gz"
+const s3ObjectKeyFormat = "%s%s-%s.gz"
 
 var (
 	maxFileSize = 100 * 1000 * 1000 // 100MB uncompressed file size, should result in ~10MB output file size
@@ -66,17 +69,23 @@ type S3Destination struct {
 // SendEvents stores events in S3.
 // It continuously reads events from outputChannel, groups them in batches per log type
 // and stores them in the appropriate S3 path. If the method encounters an error
-// it stops reading from the outputChannel, writes an error to the errorChannel and terminates
-func (destination *S3Destination) SendEvents(parsedEventChannel chan *common.ParsedEvent) error {
+// it writes an error to the errorChannel and continues until channel is closed (skipping events).
+func (destination *S3Destination) SendEvents(parsedEventChannel chan *common.ParsedEvent, errChan chan error) {
+	failed := false // set to true on error and loop will drain channel
 	logTypeToBuffer := make(map[string]*s3EventBuffer)
 	eventsProcessed := 0
-	zap.L().Info("starting to read events from channel")
+	zap.L().Debug("starting to read events from channel")
 	for event := range parsedEventChannel {
+		if failed { // drain channel
+			continue
+		}
+
 		eventsProcessed++
 		data, err := jsoniter.Marshal(event.Event)
 		if err != nil {
-			zap.L().Warn("failed to marshall event", zap.Error(err))
-			return err
+			failed = true
+			errChan <- errors.Wrap(err, "failed to marshall log parser event for S3")
+			continue
 		}
 
 		buffer, ok := logTypeToBuffer[event.LogType]
@@ -87,42 +96,54 @@ func (destination *S3Destination) SendEvents(parsedEventChannel chan *common.Par
 
 		canAdd, err := buffer.addEvent(data)
 		if err != nil {
-			return err
+			failed = true
+			errChan <- err
+			continue
 		}
 		if !canAdd {
 			if err = destination.sendData(event.LogType, buffer); err != nil {
-				return err
+				failed = true
+				errChan <- err
+				continue
 			}
 
 			canAdd, err = buffer.addEvent(data)
 			if err != nil {
-				return err
+				failed = true
+				errChan <- err
+				continue
 			}
 			if !canAdd {
-				// We will reach this point only if a single marshalled event is greater than maxFileSize
-				// something that shouldn't happen normally
-				zap.L().Error("event doesn't fit in single s3 object and will be dropped",
-					zap.String("logtype", event.LogType))
+				failed = true
+				// happens if a single marshalled event is greater than maxFileSize, something that shouldn't happen normally
+				errChan <- errors.WithMessagef(err, "event doesn't fit in single s3 object, cannot write to %s",
+					destination.s3Bucket)
+				continue
 			}
 		}
 
 		// Check if any buffers has data for longer than 1 minute
 		if err = destination.sendExpiredData(logTypeToBuffer); err != nil {
-			zap.L().Warn("failed to send data to S3", zap.Error(err))
-			return err
+			failed = true
+			errChan <- err
+			continue
 		}
 	}
 
-	zap.L().Info("output channel closed, sending last events")
+	if failed {
+		zap.L().Debug("failed, returning after draining parsedEventsChannel")
+	}
+
+	zap.L().Debug("output channel closed, sending last events")
 	// If the channel has been closed
 	// send the buffered messages before terminating
 	for logType, data := range logTypeToBuffer {
 		if err := destination.sendData(logType, data); err != nil {
-			return err
+			errChan <- err
+			return
 		}
 	}
-	zap.L().Info("Finished sending messages", zap.Int("events", eventsProcessed))
-	return nil
+	zap.L().Debug("finished sending messages", zap.Int("events", eventsProcessed))
 }
 
 func (destination *S3Destination) sendExpiredData(logTypeToEvents map[string]*s3EventBuffer) error {
@@ -141,8 +162,61 @@ func (destination *S3Destination) sendExpiredData(logTypeToEvents map[string]*s3
 }
 
 // sendData puts data in S3 and sends notification to SNS
-func (destination *S3Destination) sendData(logType string, buffer *s3EventBuffer) error {
+func (destination *S3Destination) sendData(logType string, buffer *s3EventBuffer) (err error) {
+	var contentLength int64 = 0
+
 	key := getS3ObjectKey(logType, buffer.firstEventProcessedTime)
+
+	operation := common.OpLogManager.Start("sendData", common.OpLogS3ServiceDim)
+	defer func() {
+		// if no error reset buffer
+		if err == nil {
+			if err = buffer.reset(); err != nil {
+				err = errors.Wrap(err, "failed to reset buffer")
+			}
+		}
+
+		operation.Stop()
+		operation.Log(err,
+			// s3 dim info
+			zap.Int64("contentLength", contentLength),
+			zap.String("bucket", destination.s3Bucket),
+			zap.String("key", key))
+	}()
+
+	payload, err := buffer.getBytes()
+	if err != nil {
+		err = errors.Wrap(err, "failed to read buffer")
+		return err
+	}
+
+	contentLength = int64(len(payload)) // for logging
+
+	request := &s3.PutObjectInput{
+		Bucket: aws.String(destination.s3Bucket),
+		Key:    aws.String(key),
+		Body:   bytes.NewReader(payload),
+	}
+	if _, err = destination.s3Client.PutObject(request); err != nil {
+		err = errors.Wrap(err, "PutObject")
+		return err
+	}
+
+	destination.createGluePartition(logType, buffer) // best effort
+
+	err = destination.sendSNSNotification(key, logType, buffer) // if send fails we fail whole operation
+
+	return err
+}
+
+func (destination *S3Destination) sendSNSNotification(key, logType string, buffer *s3EventBuffer) error {
+	var err error
+	operation := common.OpLogManager.Start("sendSNSNotification", common.OpLogSNSServiceDim)
+	defer func() {
+		operation.Stop()
+		operation.Log(err,
+			zap.String("topicArn", destination.snsTopicArn))
+	}()
 
 	s3Notification := &common.S3Notification{
 		S3Bucket:    aws.String(destination.s3Bucket),
@@ -153,48 +227,22 @@ func (destination *S3Destination) sendData(logType string, buffer *s3EventBuffer
 		ID:          aws.String(logType),
 	}
 
-	payload, err := buffer.getBytes()
+	marshalledNotification, err := jsoniter.MarshalToString(s3Notification)
 	if err != nil {
-		zap.L().Warn("failed to get buffer bytes", zap.Error(err))
+		err = errors.Wrap(err, "failed to marshal notification")
 		return err
-	}
-
-	if err := buffer.reset(); err != nil {
-		zap.L().Warn("failed to reset buffer", zap.Error(err))
-		return err
-	}
-
-	request := &s3.PutObjectInput{
-		Bucket: aws.String(destination.s3Bucket),
-		Key:    aws.String(key),
-		Body:   bytes.NewReader(payload),
-	}
-	if _, err := destination.s3Client.PutObject(request); err != nil {
-		zap.L().Warn("failed to put object in s3",
-			zap.String("bucket", *request.Bucket),
-			zap.String("key", *request.Key),
-			zap.Error(err))
-		return err
-	}
-
-	destination.createGluePartition(logType, buffer)
-
-	marshalledNotification, marshallingError := jsoniter.MarshalToString(s3Notification)
-	if marshallingError != nil {
-		zap.L().Warn("failed to marshal notification", zap.Error(err))
-		return marshallingError
 	}
 
 	input := &sns.PublishInput{
 		TopicArn: aws.String(destination.snsTopicArn),
 		Message:  aws.String(marshalledNotification),
 	}
-	if _, err := destination.snsClient.Publish(input); err != nil {
-		zap.L().Warn("failed to send notification to topic",
-			zap.String("topicArn", destination.snsTopicArn), zap.Error(err))
+	if _, err = destination.snsClient.Publish(input); err != nil {
+		err = errors.Wrap(err, "failed to send notification to topic")
 		return err
 	}
-	return nil
+
+	return err
 }
 
 // create glue partition (best effort and log)
@@ -202,7 +250,9 @@ func (destination *S3Destination) createGluePartition(logType string, buffer *s3
 	glueMetadata := parserRegistry.LookupParser(logType).Glue
 	partitionPath := glueMetadata.PartitionPrefix(buffer.firstEventProcessedTime)
 	if _, exists := destination.partitionExistsCache[partitionPath]; !exists {
+		operation := common.OpLogManager.Start("createPartition", common.OpLogGlueServiceDim)
 		partitionErr := glueMetadata.CreateJSONPartition(destination.glueClient, destination.s3Bucket, buffer.firstEventProcessedTime)
+		// already done? fast path return
 		if partitionErr != nil {
 			if awsErr, ok := partitionErr.(awserr.Error); ok {
 				if awsErr.Code() == "AlreadyExistsException" {
@@ -210,16 +260,15 @@ func (destination *S3Destination) createGluePartition(logType string, buffer *s3
 					return
 				}
 			}
-			zap.L().Error("failed to create glue partition",
-				zap.String("bucket", destination.s3Bucket),
-				zap.String("partition", partitionPath),
-				zap.Error(partitionErr))
 		} else {
 			destination.partitionExistsCache[partitionPath] = struct{}{} // remember
-			zap.L().Info("created glue partition",
-				zap.String("bucket", destination.s3Bucket),
-				zap.String("partition", partitionPath))
 		}
+
+		// log outcome
+		operation.Stop()
+		operation.Log(partitionErr,
+			zap.String("bucket", destination.s3Bucket),
+			zap.String("partition", partitionPath))
 	}
 }
 
@@ -258,14 +307,14 @@ func (b *s3EventBuffer) addEvent(event []byte) (bool, error) {
 
 	_, err := b.writer.Write(event)
 	if err != nil {
-		zap.L().Warn("failed to add data to buffer", zap.Error(err))
+		err = errors.Wrap(err, "failed to add data to buffer %s")
 		return false, err
 	}
 
 	// Adding new line delimiter
 	_, err = b.writer.Write(newLineDelimiter)
 	if err != nil {
-		zap.L().Warn("failed to add data to buffer", zap.Error(err))
+		err = errors.Wrap(err, "failed to add data to buffer")
 		return false, err
 	}
 	b.bytes = projectedFileSize

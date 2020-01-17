@@ -1,19 +1,21 @@
 package common
 
 /**
- * Copyright 2020 Panther Labs Inc
+ * Panther is a scalable, powerful, cloud-native SIEM written in Golang/React.
+ * Copyright (C) 2020 Panther Labs Inc
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 import (
@@ -31,10 +33,23 @@ type ParsedEvent struct {
 
 // DataStream represents a data stream that read by the processor
 type DataStream struct {
-	Reader *io.Reader
+	Reader io.Reader
+	Hints  DataStreamHints
 	// The log type if known
 	// If it is nil, it means the log type hasn't been identified yet
 	LogType *string
+}
+
+// Used in a DataStream as meta data to describe the data
+type DataStreamHints struct {
+	S3 *S3DataStreamHints // if nil, no hint
+}
+
+// Used in a DataStreamHints as meta data to describe the S3 object backing the stream
+type S3DataStreamHints struct {
+	Bucket      string
+	Key         string
+	ContentType string
 }
 
 // S3Notification is sent when new data is available in S3

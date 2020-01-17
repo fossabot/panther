@@ -1,19 +1,21 @@
 package gateway
 
 /**
- * Copyright 2020 Panther Labs Inc
+ * Panther is a scalable, powerful, cloud-native SIEM written in Golang/React.
+ * Copyright (C) 2020 Panther Labs Inc
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 import (
@@ -44,34 +46,10 @@ func (m *MockUserGateway) CreateUser(input *CreateUserInput) (*string, error) {
 	return args.Get(0).(*string), args.Error(1)
 }
 
-// CreateUserPool mocks CreateUserPool for testing
-func (m *MockUserGateway) CreateUserPool(displayName *string) (*UserPool, error) {
-	args := m.Called(displayName)
-	return args.Get(0).(*UserPool), args.Error(1)
-}
-
-// CreateUserPoolGroups mocks CreateUserPoolGroups for testing
-func (m *MockUserGateway) CreateUserPoolGroups(userPoolID *string) error {
-	args := m.Called(userPoolID)
-	return args.Error(0)
-}
-
-// DeleteUser mocks DeleteUser for testing
-func (m *MockUserGateway) DeleteUser(id *string, userPoolID *string) error {
-	args := m.Called(id, userPoolID)
-	return args.Error(0)
-}
-
 // GetUser mocks GetUser for testing
 func (m *MockUserGateway) GetUser(id *string, userPoolID *string) (*models.User, error) {
 	args := m.Called(id, userPoolID)
 	return args.Get(0).(*models.User), args.Error(1)
-}
-
-// ListGroups mocks ListGroups for testing
-func (m *MockUserGateway) ListGroups(userPoolID *string) ([]*models.Group, error) {
-	args := m.Called(userPoolID)
-	return args.Get(0).([]*models.Group), args.Error(1)
 }
 
 // ListGroupsForUser mocks ListGroupsForUser for testing
@@ -84,12 +62,6 @@ func (m *MockUserGateway) ListGroupsForUser(id *string, userPoolID *string) ([]*
 func (m *MockUserGateway) ListUsers(limit *int64, paginationToken *string, userPoolID *string) (*ListUsersOutput, error) {
 	args := m.Called(limit, paginationToken, userPoolID)
 	return args.Get(0).(*ListUsersOutput), args.Error(1)
-}
-
-// RemoveUserFromGroup mocks RemoveUserFromGroup for testing
-func (m *MockUserGateway) RemoveUserFromGroup(id *string, groupName *string, userPoolID *string) error {
-	args := m.Called(id, groupName, userPoolID)
-	return args.Error(0)
 }
 
 // ResetUserPassword mocks ResetUserPassword for testing

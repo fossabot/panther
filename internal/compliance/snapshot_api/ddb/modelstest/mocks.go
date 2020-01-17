@@ -1,19 +1,21 @@
 package modelstest
 
 /**
- * Copyright 2020 Panther Labs Inc
+ * Panther is a scalable, powerful, cloud-native SIEM written in Golang/React.
+ * Copyright (C) 2020 Panther Labs Inc
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 import (
@@ -44,65 +46,44 @@ func (client *MockDDBClient) DeleteItem(
 }
 
 // UpdateItem is a mock method to update an item from a dynamodb table.
-func (client *MockDDBClient) UpdateItem(
-	input *dynamodb.UpdateItemInput,
-) (*dynamodb.UpdateItemOutput, error) {
-
+func (client *MockDDBClient) UpdateItem(input *dynamodb.UpdateItemInput) (*dynamodb.UpdateItemOutput, error) {
 	args := client.Called(input)
 	return args.Get(0).(*dynamodb.UpdateItemOutput), args.Error(1)
 }
 
 // Scan is a mock DynamoDB Scan request.
-func (client *MockDDBClient) Scan(
-	input *dynamodb.ScanInput) (*dynamodb.ScanOutput, error) {
-
+func (client *MockDDBClient) Scan(input *dynamodb.ScanInput) (*dynamodb.ScanOutput, error) {
 	if client.TestErr {
 		return nil, errors.New("fake dynamodb.Scan error")
 	}
-
 	return &dynamodb.ScanOutput{Items: client.MockScanAttributes}, nil
 }
 
 // Query is a mock DynamoDB Query request.
-func (client *MockDDBClient) Query(
-	input *dynamodb.QueryInput) (*dynamodb.QueryOutput, error) {
-
+func (client *MockDDBClient) Query(input *dynamodb.QueryInput) (*dynamodb.QueryOutput, error) {
 	if client.TestErr {
 		return nil, errors.New("fake dynamodb.Query error")
 	}
-
 	return &dynamodb.QueryOutput{Items: client.MockQueryAttributes}, nil
 }
 
 // PutItem is a mock DynamoDB PutItem request.
-func (client *MockDDBClient) PutItem(
-	input *dynamodb.PutItemInput) (*dynamodb.PutItemOutput, error) {
-
+func (client *MockDDBClient) PutItem(input *dynamodb.PutItemInput) (*dynamodb.PutItemOutput, error) {
 	if client.TestErr {
 		return nil, errors.New("fake dynamodb.PutItem error")
 	}
-
 	return &dynamodb.PutItemOutput{Attributes: client.MockItemAttributeOutput}, nil
 }
 
-// GetItem is a mock DynamoDB GetItem request.
-func (client *MockDDBClient) GetItem(
-	input *dynamodb.GetItemInput) (*dynamodb.GetItemOutput, error) {
-
-	if client.TestErr {
-		return nil, errors.New("fake dynamodb.GetItem error")
-	}
-
-	return &dynamodb.GetItemOutput{Item: client.MockItemAttributeOutput}, nil
+func (client *MockDDBClient) GetItem(input *dynamodb.GetItemInput) (*dynamodb.GetItemOutput, error) {
+	args := client.Called(input)
+	return args.Get(0).(*dynamodb.GetItemOutput), args.Error(1)
 }
 
 // BatchWriteItem is a mock DynamoDB BatchWriteItem request.
-func (client *MockDDBClient) BatchWriteItem(
-	input *dynamodb.BatchWriteItemInput) (*dynamodb.BatchWriteItemOutput, error) {
-
+func (client *MockDDBClient) BatchWriteItem(input *dynamodb.BatchWriteItemInput) (*dynamodb.BatchWriteItemOutput, error) {
 	if client.TestErr {
 		return nil, errors.New("fake dynamodb.BatchWriteItem error")
 	}
-
 	return &dynamodb.BatchWriteItemOutput{}, nil
 }

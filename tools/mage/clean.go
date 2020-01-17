@@ -1,19 +1,21 @@
 package mage
 
 /**
- * Copyright 2020 Panther Labs Inc
+ * Panther is a scalable, powerful, cloud-native SIEM written in Golang/React.
+ * Copyright (C) 2020 Panther Labs Inc
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 import (
@@ -25,26 +27,13 @@ import (
 
 // Clean Remove auto-generated build artifacts
 func Clean() error {
-	dirs := []string{"out"} // directories to remove
+	paths := []string{"out", "internal/core/analysis_api/main/bulk_upload.zip"} // paths to remove
 
-	// Remove generated Swagger client/models
-	pkgs, err := filepath.Glob("api/gateway/*/client")
-	if err != nil {
-		return err
-	}
-	dirs = append(dirs, pkgs...)
-
-	pkgs, err = filepath.Glob("api/gateway/*/models")
-	if err != nil {
-		return err
-	}
-	dirs = append(dirs, pkgs...)
-
-	// Remove __pycache__ folderrs
+	// Remove __pycache__ folders
 	for _, target := range pyTargets {
-		err = filepath.Walk(target, func(path string, info os.FileInfo, err error) error {
+		err := filepath.Walk(target, func(path string, info os.FileInfo, err error) error {
 			if strings.HasSuffix(path, "__pycache__") {
-				dirs = append(dirs, path)
+				paths = append(paths, path)
 			}
 			return err
 		})
@@ -53,7 +42,7 @@ func Clean() error {
 		}
 	}
 
-	for _, pkg := range dirs {
+	for _, pkg := range paths {
 		fmt.Println("clean: rm -r " + pkg)
 		if err := os.RemoveAll(pkg); err != nil {
 			return err

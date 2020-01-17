@@ -1,19 +1,21 @@
 package models
 
 /**
- * Copyright 2020 Panther Labs Inc
+ * Panther is a scalable, powerful, cloud-native SIEM written in Golang/React.
+ * Copyright (C) 2020 Panther Labs Inc
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 import "time"
@@ -43,14 +45,14 @@ type PutIntegrationInput struct {
 
 // PutIntegrationSettings are all the settings for the new integration.
 type PutIntegrationSettings struct {
-	AWSAccountID         *string `genericapi:"redact" json:"awsAccountId,omitempty" validate:"omitempty,len=12,numeric"`
-	IntegrationLabel     *string `json:"integrationLabel" validate:"required,min=1"`
-	IntegrationType      *string `json:"integrationType" validate:"required,oneof=aws-scan aws-s3"`
-	ScanEnabled          *bool   `json:"scanEnabled,omitempty"`
-	ScanIntervalMins     *int    `json:"scanIntervalMins,omitempty" validate:"omitempty,oneof=60 180 360 720 1440"`
-	UserID               *string `json:"userId" validate:"required,uuid4"`
-	SourceSnsTopicArn    *string `json:"sourceSnsTopicArn"`
-	LogProcessingRoleArn *string `json:"logProcessingRoleArn"`
+	AWSAccountID     *string   `genericapi:"redact" json:"awsAccountId" validate:"required,len=12,numeric"`
+	IntegrationLabel *string   `json:"integrationLabel,omitempty" validate:"omitempty,min=1"`
+	IntegrationType  *string   `json:"integrationType" validate:"required,oneof=aws-scan aws-s3"`
+	ScanEnabled      *bool     `json:"scanEnabled,omitempty"`
+	ScanIntervalMins *int      `json:"scanIntervalMins,omitempty" validate:"omitempty,oneof=60 180 360 720 1440"`
+	UserID           *string   `json:"userId" validate:"required,uuid4"`
+	S3Buckets        []*string `json:"s3Buckets"`
+	KmsKeys          []*string `json:"kmsKeys"`
 }
 
 //
@@ -94,11 +96,11 @@ type UpdateIntegrationLastScanEndInput struct {
 
 // UpdateIntegrationSettingsInput is used to update integration settings.
 type UpdateIntegrationSettingsInput struct {
-	AWSAccountID         *string `genericapi:"redact" json:"awsAccountId,omitempty" validate:"omitempty,len=12,numeric"`
-	IntegrationID        *string `json:"integrationId" validate:"required,uuid4"`
-	IntegrationLabel     *string `json:"integrationLabel" validate:"min=1"`
-	ScanEnabled          *bool   `json:"scanEnabled"`
-	ScanIntervalMins     *int    `json:"scanIntervalMins" validate:"omitempty,oneof=60 180 360 720 1440"`
-	SourceSnsTopicArn    *string `json:"sourceSnsTopicArn"`
-	LogProcessingRoleArn *string `json:"logProcessingRoleArn"`
+	AWSAccountID     *string   `genericapi:"redact" json:"awsAccountId,omitempty" validate:"omitempty,len=12,numeric"`
+	IntegrationID    *string   `json:"integrationId" validate:"required,uuid4"`
+	IntegrationLabel *string   `json:"integrationLabel" validate:"min=1"`
+	ScanEnabled      *bool     `json:"scanEnabled"`
+	ScanIntervalMins *int      `json:"scanIntervalMins" validate:"omitempty,oneof=60 180 360 720 1440"`
+	S3Buckets        []*string `json:"s3Buckets"`
+	KmsKeys          []*string `json:"kmsKeys"`
 }

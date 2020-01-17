@@ -1,16 +1,18 @@
-# Copyright 2020 Panther Labs Inc
+# Panther is a scalable, powerful, cloud-native SIEM written in Golang/React.
+# Copyright (C) 2020 Panther Labs Inc
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
 #
-#    http://www.apache.org/licenses/LICENSE-2.0
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
 #
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 AWSTemplateFormatVersion: 2010-09-09
 Transform: AWS::Serverless-2016-10-31
@@ -256,16 +258,6 @@ Resources:
       Policies:
         - !If [TracingEnabled, 'arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess', !Ref 'AWS::NoValue']
         -
-          Id: ReceiveAndDeleteSQSMessages
-          Version: 2012-10-17
-          Statement:
-            - Effect: Allow
-              Action:
-                - sqs:DeleteMessage
-                - sqs:GetQueueAttributes
-                - sqs:ReceiveMessage
-              Resource: !GetAtt Queue.Arn
-        -
           Id: InvokeGatewayApi
           Version: 2012-10-17
           Statement:
@@ -273,11 +265,10 @@ Resources:
               Action: execute-api:Invoke
               Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${AnalysisApiId}/v1/GET/rule
         -
-          Id: ReadFromSQS
+          Id: SQS
           Version: 2012-10-17
           Statement:
             -
-              Sid: ReceiveAndDeleteSQSMessages
               Effect: Allow
               Action:
                 - sqs:ReceiveMessage
@@ -285,10 +276,17 @@ Resources:
                 - sqs:GetQueueAttributes
               Resource: !GetAtt Queue.Arn
             -
-              Sid: DecryptSQSMessages
               Effect: Allow
-              Action: kms:Decrypt
+              Action:
+                - kms:Decrypt
+                - kms:GenerateDataKey
               Resource: !Sub arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/${SQSKeyId}
+            -
+              Effect: Allow
+              Action:
+                - sqs:SendMessage
+                - sqs:SendMessageBatch
+              Resource: !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:panther-alerts
         -
           Id: ManageAlerts
           Version: 2012-10-17

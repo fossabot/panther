@@ -1,19 +1,21 @@
 package classification
 
 /**
- * Copyright 2020 Panther Labs Inc
+ * Panther is a scalable, powerful, cloud-native SIEM written in Golang/React.
+ * Copyright (C) 2020 Panther Labs Inc
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 import (
@@ -90,20 +92,47 @@ func TestClassifyRespectsPriorityOfParsers(t *testing.T) {
 
 	classifier := NewClassifier()
 
+	logLine := "log"
+
+	repetitions := 1000
+
 	expectedResult := &ClassifierResult{
 		Events:  []interface{}{"event"},
 		LogType: aws.String("success"),
+		LogLine: logLine,
+	}
+	expectedStats := &ClassifierStats{
+		BytesProcessedCount:         uint64(repetitions * len(logLine)),
+		LogLineCount:                uint64(repetitions),
+		EventCount:                  uint64(repetitions),
+		SuccessfullyClassifiedCount: uint64(repetitions),
+		ClassificationFailureCount:  0,
+	}
+	expectedParserStats := &ParserStats{
+		BytesProcessedCount: uint64(repetitions * len(logLine)),
+		LogLineCount:        uint64(repetitions),
+		EventCount:          uint64(repetitions),
+		LogType:             "success",
 	}
 
-	repetitions := 1000
 	for i := 0; i < repetitions; i++ {
-		result := classifier.Classify("log")
+		result := classifier.Classify(logLine)
 		require.Equal(t, expectedResult, result)
 	}
 
+	// skipping specifically validating the times
+	expectedStats.ClassifyTimeMicroseconds = classifier.Stats().ClassifyTimeMicroseconds
+	require.Equal(t, expectedStats, classifier.Stats())
+
 	succeedingParser.AssertNumberOfCalls(t, "Parse", repetitions)
+	require.NotNil(t, classifier.ParserStats()[succeedingParser.LogType()])
+	// skipping validating the times
+	expectedParserStats.ParserTimeMicroseconds = classifier.ParserStats()[succeedingParser.LogType()].ParserTimeMicroseconds
+	require.Equal(t, expectedParserStats, classifier.ParserStats()[succeedingParser.LogType()])
+
 	requireLessOrEqualNumberOfCalls(t, failingParser1, "Parse", 1)
-	requireLessOrEqualNumberOfCalls(t, failingParser2, "Parse", 1)
+	require.Nil(t, classifier.ParserStats()[failingParser1.LogType()])
+	require.Nil(t, classifier.ParserStats()[failingParser2.LogType()])
 }
 
 func TestClassifyNoMatch(t *testing.T) {
@@ -123,9 +152,25 @@ func TestClassifyNoMatch(t *testing.T) {
 
 	classifier := NewClassifier()
 
-	result := classifier.Classify("log")
-	require.Equal(t, &ClassifierResult{}, result)
+	logLine := "log"
+
+	expectedStats := &ClassifierStats{
+		BytesProcessedCount:         uint64(len(logLine)),
+		LogLineCount:                1,
+		EventCount:                  0,
+		SuccessfullyClassifiedCount: 0,
+		ClassificationFailureCount:  1,
+	}
+
+	result := classifier.Classify(logLine)
+
+	// skipping specifically validating the times
+	expectedStats.ClassifyTimeMicroseconds = classifier.Stats().ClassifyTimeMicroseconds
+	require.Equal(t, expectedStats, classifier.Stats())
+
+	require.Equal(t, &ClassifierResult{LogLine: logLine}, result)
 	failingParser.AssertNumberOfCalls(t, "Parse", 1)
+	require.Nil(t, classifier.ParserStats()[failingParser.LogType()])
 }
 
 func TestClassifyParserPanic(t *testing.T) {
@@ -153,9 +198,86 @@ func TestClassifyParserPanic(t *testing.T) {
 
 	classifier := NewClassifier()
 
-	result := classifier.Classify("log of death")
-	require.Equal(t, &ClassifierResult{}, result)
+	logLine := "log of death"
+
+	expectedStats := &ClassifierStats{
+		BytesProcessedCount:         uint64(len(logLine)),
+		LogLineCount:                1,
+		EventCount:                  0,
+		SuccessfullyClassifiedCount: 0,
+		ClassificationFailureCount:  1,
+	}
+
+	result := classifier.Classify(logLine)
+
+	// skipping specifically validating the times
+	expectedStats.ClassifyTimeMicroseconds = classifier.Stats().ClassifyTimeMicroseconds
+	require.Equal(t, expectedStats, classifier.Stats())
+
+	require.Equal(t, &ClassifierResult{LogLine: logLine}, result)
 	panicParser.AssertNumberOfCalls(t, "Parse", 1)
+}
+
+func TestClassifyNoLogline(t *testing.T) {
+	testSkipClassify("", t)
+}
+
+func TestClassifyLogLineIsWhiteSpace(t *testing.T) {
+	testSkipClassify("\n", t)
+	testSkipClassify("\n\r", t)
+	testSkipClassify("   ", t)
+	testSkipClassify("\t", t)
+}
+
+func testSkipClassify(logLine string, t *testing.T) {
+	// this tests the shortcut path where if log line == "" or "<whitepace>" we just skip
+	failingParser1 := &mockParser{}
+	failingParser2 := &mockParser{}
+
+	failingParser1.On("Parse", mock.Anything).Return(nil)
+	failingParser1.On("LogType").Return("failure1")
+	failingParser2.On("Parse", mock.Anything).Return(nil)
+	failingParser2.On("LogType").Return("failure2")
+
+	availableParsers := []*registry.LogParserMetadata{
+		{Parser: failingParser1},
+		{Parser: failingParser2},
+	}
+	testRegistry := NewTestRegistry()
+	parserRegistry = testRegistry // re-bind as interface
+	for i := range availableParsers {
+		testRegistry.Add(availableParsers[i]) // update registry
+	}
+
+	classifier := NewClassifier()
+
+	repetitions := 1000
+
+	var expectedLogLineCount uint64 = 0
+	if len(logLine) > 0 { // when there is NO log line we return without counts.
+		expectedLogLineCount = uint64(repetitions) // if there is a log line , but white space, we count, then return
+	}
+	expectedResult := &ClassifierResult{}
+	expectedStats := &ClassifierStats{
+		BytesProcessedCount:         0,
+		LogLineCount:                expectedLogLineCount,
+		EventCount:                  0,
+		SuccessfullyClassifiedCount: 0,
+		ClassificationFailureCount:  0,
+	}
+
+	for i := 0; i < repetitions; i++ {
+		result := classifier.Classify(logLine)
+		require.Equal(t, expectedResult, result)
+	}
+
+	// skipping specifically validating the times
+	expectedStats.ClassifyTimeMicroseconds = classifier.Stats().ClassifyTimeMicroseconds
+	require.Equal(t, expectedStats, classifier.Stats())
+
+	requireLessOrEqualNumberOfCalls(t, failingParser1, "Parse", 1)
+	require.Nil(t, classifier.ParserStats()[failingParser1.LogType()])
+	require.Nil(t, classifier.ParserStats()[failingParser2.LogType()])
 }
 
 func requireLessOrEqualNumberOfCalls(t *testing.T, underTest *mockParser, method string, number int) {

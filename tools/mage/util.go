@@ -1,25 +1,28 @@
 package mage
 
 /**
- * Copyright 2020 Panther Labs Inc
+ * Panther is a scalable, powerful, cloud-native SIEM written in Golang/React.
+ * Copyright (C) 2020 Panther Labs Inc
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"os/exec"
 	"strings"
@@ -32,27 +35,17 @@ import (
 )
 
 // Open and parse a yaml file.
-func loadYamlFile(path string) (map[string]interface{}, error) {
+func loadYamlFile(path string, out interface{}) error {
 	contents, err := ioutil.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open '%s': %s", path, err)
+		return fmt.Errorf("failed to open '%s': %s", path, err)
 	}
 
-	var result map[string]interface{}
-	if err := yaml.Unmarshal(contents, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse yaml file '%s': %s", path, err)
+	if err := yaml.Unmarshal(contents, out); err != nil {
+		return fmt.Errorf("failed to parse yaml file '%s': %s", path, err)
 	}
 
-	return result, nil
-}
-
-// Convert a parsed yaml map into a string map.
-func stringMap(input map[interface{}]interface{}) map[string]string {
-	result := make(map[string]string, len(input))
-	for key, val := range input {
-		result[key.(string)] = fmt.Sprintf("%v", val)
-	}
-	return result
+	return nil
 }
 
 // Get CloudFormation stack outputs as a map.
@@ -128,6 +121,17 @@ func emailValidator(email string) error {
 	}
 
 	return errors.New("error: invalid email: must be at least 4 characters and contain '@' and '.'")
+}
+
+// Download a file in memory.
+func download(url string) ([]byte, error) {
+	response, err := http.Get(url) // nolint:gosec
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	return ioutil.ReadAll(response.Body)
 }
 
 // A wrapper around the basic `exec.Command`, running it immediately & adding streaming output to STDOUT/STDERR

@@ -1,19 +1,21 @@
 package mage
 
 /**
- * Copyright 2020 Panther Labs Inc
+ * Panther is a scalable, powerful, cloud-native SIEM written in Golang/React.
+ * Copyright (C) 2020 Panther Labs Inc
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 import (
@@ -58,8 +60,23 @@ func (b Build) API() error {
 		if !mg.Verbose() {
 			fmt.Println("build:api: swagger generate " + spec)
 		}
+
+		// If an API model is deleted, the generated file will still exist after "swagger generate".
+		// So we remove existing client/ and models/ directories before re-generating.
+		dir := path.Dir(spec)
+		if err := os.RemoveAll(path.Join(dir, "client")); err != nil {
+			return err
+		}
+		if err := os.RemoveAll(path.Join(dir, "models")); err != nil {
+			return err
+		}
+
 		args := []string{"generate", "client", "-q", "-t", path.Dir(spec), "-f", spec}
 		if err := sh.Run("swagger", args...); err != nil {
+			return err
+		}
+
+		if err := fmtLicenseGroup(agplSource, dir); err != nil {
 			return err
 		}
 	}
@@ -97,16 +114,9 @@ func (b Build) Lambda() error {
 		return err
 	}
 
-	results := make(chan error)
 	fmt.Printf("build:lambda: go build internal/*/main (%d binaries)\n", len(packages))
 	for _, pkg := range packages {
-		go func(pkg string) {
-			results <- buildPackage(pkg)
-		}(pkg)
-	}
-
-	for range packages {
-		if err = <-results; err != nil {
+		if err := buildPackage(pkg); err != nil {
 			return err
 		}
 	}

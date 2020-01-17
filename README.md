@@ -1,31 +1,32 @@
 ![Panther Logo](docs/img/logo-banner.png)
 
+[![Gitter](https://badges.gitter.im/runpanther/community.svg)](https://gitter.im/runpanther/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
+[![CircleCI](https://circleci.com/gh/panther-labs/panther/tree/master.svg?style=svg)](https://circleci.com/gh/panther-labs/panther/tree/master)
 [![Built with Mage](https://magefile.org/badge.svg)](https://magefile.org)
-[![CircleCI](https://circleci.com/gh/panther-labs/panther.svg?style=svg)](https://circleci.com/gh/panther-labs/panther)
 
 ---
 
-Panther is an open source, cloud-native SIEM written in Golang/React.
+Panther is a scalable, open-source, cloud-native SIEM written in Golang/React.
 
 Developed by a [dedicated team](https://runpanther.io/about/) of cloud security practitioners, Panther is designed to be:
 
-- **Flexible:** Python-based detections with integrations into common tools such as PagerDuty, Slack, MS Teams, and more.
-- **Scalable:** Built on serverless for cost and operational efficiency at any scale.
-- **Secure:** Least-privilege and encrypted infrastructure that you control.
-- **Integrated:** Support for many popular security logs used for incident response, combined with rich information about your cloud resources.
-- **Automated:** Quick and simple deployments with AWS CloudFormation.
+- **Flexible:** Python-based detections with integrations into common tools such as PagerDuty, Slack, MS Teams, and more
+- **Scalable:** Built on serverless for cost and operational efficiency at any scale
+- **Secure:** Least-privilege and encrypted infrastructure that you control
+- **Integrated:** Support for many popular security logs combined with rich information about your cloud resources
+- **Automated:** Fast and simple deployments with AWS CloudFormation
 
 Panther use cases:
 
-- **SIEM:** Centralize all security log data for detection, long-term storage, and investigations.
-- **[Threat Detection](https://runpanther.io/log-analysis):** Detect suspicious activity quickly and effectively with powerful Python rules.
-- **Alerting:** Send notifications to your team when new issues are identified.
-- **[Cloud Compliance](https://runpanther.io/compliance/):** Ensure AWS infrastructure abides by defined Python policies.
-- **Automatic Remediation:** Fix insecure infrastructure in any number of accounts.
+- **SIEM:** Centralize all security log data for threat detection, historical search, long-term storage, and investigations
+- **[Threat Detection](https://runpanther.io/log-analysis):** Detect suspicious activity quickly and effectively with Python rules
+- **Alerting:** Send notifications to your team when new issues are identified
+- **[Cloud Compliance](https://runpanther.io/compliance/):** Detect and enforce AWS infrastructure best practices with Python policies
+- **Automatic Remediation:** Correct insecure infrastructure as soon as new issues are identified
 
 Check out our [website](https://runpanther.io), [blog](https://blog.runpanther.io), and [docs](https://docs.runpanther.io) to learn more.
 
-> **_NOTE:_** Panther is under active development and may experience breaking changes.
+_NOTE: Panther is currently in beta._
 
 ## Setup
 
@@ -37,21 +38,25 @@ them manually on your machine or use the [docker image](https://hub.docker.com/r
 
 ### Manually
 
-Install Go1.13+, Node10+, Python3.7+, [Mage](https://magefile.org/#installation), and the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv1.html)
+Install Go1.13+, Node10+, Python3.7+, [Mage](https://magefile.org/#installation), and the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv1.html):
 
 ```bash
 brew install go node python3  # MacOS
+```
 
+Make sure that `$GOPATH` [is setup correctly](https://github.com/golang/go/wiki/SettingGOPATH), then install Mage:
+
+```bash
 go get -u -d github.com/magefile/mage
 cd $GOPATH/src/github.com/magefile/mage
 go run bootstrap.go
 ```
 
-Make sure that `$GOPATH` is setup correctly and then run `mage setup` to install the prerequisite development libraries.
+Finally, run `mage setup` to install the prerequisite development libraries.
 
-### With Docker
+### Docker
 
-On the project's root directory, run:
+From the project's root directory, run:
 
 ```bash
 docker run -v $(pwd):/code -it pantherlabs/panther-buildpack bash # add `-m=4gb` flag if more memory is needed
@@ -72,7 +77,7 @@ mage fmt test:ci deploy test:integration
 
 ### Develop
 
-Typical developer workflows.
+Typical developer workflows include:
 
 ```bash
 mage build:api  # generate Go SDKs for Panther APIs
@@ -82,9 +87,11 @@ mage test:ci    # run all required checks
 
 ### Deploy
 
-If you haven't already, [configure](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html) your AWS region and credentials.
+If you haven't already, [configure](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html) your AWS region and credentials. We recommend using [aws-vault](https://github.com/99designs/aws-vault) for credential management.
 
-Then deploying is as simple as `mage deploy`! You will be prompted to enter a name and email for
+Deploying is as simple as `mage deploy`.
+
+You will be prompted to enter a name and email for
 the default admin user. Once the deploy is complete, that email will receive a link to sign in.
 
 > NOTE (1): The initial deploy will take 10-15 minutes, and the `deploy` command may timeout before the stack is
@@ -169,3 +176,7 @@ Since the majority of Panther is written in Go, we follow the [standard Go proje
 ## Contributing
 
 Please read the [contributing guidelines](https://github.com/panther-labs/panther/blob/master/docs/CONTRIBUTING.md) before submitting pull requests.
+
+## License
+
+Panther is dual-licensed under the AGPLv3 and Apache-2.0 [licenses](https://github.com/panther-labs/panther/blob/master/LICENSE).

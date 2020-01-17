@@ -1,47 +1,34 @@
 package api
 
 /**
- * Copyright 2020 Panther Labs Inc
+ * Panther is a scalable, powerful, cloud-native SIEM written in Golang/React.
+ * Copyright (C) 2020 Panther Labs Inc
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 import (
 	"github.com/panther-labs/panther/api/lambda/users/models"
-	users "github.com/panther-labs/panther/internal/core/users_api/table"
 	"github.com/panther-labs/panther/pkg/genericapi"
 )
 
-// AddUserToOrganization adds a mapping of user to organization ID
-func (API) AddUserToOrganization(
-	input *models.AddUserToOrganizationInput) (*models.AddUserToOrganizationOutput, error) {
-
-	err := AddUserToOrganization(userTable, &models.UserItem{
-		ID: input.Email,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return &models.AddUserToOrganizationOutput{Email: input.Email}, nil
-}
-
-// AddUserToOrganization adds a user to organization mapping in the table if it does not already exist
-func AddUserToOrganization(table users.API, item *models.UserItem) error {
+// Adds a user to the panther-users table
+func addUser(email *string) error {
 	// Check if user is already mapped to an organization
-	existingUser, err := table.Get(item.ID)
+	existingUser, err := userTable.Get(email)
 	if existingUser != nil {
-		return &genericapi.AlreadyExistsError{Message: "user already exists: " + *item.ID}
+		return &genericapi.AlreadyExistsError{Message: "user already exists: " + *email}
 	}
 
 	// If it a does not exist error, that is expected so continue
@@ -51,5 +38,5 @@ func AddUserToOrganization(table users.API, item *models.UserItem) error {
 	}
 
 	// Add user - org mapping
-	return table.Put(item)
+	return userTable.Put(&models.UserItem{ID: email})
 }
