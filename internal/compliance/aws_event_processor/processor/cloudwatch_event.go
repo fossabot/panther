@@ -65,13 +65,16 @@ var classifiers = map[string]func(gjson.Result, string) []*resourceChange{
 // Classify the event as an update or delete operation, or drop it altogether.
 func classifyCloudTrailLog(body string) []*resourceChange {
 	var detail gjson.Result
+	var accountID string
 	switch {
 	case gjson.Get(body, "detail-type").Str == "AWS API Call via CloudTrail":
 		// Extract the CloudTrail log from the CloudWatch Event
 		detail = gjson.Get(body, "detail")
+		accountID = gjson.Get(body, "account").Str
 	case gjson.Get(body, "eventType").Str == "AwsApiCall":
 		// Parse a CloudTrail log directly
 		detail = gjson.Parse(body)
+		accountID = detail.Get("recipientAccountId").Str
 	default:
 		zap.L().Warn("dropping unknown notification type", zap.String("body", body))
 		return nil
@@ -113,7 +116,6 @@ func classifyCloudTrailLog(body string) []*resourceChange {
 	}
 
 	// Check if this log is from a supported account
-	accountID := detail.Get("recipientAccountId").Str
 	integration, ok := accounts[accountID]
 	if !ok {
 		zap.L().Warn("dropping event from unauthorized account",

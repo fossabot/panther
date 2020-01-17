@@ -55,6 +55,7 @@ func Handle(batch *events.SQSEvent) error {
 
 	for _, record := range batch.Records {
 		// Using gjson to get only the fields we need is > 10x faster than running json.Unmarshal multiple times
+		// TODO: Update this switch statement to handle SNS notifications indicating the need to download logs from s3
 		switch gjson.Get(record.Body, "Type").Str {
 		case "Notification": // sns wrapped message
 			zap.L().Debug("wrapped sns message - assuming cloudtrail is in Message field")

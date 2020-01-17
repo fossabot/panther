@@ -92,6 +92,7 @@ func TestClassifyCloudWatchEventClassifyError(t *testing.T) {
 				"recipientAccountId": "111111111111",
 				"eventSource":"s3.amazonaws.com"
 			}, 
+			"account": "111111111111",
 			"detail-type": "AWS API Call via CloudTrail"}`
 	require.Nil(t, classifyCloudTrailLog(body))
 
@@ -131,7 +132,8 @@ func TestClassifyCloudWatchEvent(t *testing.T) {
 	accounts = exampleAccounts
 	body := `
 {
-	"detail-type": "AWS API Call via CloudTrail"
+	"detail-type": "AWS API Call via CloudTrail",
+	"account": "111111111111",
     "detail": {
 		"recipientAccountId": "111111111111",
     	"eventSource": "s3.amazonaws.com",
