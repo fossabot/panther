@@ -28,10 +28,7 @@ import (
 // InviteUser adds a new user to the Cognito user pool.
 func (API) InviteUser(input *models.InviteUserInput) (*models.InviteUserOutput, error) {
 	// Add user to org mapping in dynamo
-	err := AddUserToOrganization(userTable, &models.UserItem{
-		ID: input.Email,
-	})
-	if err != nil {
+	if err := addUser(input.Email); err != nil {
 		return nil, err
 	}
 

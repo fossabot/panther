@@ -82,31 +82,10 @@ func TestUpdateUserGatewayErr(t *testing.T) {
 func TestUpdateUserChangeRole(t *testing.T) {
 	userGateway = &mockGatewayUpdateUserClient{}
 	input := &models.UpdateUserInput{
-		Role:       aws.String("Admins"),
 		ID:         aws.String("user123"),
 		UserPoolID: aws.String("fakePoolId"),
 	}
 	assert.NoError(t, (API{}).UpdateUser(input))
-}
-
-func TestUpdateUserChangeRoleListErr(t *testing.T) {
-	userGateway = &mockGatewayUpdateUserClient{listErr: true}
-	input := &models.UpdateUserInput{
-		Role:       aws.String("Admins"),
-		ID:         aws.String("user123"),
-		UserPoolID: aws.String("fakePoolId"),
-	}
-	assert.Error(t, (API{}).UpdateUser(input))
-}
-
-func TestUpdateUserChangeRoleRemoveErr(t *testing.T) {
-	userGateway = &mockGatewayUpdateUserClient{removeErr: true}
-	input := &models.UpdateUserInput{
-		Role:       aws.String("Admins"),
-		ID:         aws.String("user123"),
-		UserPoolID: aws.String("fakePoolId"),
-	}
-	assert.Error(t, (API{}).UpdateUser(input))
 }
 
 func TestUpdateUserHandle(t *testing.T) {

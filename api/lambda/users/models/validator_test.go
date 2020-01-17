@@ -34,8 +34,7 @@ func TestUpdateUserNoFields(t *testing.T) {
 func TestUpdateUserBlankField(t *testing.T) {
 	assert.Error(t, Validator().Struct(&UpdateUserInput{
 		ID:         mockID,
-		GivenName:  aws.String("given-name"),
-		Role:       aws.String(""),
+		GivenName:  aws.String(""),
 		UserPoolID: aws.String("fakePoolId"),
 	}))
 }
@@ -43,7 +42,7 @@ func TestUpdateUserBlankField(t *testing.T) {
 func TestUpdateUserOneField(t *testing.T) {
 	assert.NoError(t, Validator().Struct(&UpdateUserInput{
 		ID:         mockID,
-		Role:       aws.String("Admin"),
+		GivenName:  aws.String("panther"),
 		UserPoolID: aws.String("fakePoolId"),
 	}))
 }
@@ -54,7 +53,6 @@ func TestUpdateUserAllFields(t *testing.T) {
 		GivenName:   aws.String("given-name"),
 		FamilyName:  aws.String("family-name"),
 		PhoneNumber: aws.String("phone-num"),
-		Role:        aws.String("Admin"),
 		UserPoolID:  aws.String("fakePoolId"),
 	}))
 }
